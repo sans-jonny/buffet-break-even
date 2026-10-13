@@ -1,16 +1,69 @@
 {
-	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
-		{
-			"path": "pages/index/index",
-			"style": {
-				"navigationBarTitleText": "uni-app"
-			}
-		}
-	],
-	"globalStyle": {
-		"navigationBarTextStyle": "black",
-		"navigationBarTitleText": "uni-app",
-		"navigationBarBackgroundColor": "#F8F8F8",
-		"backgroundColor": "#F8F8F8"
-	}
+  "easycom": {
+    "autoscan": true
+  },
+  "pages": [
+    {
+      "path": "pages/setup/index",
+      "style": {
+        "navigationBarTitleText": "自助餐回本神器",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/menu/index",
+      "style": {
+        "navigationBarTitleText": "菜单",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/order-slip/index",
+      "style": {
+        "navigationBarTitleText": "本轮点单"
+      }
+    },
+    {
+      "path": "pages/result/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "今日战果"
+      }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/receipts/index",
+      "style": {
+        "navigationBarTitleText": "小票夹"
+      }
+    },
+    {
+      "path": "pages/records/index",
+      "style": {
+        "navigationBarTitleText": "点餐明细"
+      }
+    },
+    {
+      "path": "pages/record-detail/index",
+      "style": {
+        "navigationBarTitleText": "点餐明细"
+      }
+    }
+  ],
+  "globalStyle": {
+    // #ifdef H5
+    "navigationStyle": "custom",
+    // #endif
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "自助餐回本神器",
+    "navigationBarBackgroundColor": "#FFF9F2",
+    "backgroundColor": "#FFF9F2",
+    "enablePullDownRefresh": false
+  }
 }
