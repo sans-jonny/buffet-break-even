@@ -15,6 +15,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { formatPrice } from '@/utils/format'
+import { calculateBreakEven } from '@/domain/buffet'
 
 interface ProgressTip {
   progress: number
@@ -31,7 +32,7 @@ const props = withDefaults(defineProps<{
 })
 
 const formattedValue = computed(() => formatPrice(props.value))
-const percent = computed(() => props.target ? Math.round((props.value / props.target) * 100) : 0)
+const percent = computed(() => calculateBreakEven(props.value, props.target).percent)
 const fillPercent = computed(() => Math.min(Math.max(percent.value, 0) * 0.7, 100))
 const activeTip = computed(() => {
   const sortedTips = [...props.tips].sort((a, b) => a.progress - b.progress)

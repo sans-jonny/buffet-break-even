@@ -10,7 +10,7 @@
       </view>
       <view class="paper-rule" />
       <text class="order-note">辛苦了！希望菜品能尽快上齐，感激不尽！ 🌟</text>
-      <view class="order-done" @tap="completeRound">点单完毕！</view>
+      <view class="order-done flex-center" @tap="completeRound">点单完毕！</view>
     </view>
   </view>
 </template>
@@ -48,5 +48,5 @@ function completeRound() {
 .order-qty { color: #191715; font-size: 36rpx; }
 .order-check { color: #ed7b43; font-size: 45rpx; text-align: right; }
 .order-note { display: block; text-align: center; color: #77716a; font-size: 26rpx; font-style: italic; padding: 10rpx 0 36rpx; }
-.order-done { width: 100%; height: 104rpx; border-radius: 44rpx; background: #ff6331; color: white; display: flex; align-items: center; justify-content: center; font-size: 32rpx; font-weight: 900; }
+.order-done { width: 100%; height: 104rpx; border-radius: 44rpx; background: #ff6331; color: white; font-size: 32rpx; font-weight: 900; }
 </style>

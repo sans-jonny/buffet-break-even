@@ -3,7 +3,7 @@
     <view class="cart-sheet" @tap.stop>
       <view class="sheet-head">
         <text>本轮待选</text>
-        <view class="sheet-close" @tap="$emit('close')">×</view>
+        <view class="sheet-close flex-center" @tap="$emit('close')">×</view>
       </view>
       <scroll-view scroll-y class="cart-lines">
         <view v-for="line in lines" :key="line.product.id" class="cart-line">
@@ -12,15 +12,15 @@
             <text class="cart-price">¥{{ formatPrice(line.product.price) }}</text>
           </view>
           <view class="stepper">
-            <view class="step-button" @tap="$emit('remove', line.product.id)">−</view>
+            <view class="step-button flex-center" @tap="$emit('remove', line.product.id)"><text class="iconfont icon-jianshao" /></view>
             <text>{{ line.count }}</text>
-            <view class="step-button plus" @tap="$emit('add', line.product.id)">+</view>
+            <view class="step-button plus flex-center" @tap="$emit('add', line.product.id)"><text class="iconfont icon-tianjia" /></view>
           </view>
         </view>
       </scroll-view>
       <view class="sheet-footer">
         <view class="sheet-total"><text>本轮合计</text><text>¥{{ formatPrice(total) }}</text></view>
-        <view class="waiter-button" @tap="$emit('confirm')">给 Waiter 看菜单</view>
+        <view class="waiter-button flex-center" @tap="$emit('confirm')">给 Waiter 看菜单</view>
       </view>
     </view>
   </view>
@@ -43,18 +43,18 @@ defineEmits<{
 .modal-mask { position: fixed; inset: 0; z-index: 100; background: rgba(39,34,29,.4); display: flex; align-items: flex-end; }
 .cart-sheet { width: 100%; min-height: 70vh; max-height: 86vh; background: white; border-radius: 42rpx 42rpx 0 0; padding: 26rpx 32rpx calc(34rpx + env(safe-area-inset-bottom)); display: flex; flex-direction: column; box-sizing: border-box; }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; font-size: 34rpx; font-weight: 900; margin-bottom: 22rpx; }
-.sheet-close { width: 64rpx; height: 64rpx; background: #f5f3f1; border-radius: 50%; color: #735f45; font-size: 42rpx; line-height: 60rpx; text-align: center; }
+.sheet-close { width: 64rpx; height: 64rpx; background: #f5f3f1; border-radius: 50%; color: #735f45; font-size: 42rpx; }
 .cart-lines { max-height: 62vh; }
 .cart-line { min-height: 116rpx; padding: 20rpx 0; border-bottom: 1rpx dashed #eee9e3; display: flex; align-items: center; justify-content: space-between; box-sizing: border-box; }
 .cart-copy { display: flex; flex-direction: column; gap: 10rpx; }
 .cart-name { font-size: 29rpx; font-weight: 800; }
 .cart-price { font-size: 26rpx; color: #ff6331; font-weight: 800; }
 .stepper { height: 64rpx; border-radius: 34rpx; background: #fafafa; display: flex; align-items: center; gap: 20rpx; }
-.step-button { width: 64rpx; height: 64rpx; border-radius: 50%; background: white; color: #999; font-size: 36rpx; line-height: 60rpx; text-align: center; box-shadow: 0 4rpx 14rpx rgba(0,0,0,.06); }
+.step-button { width: 64rpx; height: 64rpx; border-radius: 50%; background: white; color: #999; font-size: 36rpx; box-shadow: 0 4rpx 14rpx rgba(0,0,0,.06); }
 .step-button.plus { background: #ff6331; color: white; }
-.stepper text { font-size: 29rpx; font-weight: 800; }
+.stepper > text { font-size: 29rpx; font-weight: 800; }
 .sheet-footer { margin-top: auto; border-top: 1rpx solid #eee; padding-top: 24rpx; }
 .sheet-total { display: flex; justify-content: space-between; align-items: center; font-size: 27rpx; color: #777; margin-bottom: 22rpx; }
 .sheet-total text:last-child { color: #ff6331; font-size: 43rpx; font-weight: 900; }
-.waiter-button { width: 100%; height: 104rpx; border-radius: 44rpx; background: #ff5b24; color: white; display: flex; align-items: center; justify-content: center; font-size: 32rpx; font-weight: 900; }
+.waiter-button { width: 100%; height: 104rpx; border-radius: 44rpx; background: #ff5b24; color: white; font-size: 32rpx; font-weight: 900; }
 </style>

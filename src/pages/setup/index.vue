@@ -3,17 +3,17 @@
     <view class="hero-copy">
       <text class="hero-title">自助餐回本神器</text>
       <text class="hero-subtitle">准备吃垮老板！</text>
-      <view class="dots"><view class="dot active" /><view class="dot" /><view class="dot" /><view class="dot" /></view>
+      <view class="dots flex-center"><view class="dot active" /><view class="dot" /><view class="dot" /><view class="dot" /></view>
     </view>
 
-    <view class="mode-stage">
-      <view class="side-mode left-card"><text>✏️</text><text>自定义</text></view>
-      <view class="mode-card">
+    <view class="mode-stage flex-center">
+      <view class="side-mode left-card flex-center"><text>✏️</text><text>自定义</text></view>
+      <view class="mode-card flex-center">
         <text class="mode-emoji">🍣</text>
         <text class="mode-name">寿喜烧</text>
         <text class="mode-note">肉肉星人的快乐老家</text>
       </view>
-      <view class="side-mode right-card"><text>🥩</text><text>烤肉</text></view>
+      <view class="side-mode right-card flex-center"><text>🥩</text><text>烤肉</text></view>
     </view>
 
     <view class="setup-panel">
@@ -23,8 +23,8 @@
         <input v-model="ticketInput" type="digit" placeholder="输入总价" placeholder-class="price-placeholder" />
       </view>
       <view class="mode-actions">
-        <navigator class="mode-button deep" :url="menuUrl('单人')" open-type="navigate">🚀 单人模式</navigator>
-        <navigator class="mode-button" :url="menuUrl('多人')" open-type="navigate">👥 多人模式</navigator>
+        <navigator class="mode-button deep flex-center" :url="menuUrl('单人')" open-type="navigate">🚀 单人模式</navigator>
+        <navigator class="mode-button flex-center" :url="menuUrl('多人')" open-type="navigate">👥 多人模式</navigator>
       </view>
     </view>
   </view>
@@ -49,15 +49,15 @@ function menuUrl(mode: string) {
 .hero-copy { flex: 0 0 auto; text-align: center; padding-top: 24rpx; position: relative; z-index: 2; }
 .hero-title { display: block; font-size: 58rpx; line-height: 1.2; font-weight: 1000; color: #ff4f16; text-shadow: 4rpx 5rpx 0 #fff, 8rpx 10rpx 0 rgba(108,63,21,.2); }
 .hero-subtitle { display: block; margin-top: 24rpx; color: #fff; font-size: 34rpx; font-weight: 900; text-shadow: 3rpx 3rpx 0 #ff9a00; }
-.dots { display: flex; justify-content: center; align-items: center; gap: 18rpx; margin-top: 28rpx; }
+.dots { gap: 18rpx; margin-top: 28rpx; }
 .dot { width: 18rpx; height: 18rpx; border-radius: 20rpx; background: rgba(161,113,54,.25); }
 .dot.active { width: 68rpx; background: linear-gradient(90deg,#ff9300,#ff501a); }
-.mode-stage { flex: 1 1 auto; min-height: 0; margin-top: 46rpx; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-.mode-card { width: 500rpx; height: calc(100% - 30rpx); max-height: 650rpx; min-height: 420rpx; border-radius: 100rpx; background: linear-gradient(145deg,#a9e9d5,#6fc5ad); border: 8rpx solid rgba(255,255,255,.25); box-shadow: 0 38rpx 38rpx rgba(133,93,54,.18); display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 2; color: white; box-sizing: border-box; }
+.mode-stage { flex: 1 1 auto; min-height: 0; margin-top: 46rpx; position: relative; overflow: hidden; }
+.mode-card { width: 500rpx; height: calc(100% - 30rpx); max-height: 650rpx; min-height: 420rpx; border-radius: 100rpx; background: linear-gradient(145deg,#a9e9d5,#6fc5ad); border: 8rpx solid rgba(255,255,255,.25); box-shadow: 0 38rpx 38rpx rgba(133,93,54,.18); flex-direction: column; position: relative; z-index: 2; color: white; box-sizing: border-box; }
 .mode-emoji { font-size: 104rpx; }
 .mode-name { font-size: 52rpx; font-weight: 900; margin-top: 36rpx; }
 .mode-note { font-size: 24rpx; opacity: .9; margin-top: 16rpx; }
-.side-mode { position: absolute; top: 50%; width: 260rpx; height: 70%; max-height: 430rpx; min-height: 300rpx; transform: translateY(-50%); border-radius: 48rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 34rpx; color: white; gap: 32rpx; }
+.side-mode { position: absolute; top: 50%; width: 260rpx; height: 70%; max-height: 430rpx; min-height: 300rpx; transform: translateY(-50%); border-radius: 48rpx; flex-direction: column; font-size: 34rpx; color: white; gap: 32rpx; }
 .left-card { left: -150rpx; background: #dfbdca; }
 .right-card { right: -150rpx; background: #f4cf78; }
 .side-mode text:first-child { font-size: 76rpx; }
@@ -68,6 +68,6 @@ function menuUrl(mode: string) {
 .currency { font-size: 50rpx; color: #8d6500; font-weight: 800; margin-right: 28rpx; }
 .price-placeholder { color: #8f8d8a; }
 .mode-actions { display: flex; gap: 20rpx; margin-top: 40rpx; }
-.mode-button { flex: 1; height: 104rpx; border-radius: 44rpx; display: flex; align-items: center; justify-content: center; color: white; background: linear-gradient(145deg,#ff8b00,#ff5c16); box-shadow: 0 14rpx 0 #a53700, 0 26rpx 32rpx rgba(158,64,8,.2); font-size: 32rpx; font-weight: 900; text-decoration: none; }
+.mode-button { flex: 1; height: 104rpx; border-radius: 44rpx; color: white; background: linear-gradient(145deg,#ff8b00,#ff5c16); box-shadow: 0 14rpx 0 #a53700, 0 26rpx 32rpx rgba(158,64,8,.2); font-size: 32rpx; font-weight: 900; text-decoration: none; }
 .mode-button.deep { background: linear-gradient(145deg,#ff5b1c,#ff3a10); }
 </style>

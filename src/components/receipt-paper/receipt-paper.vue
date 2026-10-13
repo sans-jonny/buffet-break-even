@@ -10,7 +10,7 @@
     <view class="receipt-summary">
       <view><text>就餐价格</text><text class="summary-value">¥{{ price }}</text></view>
       <view><text>已吃价值</text><text class="summary-value">¥{{ formatPrice(value) }}</text></view>
-      <view><text>差额</text><text class="summary-value difference" :class="{ win: value >= price }">{{ differenceText }}</text></view>
+      <view><text>差额</text><text class="summary-value difference" :class="{ win: result.isBreakEven }">{{ differenceText }}</text></view>
     </view>
     <view class="receipt-dash" />
     <view v-for="line in lines" :key="line.name" class="receipt-line">
@@ -27,6 +27,7 @@
 import { computed } from 'vue'
 import type { SavedLine } from '@/types/buffet'
 import { formatPrice } from '@/utils/format'
+import { calculateBreakEven } from '@/domain/buffet'
 
 const props = defineProps<{
   receiptId: string
@@ -36,15 +37,16 @@ const props = defineProps<{
   lines: SavedLine[]
 }>()
 
-const differenceText = computed(() => `${props.value >= props.price ? '+' : '−'}¥${Math.abs(props.value - props.price).toFixed(0)}`)
-const resultTitle = computed(() => props.value >= props.price ? '成功回本' : props.value >= props.price * .6 ? '就差一点' : '大慈善家')
-const resultCopy = computed(() => props.value >= props.price
-  ? `这顿吃回了 ${Math.round(props.value - props.price)} 元，漂亮！`
-  : `老板含泪赚了你 ${Math.round(props.price - props.value)} 元，下次多拿点贵的！`)
+const result = computed(() => calculateBreakEven(props.value, props.price))
+const differenceText = computed(() => `${result.value.isBreakEven ? '+' : '−'}¥${Math.abs(result.value.difference).toFixed(0)}`)
+const resultTitle = computed(() => ({ 'break-even': '成功回本', close: '就差一点', below: '大慈善家' })[result.value.verdict])
+const resultCopy = computed(() => result.value.isBreakEven
+  ? `这顿吃回了 ${Math.round(result.value.difference)} 元，漂亮！`
+  : `老板含泪赚了你 ${Math.round(-result.value.difference)} 元，下次多拿点贵的！`)
 </script>
 
 <style scoped>
-.receipt { margin: 0 62rpx 30rpx; padding: 46rpx 32rpx 56rpx; background: repeating-linear-gradient(0deg,#fff 0,#fff 6rpx,#fbfaf7 7rpx,#fbfaf7 8rpx); box-shadow: 0 18rpx 28rpx rgba(94,68,39,.09); font-family: "Courier New", monospace; position: relative; }
+.receipt { margin: 0 62rpx 30rpx; padding: 46rpx 32rpx 56rpx; background: repeating-linear-gradient(0deg,#fff 0,#fff 6rpx,#fbfaf7 7rpx,#fbfaf7 8rpx); box-shadow: 0 18rpx 28rpx rgba(94,68,39,.09); position: relative; }
 .receipt-title { display: block; text-align: center; font-size: 27rpx; font-weight: 900; letter-spacing: 7rpx; }
 .receipt-dash { border-top: 2rpx dashed #d9d9d9; margin: 26rpx 0; }
 .receipt-meta { display: flex; justify-content: space-between; font-size: 21rpx; font-weight: 900; }

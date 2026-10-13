@@ -1,4 +1,5 @@
 import type { DiningLevel, Product } from '@/types/buffet'
+import { filterProducts } from '@/domain/buffet'
 
 export const diningLevels: DiningLevel[] = ['牛牛', '大牛', '一绪', '餐券好价']
 
@@ -36,11 +37,5 @@ export const products: Product[] = [
 ]
 
 export function productsForCategory(category: string, levels: readonly DiningLevel[] = []) {
-  const matchesCategory = category === '我的最爱'
-    ? (product: Product) => ['beef', 'salmon', 'icecream'].includes(product.id)
-    : (product: Product) => product.category === category
-
-  return products.filter((product) =>
-    matchesCategory(product) && (!levels.length || levels.includes(product.level))
-  )
+  return filterProducts(products, category, levels)
 }

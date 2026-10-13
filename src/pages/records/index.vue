@@ -4,7 +4,7 @@
       <records-overview :meals="records.length" :rounds="totalRoundsSaved" :dishes="totalDishesSaved" />
       <view v-for="(item, index) in records" :key="item.id" class="record-card" :class="{ expanded: expandedRecordId === item.id }">
         <view class="record-summary" @tap="toggleRecord(item.id)">
-          <view class="record-copy"><view><text class="label-chip">第 {{ records.length - index }} 餐</text><text class="restaurant">{{ item.restaurant }}</text></view><text class="record-date">{{ item.date }}</text></view>
+          <view class="record-copy"><view><text class="label-chip inline-flex-center">第 {{ records.length - index }} 餐</text><text class="restaurant">{{ item.restaurant }}</text></view><text class="record-date">{{ item.date }}</text></view>
           <view class="round-count"><text>{{ item.rounds.length }} 轮</text><text class="chevron">⌄</text></view>
         </view>
         <view v-if="expandedRecordId === item.id" class="record-details">
@@ -15,7 +15,7 @@
           </view>
         </view>
       </view>
-      <view v-if="!records.length" class="empty-state"><text class="empty-icon">📋</text><text class="empty-title">还没有点餐记录</text><text>开始第一顿自助餐吧</text></view>
+      <view v-if="!records.length" class="empty-state flex-center"><text class="empty-icon">📋</text><text class="empty-title">还没有点餐记录</text><text>开始第一顿自助餐吧</text></view>
     </view>
   </view>
 </template>
@@ -53,6 +53,6 @@ function toggleRecord(id: string) {
 .detail-line text:nth-child(2), .detail-line text:nth-child(3) { text-align: right; }
 .detail-line text:nth-child(2) { color: #998b80; }
 .detail-line text:nth-child(3) { color: #ff7439; font-weight: 800; }
-.empty-state { height: 440rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20rpx; color: #9f958b; font-size: 23rpx; }
+.empty-state { height: 440rpx; flex-direction: column; gap: 20rpx; color: #9f958b; font-size: 23rpx; }
 .empty-icon { font-size: 100rpx; }.empty-title { font-size: 30rpx; color: #403b36; font-weight: 800; }
 </style>

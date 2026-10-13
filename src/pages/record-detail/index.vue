@@ -3,15 +3,15 @@
     <view v-if="receipt" class="detail-body">
       <records-overview :meals="records.length" :rounds="receipt.rounds.length" :dishes="dishCount" />
       <view class="detail-card">
-        <view class="detail-head"><view><text class="label-chip">本餐</text><text class="restaurant">{{ receipt.restaurant }}</text></view><text class="record-date">{{ receipt.date }}</text></view>
+        <view class="detail-head"><view><text class="label-chip inline-flex-center">本餐</text><text class="restaurant">{{ receipt.restaurant }}</text></view><text class="record-date">{{ receipt.date }}</text></view>
         <view v-for="(round, roundIndex) in receipt.rounds" :key="roundIndex" class="round-box">
-          <view class="round-head"><text class="round-chip">第 {{ roundIndex + 1 }} 轮</text><text class="round-time">{{ round.time }}</text><text class="round-value">¥{{ round.value.toFixed(2) }}</text></view>
+          <view class="round-head"><text class="round-chip inline-flex-center">第 {{ roundIndex + 1 }} 轮</text><text class="round-time">{{ round.time }}</text><text class="round-value">¥{{ round.value.toFixed(2) }}</text></view>
           <view v-for="line in round.lines" :key="line.name" class="detail-line"><text>{{ line.name }}</text><text>x{{ line.count }}</text><text>¥{{ (line.price * line.count).toFixed(2) }}</text></view>
         </view>
-        <view class="delete-record" @tap="confirmDelete">删除此餐记录</view>
+        <view class="delete-record flex-center" @tap="confirmDelete">删除此餐记录</view>
       </view>
     </view>
-    <view v-else class="empty-state"><text class="empty-icon">📋</text><text>记录不存在</text></view>
+    <view v-else class="empty-state flex-center"><text class="empty-icon">📋</text><text>记录不存在</text></view>
   </view>
 </template>
 
@@ -60,6 +60,6 @@ function confirmDelete() {
 .round-value { color: #ff7439; font-size: 25rpx; font-weight: 800; }
 .detail-line { min-height: 58rpx; display: grid; grid-template-columns: 1fr 60rpx 100rpx; align-items: center; font-size: 24rpx; font-weight: 700; }
 .detail-line text:nth-child(2), .detail-line text:nth-child(3) { text-align: right; }.detail-line text:nth-child(2) { color: #998b80; }.detail-line text:nth-child(3) { color: #ff7439; font-weight: 800; }
-.delete-record { width: 100%; height: 72rpx; margin-top: 28rpx; border: 2rpx solid #ff4a45; border-radius: 18rpx; background: white; color: #ff4a45; display: flex; align-items: center; justify-content: center; font-size: 25rpx; font-weight: 800; box-sizing: border-box; }
-.empty-state { height: 500rpx; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18rpx; color: #999; }.empty-icon { font-size: 90rpx; }
+.delete-record { width: 100%; height: 72rpx; margin-top: 28rpx; border: 2rpx solid #ff4a45; border-radius: 18rpx; background: white; color: #ff4a45; font-size: 25rpx; font-weight: 800; box-sizing: border-box; }
+.empty-state { height: 500rpx; flex-direction: column; gap: 18rpx; color: #999; }.empty-icon { font-size: 90rpx; }
 </style>
