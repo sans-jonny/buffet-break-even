@@ -1,7 +1,12 @@
 <script setup lang="ts">
-import { onLaunch, onShow, onHide } from "@dcloudio/uni-app";
+import {onLaunch, onShow, onHide} from "@dcloudio/uni-app";
+import {LoadBuffetInput} from '@/contexts/independent/buffet/public'
+import {useRequired} from '@/composables/useRequired'
+import {runAction} from '@/composables/runAction'
+
+const load = useRequired<LoadBuffetInput>(LoadBuffetInput.Token)
 onLaunch(() => {
-  console.log("App Launch");
+  void runAction(() => load.execute({}));
 });
 onShow(() => {
   console.log("App Show");
