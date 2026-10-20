@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <initialization-gate>
     <view v-if="receipt" class="detail-body">
       <records-overview :meals="records.length" :rounds="receipt.rounds.length" :dishes="dishCount"/>
       <view class="detail-card">
@@ -29,26 +30,27 @@
       <text class="empty-icon">📋</text>
       <text>记录不存在</text>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
 import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
-import {DeleteRecordInput} from '@/contexts/independent/dining-history/public'
+import {DeleteRecordInput} from '@/contexts/dining/public'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useHistoryStore} from '@/stores/useHistoryStore'
+import {useHistoryView} from '@/composables/useHistoryView'
 
-const {view: historyView} = storeToRefs(useHistoryStore())
+const {view: historyView, recordById} = useHistoryView()
 const remove = useRequired<DeleteRecordInput>(DeleteRecordInput.Token)
 const recordId = ref('')
 const records = computed(() => historyView.value.records)
-const receipt = computed(() => records.value.find(record => record.id === recordId.value))
+const receipt = computed(() => recordById(recordId.value))
 const dishCount = computed(() => receipt.value?.dishCount || 0)
 onLoad(query => void runAction(() => {
   recordId.value = query?.recordId ? decodeURIComponent(query.recordId) : records.value[Number(query?.index ?? -1)]?.id || ''

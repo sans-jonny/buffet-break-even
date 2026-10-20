@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <initialization-gate>
     <view v-if="receipts.length" class="receipt-grid">
       <view v-for="(item, index) in receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
         <view class="thumb-paper">
@@ -21,20 +22,21 @@
       <text class="empty-title">小票夹还是空的</text>
       <text>完成一次用餐后，把战果收藏在这里吧</text>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
 import {computed} from 'vue'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useCollectionStore} from '@/stores/useCollectionStore'
+import {useCollectionView} from '@/composables/useCollectionView'
 
-const {view: collectionView} = storeToRefs(useCollectionStore())
+const {view: collectionView} = useCollectionView()
 const receipts = computed(() => collectionView.value.receipts)
 const openReceipt = (id: string) => runAction(() => navigation.toResult(id))
 </script>

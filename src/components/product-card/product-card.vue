@@ -20,10 +20,10 @@
 </template>
 
 <script setup lang="ts">
-import type {Product} from '@/stores/Product'
+import type {ProductView} from '@/presentation/dining/ProductView'
 import {formatPrice} from '@/utils/format'
 
-defineProps<{ product: Product; count?: number }>()
+defineProps<{ product: ProductView; count?: number }>()
 defineEmits<{ (event: 'add', id: string): void }>()
 </script>
 

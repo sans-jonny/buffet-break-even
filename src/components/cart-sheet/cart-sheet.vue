@@ -30,10 +30,10 @@
 </template>
 
 <script setup lang="ts">
-import type {ProductLine} from '@/stores/ProductLine'
+import type {ProductLineView} from '@/presentation/dining/ProductLineView'
 import {formatPrice} from '@/utils/format'
 
-defineProps<{ lines: ProductLine[]; total: number }>()
+defineProps<{ lines: ProductLineView[]; total: number }>()
 defineEmits<{
   (event: 'close'): void
   (event: 'add', id: string): void

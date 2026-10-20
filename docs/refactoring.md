@@ -1,54 +1,66 @@
-# Buffet 拆分记录
+# DDD 重构记录
 
-依据用户确认的领域划分，将原 Buffet 拆为 Dining、DiningHistory 和 ReceiptCollection，并建立 CompleteDining 协调 Context。已有 Catalog 保留。没有新增购物车、轮次、统计等独立 Context。
+## 最终结构
 
-## 迁移结果
+以 [ddd-by-examples/library](https://github.com/ddd-by-examples/library) 的业务边界、局部架构和框架隔离思路为参考，保留本项目明确约定的应用端口与 Input 内部类。
 
-| 旧位置 / 职责 | 新位置 / 职责 |
+```text
+src/
+  contexts/
+    catalog/
+      model/
+      application/{port/in,port/out,interactor}/
+      infrastructure/{data,configuration}/
+      public.ts
+    dining/
+      session/
+        model/snapshot/
+        application/{port/in,port/out,interactor}/
+        infrastructure/{persistence,presentation,integration,system,configuration}/
+        public.ts
+      history/       # model、application、infrastructure、public.ts
+      collection/    # model、application、infrastructure、public.ts
+      completion/    # application、infrastructure/transaction、configuration、public.ts
+      DiningConfiguration.ts
+      public.ts
+  composition/       # 全局框架注册与启动加载
+  infrastructure/
+    persistence/     # storage、serialization、migration、schema
+    transaction/     # 提交后发布契约
+  presentation/      # 展示类型、默认值、共享映射及外观
+  stores/            # 三个业务快照 Store 和初始化状态
+  composables/       # 页面只读入口与页面辅助逻辑
+  pages/
+  components/
+```
+
+## 迁移内容
+
+| 原职责 | 最终位置与变化 |
 | --- | --- |
-| buffet/domain 会话、待选、轮次、结果 | dining/domain：DiningSession、DiningResult 及其规则 |
-| buffet/domain Receipt 用于历史 | dining-history/domain：DiningRecord、快照更新及统计 |
-| buffet/domain Receipt 用于收藏 | receipt-collection/domain：CollectedReceipt、收藏快照更新 |
-| buffet/CompleteDiningInteractor | orchestration/complete-dining：只通过公开 Input 协调 |
-| BuffetReader / Writer / Output | 三个 Context 各自的切片读写及输出端口 |
-| BuffetPresenter / BuffetViewModel / useBuffetViewStore | Dining、History、Collection 各自 Presenter、ViewModel、Store |
-| BuffetSnapshot 与 UniBuffetGateway | infrastructure/persistence 的 SnapshotDocument、UniSnapshotStorage 和 LocalDiningDatabase |
-| 全局初始化一个 Buffet | 初始化各独立 Context，并连接 CompleteDining 所需公开 Input |
+| independent/catalog | Catalog 上下文；增加完整目录公开查询供 Dining 适配 |
+| independent/dining | Dining.session；保留不可变聚合及全部规则 |
+| independent/dining-history | Dining.history；保留记录与统计所有权 |
+| independent/receipt-collection | Dining.collection；保留收藏生命周期 |
+| orchestration/complete-dining | Dining.completion；协调内部公开 Input，无独立领域模型 |
+| domain/entity、value-object、collection | model 下直接按业务名称排列 |
+| stores 下展示类型和映射 | presentation 下按用途组织，展示明细类型增加 View 后缀 |
+| Presenter 依赖 LocalDiningDatabase | 改为 AfterCommit 回调；纯投影先于提交完成 |
+| SystemDiningClock 同时生成 ID | 时钟与 ID 生成器拆开 |
+| 各模块直接 Vue provide | Configuration 返回实例，由全局组合根统一注册 |
+| UniSnapshotStorage 包含全部校验和旧键读取 | 分离 serialization、migration、schema 和 storage |
+| 初始化失败只弹 Toast | 显式初始化状态、页面错误与重试、延迟路由判断 |
 
-所有 Input 继续直接位于 port/in，Request / Response 为内部类，Token 为 Symbol。Independent Interactor 继续只注入实际用到的 Port.Out，跨 Context DTO 在各边界显式映射。
+迁移前核对旧入口及上一轮未接入副本，内容一致的版本合并到唯一实现；旧源码入口与临时迁移脚本已移除。没有引入额外 Policy、状态类、事件总线、消息队列或最终一致性。
 
-## 持久化与失败语义
+## 边界守卫
 
-领域边界与物理存储独立。现有 buffet-state-v3 文档保持格式和键不变，各 Repository 只读写自己拥有的 session、records 或 receipts 切片。完整文档仅属于基础设施，独立 Application 不再接触所有业务数据。
+检查领域与应用不依赖框架和基础设施；完成流程只访问内部公开契约；跨上下文只访问公开入口；页面不读取内部模块和 Store；只读 composable 不调用写入方法；Presenter 不依赖具体数据库。Input 必须位于 port/in，输出端口位于 port/out，Request / Response 保留在 Input 命名空间内。
 
-结束用餐在一个事务中暂存保存记录、可选收藏和关闭会话，一次存储成功后发布各自的展示投影。任意步骤或最终持久化失败都丢弃暂存状态和通知；缓存、存储与 Store 保持原值。重复结束和空用餐不写入。旧存储键读取与缺失记录初始化行为保留。
+边界依据业务职责，不强制每个模块都建立相同层级。History、Collection 目前保留现有简单集合行为；目录的数据来源和展示投影各自封装。
 
-## 自动验证
+## 行为兼容与验收
 
-34 项测试覆盖原有业务、独立领域查询与修改、真实页面脚本、注入注册、重启恢复以及新增的跨领域失败路径。新增的关键验证包括：
+金额算法、业务操作、存储键和版本保持兼容。事务失败重试、旧数据恢复、记录与收藏独立删除均由回归测试覆盖。验证命令见 [核心流程](./core-logic.md)。边界与模型决策见 [上下文图](./context-map.md)、[领域模型](./domain-model.md)。
 
-- 准备结束不提交待选，不提前关闭会话，返回 DTO 与领域对象隔离。
-- 保存记录、收藏、关闭任一步骤抛错时，全部切片与通知回滚。
-- 最终存储失败时，三个实际 Pinia Store 对象均不变化。
-- 成功结束仅写一次存储，Presenter 通知发生在存储成功之后。
-- 可选收藏、重复结束、保存重试保持原有行为。
-- 删除记录或收藏只更新自己的 Store，不重建当前用餐和其他列表。
-- 协调层和其组合根仅通过其他 Context 的 public.ts 引用 Input，不设置 Domain。
-
-验证命令及完整业务说明见 [核心逻辑](./core-logic.md)。
-
-## 领域对象行为归属
-
-继续将数据接口配套的顶层函数收进领域对象，删除 product-filter.ts、session.ts、selection.ts、rounds.ts、result.ts、records.ts 和 collection.ts。新增 ProductCatalog、DiningSelection、DiningRound、DiningHistory、ReceiptCollection；DiningSession 和 DiningResult 从接口改为拥有行为的领域类。快照接口与领域对象分开，持久化格式不变。
-
-活动会话覆盖校验、菜品变更校验、轮次提交与清空、准备结束、关闭校验、记录/收藏增删及历史统计由领域对象负责。Application 保留 I/O 顺序与 DTO 映射。跨 Context 结束用餐仍由协调层负责。
-
-新增直接领域规则测试和收藏集合隔离测试，领域对象无需 Vue、Pinia、Repository 或 Interactor 即可测试。详见 [领域对象与用户故事](./domain-model.md)。
-
-## Domain 内部分类
-
-各 Context 的 domain 已按 entity、value-object、collection、snapshot 区分。分类依据业务身份与生命周期，类与接口都可以表达领域契约。DiningSession 是实体聚合根，直接放在 domain 根目录；DiningSelection、DiningRound、DiningResult 是值对象；目录、记录和收藏容器按领域集合归类。所有导入和测试路径同步迁移，业务行为及持久化格式不变。
-
-## 运行验收
-
-本轮验证 H5 / 微信小程序打包及页面脚本集成；没有进行真实浏览器或微信开发者工具点击验收。建议人工检查：开始用餐 → 菜品筛选及加减 → 提交轮次 → 结果预览 → 结束并收藏 → 记录与小票详情 → 分别删除 → 重启恢复，以及直接进入页面和返回降级。
+本轮共 46 项自动测试通过，同时通过 TypeScript、架构检查、H5 和微信小程序构建。H5 浏览器实际验收覆盖开始、加减、提交轮次、合并待选结果、完成收藏、记录详情和刷新恢复。删除隔离及初始化错误恢复由页面脚本和集成测试验证；未运行微信开发者工具的真机或模拟器点击验收。

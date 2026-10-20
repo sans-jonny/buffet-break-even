@@ -1,28 +1,10 @@
 <script setup lang="ts">
-import {onLaunch, onShow, onHide} from "@dcloudio/uni-app";
-import {LoadDiningInput} from '@/contexts/independent/dining/public'
+import {onLaunch} from '@dcloudio/uni-app'
+import {ApplicationBootstrap} from '@/composition/ApplicationBootstrap'
 import {useRequired} from '@/composables/useRequired'
-import {runAction} from '@/composables/runAction'
 
-import {LoadHistoryInput} from '@/contexts/independent/dining-history/public'
-import {LoadCollectionInput} from '@/contexts/independent/receipt-collection/public'
-
-const loadHistory = useRequired<LoadHistoryInput>(LoadHistoryInput.Token)
-const loadCollection = useRequired<LoadCollectionInput>(LoadCollectionInput.Token)
-const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
-onLaunch(() => {
-  void runAction(() => {
-    load.execute({});
-    loadHistory.execute({});
-    loadCollection.execute({})
-  });
-});
-onShow(() => {
-  console.log("App Show");
-});
-onHide(() => {
-  console.log("App Hide");
-});
+const bootstrap = useRequired<ApplicationBootstrap>(ApplicationBootstrap.Token)
+onLaunch(() => { bootstrap.initialize() })
 </script>
 <style>
 @import "./static/iconfont/iconfont.css";

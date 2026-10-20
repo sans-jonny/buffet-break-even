@@ -1,5 +1,6 @@
 <template>
   <view class="mine-page" :style="pageStyle">
+    <initialization-gate>
     <view class="profile-card">
       <view class="avatar flex-center">🐑</view>
       <view class="profile-copy">
@@ -39,10 +40,12 @@
     </view>
     <view class="bottom-space"/>
     <app-tabbar active="mine" @select="openTab"/>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
 import {computed} from 'vue'
 import MineSettingRow from '@/components/mine-setting-row/mine-setting-row.vue'
 import {useRequired} from '@/composables/useRequired'
@@ -50,12 +53,11 @@ import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useHistoryStore} from '@/stores/useHistoryStore'
-import {useCollectionStore} from '@/stores/useCollectionStore'
+import {useHistoryView} from '@/composables/useHistoryView'
+import {useCollectionView} from '@/composables/useCollectionView'
 
-const {view: historyView} = storeToRefs(useHistoryStore())
-const {view: collectionView} = storeToRefs(useCollectionStore())
+const {view: historyView} = useHistoryView()
+const {view: collectionView} = useCollectionView()
 const receipts = computed(() => collectionView.value.receipts)
 const records = computed(() => historyView.value.records)
 const lifetimeDifference = computed(() => historyView.value.lifetimeDifference)

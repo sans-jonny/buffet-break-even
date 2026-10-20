@@ -1,7 +1,7 @@
 import {defineStore} from 'pinia'
 import {readonly, shallowRef} from 'vue'
-import {emptyDiningView} from '@/stores/emptyDiningView'
-import type {DiningViewModel} from '@/stores/DiningViewModel'
+import {emptyDiningView} from '@/presentation/dining/emptyDiningView'
+import type {DiningViewModel} from '@/presentation/dining/DiningViewModel'
 
 export const useDiningStore = defineStore('dining-view', () => {
     const snapshot = shallowRef<DiningViewModel>(emptyDiningView())

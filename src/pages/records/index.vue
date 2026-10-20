@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <initialization-gate>
     <view class="records-body">
       <records-overview :meals="records.length" :rounds="totalRoundsSaved" :dishes="totalDishesSaved"/>
       <view v-for="(item, index) in records" :key="item.id" class="record-card"
@@ -45,20 +46,21 @@
         <text>开始第一顿自助餐吧</text>
       </view>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
 import {computed, ref} from 'vue'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useHistoryStore} from '@/stores/useHistoryStore'
+import {useHistoryView} from '@/composables/useHistoryView'
 
-const {view: historyView} = storeToRefs(useHistoryStore())
+const {view: historyView} = useHistoryView()
 const records = computed(() => historyView.value.records)
 const totalRoundsSaved = computed(() => historyView.value.totalRoundsSaved)
 const totalDishesSaved = computed(() => historyView.value.totalDishesSaved)

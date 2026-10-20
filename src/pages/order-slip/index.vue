@@ -1,5 +1,6 @@
 <template>
   <view class="order-page">
+    <initialization-gate>
     <view class="notebook">
       <view class="rings">
         <view v-for="number in 9" :key="number" class="ring"/>
@@ -19,31 +20,36 @@
       <text class="order-note">辛苦了！希望菜品能尽快上齐，感激不尽！ 🌟</text>
       <view class="order-done flex-center" @tap="completeRound">点单完毕！</view>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
+import {computed, ref, watch} from 'vue'
+import {useApplicationView} from '@/composables/useApplicationView'
 import {onLoad} from '@dcloudio/uni-app'
-import {CommitRoundInput} from '@/contexts/independent/dining/public'
+import {CommitRoundInput} from '@/contexts/dining/public'
 import {currentDate, currentTime} from '@/utils/format'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useDiningStore} from '@/stores/useDiningStore'
+const {ready} = useApplicationView()
+import {useDiningView} from '@/composables/useDiningView'
 
-const {view: diningView} = storeToRefs(useDiningStore())
+const {view: diningView} = useDiningView()
 const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
 const date = ref(currentDate())
 const time = ref(currentTime())
 const selectedLines = computed(() => diningView.value.selectedLines)
 const submitting = ref(false)
-onLoad(() => {
-  if (!selectedLines.value.length) void runAction(() => navigation.open('menu', 'replace'))
-})
+function checkSelection() {
+  if (ready.value && !selectedLines.value.length) return runAction(() => navigation.open('menu', 'replace'))
+}
+onLoad(() => { void checkSelection() })
+watch(ready, initialized => { if (initialized) void checkSelection() })
 
 function completeRound() {
   if (submitting.value) return

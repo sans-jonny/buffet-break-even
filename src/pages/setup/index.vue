@@ -1,5 +1,6 @@
 <template>
   <view class="setup-page">
+    <initialization-gate>
     <view class="hero-copy">
       <text class="hero-title">自助餐回本神器</text>
       <text class="hero-subtitle">准备吃垮老板！</text>
@@ -41,21 +42,22 @@
         <view class="mode-button flex-center" @tap="start('多人')">👥 多人模式</view>
       </view>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
 import {ref} from 'vue'
-import {BeginSessionInput} from '@/contexts/independent/dining/public'
+import {BeginSessionInput} from '@/contexts/dining/public'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useDiningStore} from '@/stores/useDiningStore'
+import {useDiningView} from '@/composables/useDiningView'
 
-const {view: diningView} = storeToRefs(useDiningStore())
+const {view: diningView} = useDiningView()
 const begin = useRequired<BeginSessionInput>(BeginSessionInput.Token)
 const ticketInput = ref('200')
 const starting = ref(false)

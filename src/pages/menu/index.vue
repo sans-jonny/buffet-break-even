@@ -1,5 +1,6 @@
 <template>
   <view class="menu-page">
+    <initialization-gate>
     <view class="progress-area">
       <progress-panel :value="displayValue" :target="session.ticketPrice" :percent="breakEven.percent"
                       :tips="progressTips"/>
@@ -49,26 +50,29 @@
     <cart-sheet v-if="showCart" :lines="selectedLines" :total="currentRoundValue" @close="showCart = false"
                 @add="addItem" @remove="removeItem" @confirm="openOrderSlip"/>
     <app-tabbar active="menu" @select="openTab"/>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {useApplicationView} from '@/composables/useApplicationView'
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
+import {computed, ref, watch} from 'vue'
 import {onShow} from '@dcloudio/uni-app'
-import {GetMenuInput} from '@/contexts/independent/catalog/public'
-import {ChangeSelectionInput} from '@/contexts/independent/dining/public'
-import {LoadDiningInput} from '@/contexts/independent/dining/public'
-import {productAppearance} from '@/components/product-card/productAppearance'
+import {GetMenuInput} from '@/contexts/catalog/public'
+import {ChangeSelectionInput} from '@/contexts/dining/public'
+import {LoadDiningInput} from '@/contexts/dining/public'
+import {productAppearance} from '@/presentation/dining/productAppearance'
 import ProgressPanel from '@/components/progress-panel/progress-panel.vue'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
+const {ready} = useApplicationView()
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useDiningStore} from '@/stores/useDiningStore'
+import {useDiningView} from '@/composables/useDiningView'
 
-const {view: diningView} = storeToRefs(useDiningStore())
+const {view: diningView, session, selectedLines, currentRoundValue, displayValue, totalSelectedCount, breakEven} = useDiningView()
 const getMenu = useRequired<GetMenuInput>(GetMenuInput.Token)
 const changeSelection = useRequired<ChangeSelectionInput>(ChangeSelectionInput.Token)
 const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
@@ -96,18 +100,17 @@ const progressTips = [
   {progress: 50, text: '🔥 胜利就在眼前！', color: '#ff7439'},
   {progress: 100, text: '🎉 已经回本，继续快乐！', color: '#35a86b'}
 ]
-const session = computed(() => diningView.value.session)
-const selectedLines = computed(() => diningView.value.selectedLines)
-const currentRoundValue = computed(() => diningView.value.currentRoundValue)
-const displayValue = computed(() => diningView.value.displayValue)
-const totalSelectedCount = computed(() => diningView.value.totalSelectedCount)
-const breakEven = computed(() => diningView.value.breakEven)
 const addItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: 1}))
 const removeItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: -1}))
-onShow(() => void runAction(async () => {
-  load.execute({});
-  if (!session.value.active) await navigation.open('setup', 'reset')
-}))
+function checkDining() {
+  if (!ready.value) return
+  return runAction(async () => {
+    load.execute({})
+    if (!session.value.active) await navigation.open('setup', 'reset')
+  })
+}
+onShow(() => { void checkDining() })
+watch(ready, initialized => { if (initialized) void checkDining() })
 
 function openOrderSlip() {
   if (!selectedLines.value.length) return

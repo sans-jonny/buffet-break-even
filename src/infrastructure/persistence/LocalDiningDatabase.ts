@@ -1,4 +1,4 @@
-import type {SnapshotDocument} from './SnapshotDocument'
+import type {SnapshotDocument} from './schema/SnapshotDocument'
 import type {SnapshotPersistence} from './SnapshotPersistence'
 
 /** 单实例缓存、事务暂存和提交后通知。Context Repository 只能映射自己的切片。 */

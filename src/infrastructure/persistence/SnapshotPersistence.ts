@@ -1,4 +1,4 @@
-import type {SnapshotDocument} from './SnapshotDocument'
+import type {SnapshotDocument} from './schema/SnapshotDocument'
 
 export interface SnapshotPersistence {
     load(): SnapshotDocument;

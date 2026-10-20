@@ -44,17 +44,17 @@
 
 <script setup lang="ts">
 import {computed} from 'vue'
-import type {SavedLine} from '@/stores/SavedLine'
+import type {ReceiptLineView} from '@/presentation/receipt/ReceiptLineView'
 import {formatPrice} from '@/utils/format'
-import type {BreakEvenResult} from '@/stores/BreakEvenResult'
+import type {BreakEvenView} from '@/presentation/shared/BreakEvenView'
 
 const props = defineProps<{
   receiptId: string
   dateTime: string
   price: number
   value: number
-  lines: SavedLine[]
-  result: BreakEvenResult
+  lines: ReceiptLineView[]
+  result: BreakEvenView
 }>()
 
 const result = computed(() => props.result)

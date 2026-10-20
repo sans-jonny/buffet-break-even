@@ -1,5 +1,6 @@
 <template>
   <view class="result-page">
+    <initialization-gate>
     <result-navbar @back="goBack"/>
 
     <view class="printer">
@@ -42,41 +43,51 @@
       <view class="secondary-action flex-center" @tap="endDining">结束用餐</view>
       <view class="primary-action flex-center" @tap="save">存到小票夹</view>
     </view>
+  </initialization-gate>
   </view>
 </template>
 
 <script setup lang="ts">
-import {computed, ref} from 'vue'
+import {useApplicationView} from '@/composables/useApplicationView'
+import InitializationGate from '@/components/initialization-gate/initialization-gate.vue'
+import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
-import {CompleteDiningInput} from '@/contexts/orchestration/complete-dining/public'
-import {DeleteReceiptInput} from '@/contexts/independent/receipt-collection/public'
+import {CompleteDiningInput} from '@/contexts/dining/public'
+import {DeleteReceiptInput} from '@/contexts/dining/public'
 import ResultNavbar from '@/components/result-navbar/result-navbar.vue'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
+const {ready} = useApplicationView()
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {storeToRefs} from 'pinia'
-import {useDiningStore} from '@/stores/useDiningStore'
-import {useCollectionStore} from '@/stores/useCollectionStore'
+import {useDiningView} from '@/composables/useDiningView'
+import {useCollectionView} from '@/composables/useCollectionView'
 
-const {view: diningView} = storeToRefs(useDiningStore())
-const {view: collectionView} = storeToRefs(useCollectionStore())
+const {view: diningView} = useDiningView()
+const {receiptById} = useCollectionView()
 const complete = useRequired<CompleteDiningInput>(CompleteDiningInput.Token)
 const removeReceipt = useRequired<DeleteReceiptInput>(DeleteReceiptInput.Token)
 const receiptId = ref('')
 const finishing = ref(false)
 const isSavedView = computed(() => Boolean(receiptId.value))
-const savedReceipt = computed(() => collectionView.value.receipts.find(receipt => receipt.id === receiptId.value))
+const savedReceipt = computed(() => receiptById(receiptId.value))
 const displayReceipt = computed(() => savedReceipt.value || diningView.value.previewReceipt)
 const receiptResult = computed(() => displayReceipt.value.result)
 const shortId = computed(() => displayReceipt.value.id.split('-').pop()?.toUpperCase() || 'DINING')
 const goBack = () => runAction(() => navigation.back(isSavedView.value ? 'receipts' : 'menu'))
-onLoad(query => void runAction(async () => {
+function checkReceipt() {
+  if (!ready.value) return
+  return runAction(async () => {
+    if (receiptId.value && !savedReceipt.value) await navigation.open('receipts', 'replace')
+    else if (!receiptId.value && !diningView.value.canFinish) await navigation.open('menu', 'replace')
+  })
+}
+onLoad(query => void runAction(() => {
   receiptId.value = query?.receiptId ? decodeURIComponent(query.receiptId) : ''
-  if (receiptId.value && !savedReceipt.value) await navigation.open('receipts', 'replace')
-  else if (!receiptId.value && !diningView.value.canFinish) await navigation.open('menu', 'replace')
+  return checkReceipt()
 }))
+watch(ready, initialized => { if (initialized) void checkReceipt() })
 
 function finish(collectReceipt: boolean) {
   if (finishing.value) return
