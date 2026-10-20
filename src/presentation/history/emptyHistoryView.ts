@@ -1,5 +1,5 @@
-import type {HistoryViewModel} from './HistoryViewModel'
+import type {HistoryView} from './HistoryView'
 
-export function emptyHistoryView(): HistoryViewModel {
+export function emptyHistoryView(): HistoryView.ViewModel {
     return {records: [], lifetimeDifference: 0, totalRoundsSaved: 0, totalDishesSaved: 0}
 }

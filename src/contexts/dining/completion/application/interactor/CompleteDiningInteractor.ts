@@ -5,8 +5,10 @@ import {SaveRecordInput} from '@/contexts/dining/history/public'
 import {CollectReceiptInput} from '@/contexts/dining/collection/public'
 
 export class CompleteDiningInteractor implements CompleteDiningInput {
-    constructor(private readonly prepare: PrepareDiningCompletionInput, private readonly saveRecord: SaveRecordInput,
-                private readonly collectReceipt: CollectReceiptInput, private readonly close: CloseDiningInput,
+    constructor(private readonly prepare: PrepareDiningCompletionInput,
+                private readonly saveRecord: SaveRecordInput,
+                private readonly collectReceipt: CollectReceiptInput,
+                private readonly close: CloseDiningInput,
                 private readonly transaction: CompletionTransaction) {
     }
 

@@ -1,14 +1,14 @@
 import type {DiningSession} from '../../model/DiningSession'
 import type {Product} from '../../model/snapshot/Product'
 import {DiningRound} from '../../model/DiningRound'
-import type {DiningViewModel} from '@/presentation/dining/DiningViewModel'
+import type {DiningView} from '@/presentation/dining/DiningView'
 import type {ProductAppearanceProvider} from '@/presentation/dining/ProductAppearanceProvider'
 import {calculateBreakEven} from '@/utils/break-even'
 import {toReceiptView} from '@/presentation/receipt/toReceiptView'
 
 /** 纯展示投影：先生成独立快照，再由输出适配器安排发布。 */
 export function toDiningView(session: DiningSession, catalog: readonly Product[], date: string,
-                             appearance: ProductAppearanceProvider): DiningViewModel {
+                             appearance: ProductAppearanceProvider): DiningView.ViewModel {
     const selected = session.selectedLines(catalog)
     const preview = session.preview(catalog, date)
     return {

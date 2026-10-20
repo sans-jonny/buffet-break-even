@@ -1,5 +1,5 @@
-import type {CollectionViewModel} from './CollectionViewModel'
+import type {CollectionView} from './CollectionView'
 
-export function emptyCollectionView(): CollectionViewModel {
+export function emptyCollectionView(): CollectionView.ViewModel {
     return {receipts: []}
 }

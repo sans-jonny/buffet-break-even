@@ -10,7 +10,7 @@
 | DiningRound | 轮次快照与金额，恢复时保留已保存的轮次价值 |
 | DiningResult | 合并已提交和待选价值，按菜品名称归并明细 |
 | History.DiningRecord、DiningHistory | 记录身份、按 ID 保存更新、删除及累计统计 |
-| Collection.CollectedReceipt、ReceiptCollection | 收藏身份、按 ID 收藏更新及独立删除 |
+| Collection.CollectedReceipt | 收藏数据结构；读取、保存、删除分别由 CollectionReader、CollectionSaver、CollectionDeleter 负责 |
 
 ## 业务行为
 
@@ -30,9 +30,13 @@ const result = session.prepareCompletion(catalog, '12:31:00', '2026-10-20 12:31'
 
 ## 身份、不可变性与状态
 
-DiningSession 是当前用餐的聚合根。DiningResult.id 引用来源用餐，不代表结果拥有独立实体身份；轮次时间也不作为独立身份。History、Collection、ProductCatalog 为无独立业务标识的集合。
+DiningSession 是当前用餐的聚合根。DiningResult.id 引用来源用餐，不代表结果拥有独立实体身份；轮次时间也不作为独立身份。ProductCatalog 为无独立业务标识的集合。DiningHistory 是本地用餐历史的聚合根，由仓储定位本地历史记录切片，统一管理按 ID 保存、删除及累计统计；不额外生成历史集合 ID。save、remove 修改当前聚合，不重建聚合或深复制未变更记录，统计在一次遍历中按分累计。
 
-变更返回新对象，快照和集合读出复制嵌套数据，调用方不能通过引用改变领域对象。模型不访问时间、ID、存储、Vue 或 Pinia，所需外部信息由参数提供。Catalog 的 Product 与 Session 的菜品快照分别归各自所有，不共享领域类型。
+DiningRecord 及其嵌套明细采用 readonly 类型，不进行运行时冻结。DiningHistory 直接持有构造参数数组，save 直接保存记录引用，remove 使用 splice 原位删除；records 返回同一个只读集合引用，整个聚合内没有防御性复制。读出的集合是实时引用，不是独立快照，后续聚合变更会反映到已有引用中。只读约束由 TypeScript 在编译期提供；调用方通过原始可变对象、JavaScript 或类型断言仍可修改共享数据，聚合不隔离这类修改。
+
+Collection 采用简单 CRUD 用例，不建立 ReceiptCollection 集合模型。CollectionReader 提供 findAll，CollectionSaver 提供 save，CollectionDeleter 提供 delete，LocalCollectionRepository 实现三个端口：同 ID 原位更新、新收藏置顶、删除不存在的 ID 时忽略。仓储实现仅访问 receipts 切片，数据库负责缓存与读写引用隔离；Interactor 保存或删除后查询并交给 CollectionOutput，Presenter 转换为 CollectionView.ViewModel，仍通过 AfterCommit 在事务成功后发布。历史记录和收藏保持独立保留、独立删除。
+
+Session 的变更返回新对象；History 的变更在当前聚合实例内执行。仓储每次加载独立的 DiningHistory，未保存的变更不会修改数据库；保存失败或事务回滚后，后续加载仍返回已提交数据。Session 快照与 Catalog 集合读出复制嵌套数据，History 则共享 readonly 记录，由调用方遵守编译期只读约束。数据库写入支持只读数据，并在持久化边界克隆为独立的存储数据；Presenter 接受只读记录，生成独立的 ViewModel。模型不访问时间、ID、存储、Vue 或 Pinia，所需外部信息由参数提供。Catalog 的 Product 与 Session 的菜品快照分别归各自所有，不共享领域类型。
 
 本轮评估后保留现有会话 API 和活动状态校验，没有为状态数量很少的会话新增状态类体系，也没有把简单校验全部拆成 Policy。后续只有状态分支或可组合业务规则实际增加时再引入这些抽象。
 

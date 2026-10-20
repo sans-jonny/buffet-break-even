@@ -1,44 +1,39 @@
 import type {DiningRecord} from './DiningRecord'
 import {cents} from '@/utils/money'
 
-/** 无独立业务标识的领域集合，管理记录实体并隔离外部引用。 */
+/** 本地用餐历史的聚合根，统一管理记录变更和累计统计。 */
 export class DiningHistory {
-    private readonly entries: DiningRecord[]
-
-    constructor(items: readonly DiningRecord[] = []) {
-        this.entries = items.map(item => this.copy(item))
+    constructor(private readonly entries: DiningRecord[] = []) {
     }
 
-    save(record: DiningRecord): DiningHistory {
-        const copy = this.copy(record)
-        return new DiningHistory(this.entries.some(item => item.id === copy.id)
-            ? this.entries.map(item => item.id === copy.id ? copy : item) : [copy, ...this.entries])
+    save(record: DiningRecord): void {
+        const index = this.entries.findIndex(item => item.id === record.id)
+        if (index === -1) this.entries.unshift(record)
+        else this.entries[index] = record
     }
 
-    remove(id: string): DiningHistory {
-        return new DiningHistory(this.entries.filter(item => item.id !== id))
+    remove(id: string): void {
+        const index = this.entries.findIndex(item => item.id === id)
+        if (index !== -1) this.entries.splice(index, 1)
     }
 
-    get records(): DiningRecord[] {
-        return this.entries.map(item => this.copy(item))
+    get records(): readonly DiningRecord[] {
+        return this.entries
     }
 
     get statistics() {
-        return {
-            lifetimeDifference: this.entries.reduce((sum, record) => sum + cents(record.value) - cents(record.price), 0) / 100,
-            totalRoundsSaved: this.entries.reduce((sum, record) => sum + record.rounds.length, 0),
-            totalDishesSaved: this.entries.reduce((sum, record) => sum + record.lines.reduce((count, line) => count + line.count, 0), 0)
+        let differenceInCents = 0
+        let totalRoundsSaved = 0
+        let totalDishesSaved = 0
+        for (const record of this.entries) {
+            differenceInCents += cents(record.value) - cents(record.price)
+            totalRoundsSaved += record.rounds.length
+            for (const line of record.lines) totalDishesSaved += line.count
         }
-    }
-
-    private copy(item: DiningRecord): DiningRecord {
         return {
-            id: item.id, restaurant: item.restaurant, date: item.date, price: item.price, value: item.value,
-            lines: item.lines.map(line => ({name: line.name, count: line.count, price: line.price})),
-            rounds: item.rounds.map(round => ({
-                time: round.time, value: round.value,
-                lines: round.lines.map(line => ({name: line.name, count: line.count, price: line.price}))
-            }))
+            lifetimeDifference: differenceInCents / 100,
+            totalRoundsSaved,
+            totalDishesSaved
         }
     }
 }

@@ -18,7 +18,7 @@ export class DiningSession {
             diningMode: snapshot.diningMode, restaurant: snapshot.restaurant
         }
         this.selection = new DiningSelection(snapshot.selected)
-        this.history = snapshot.rounds.map(round => DiningRound.restore(round))
+        this.history = snapshot.rounds.map(DiningRound.restore)
     }
 
     static empty(): DiningSession {

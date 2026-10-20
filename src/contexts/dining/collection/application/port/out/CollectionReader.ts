@@ -1,5 +1,6 @@
-import type {ReceiptCollection} from '../../../model/ReceiptCollection'
+import type {CollectedReceipt} from '../../../model/CollectedReceipt'
 
 export interface CollectionReader {
-    load(): ReceiptCollection
+    /** 返回独立快照，按收藏顺序排列。 */
+    findAll(): CollectedReceipt[]
 }

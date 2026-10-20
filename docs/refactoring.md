@@ -48,7 +48,9 @@ src/
     shime-uni.d.ts
 ```
 
-Vue 页面、组件、Pinia 状态和平台入口集中在 `ui`；业务上下文与共享代码不得反向依赖 `ui`、Vue 或 Pinia。`presentation` 中的 ViewModel、ViewStore 和 ProductAppearanceProvider 是纯 TypeScript 契约，由业务 Presenter 与 UI Store 共享；具体 Presenter 仍归各业务模块的基础设施层所有。
+Vue 页面、组件、Pinia 状态和平台入口集中在 `ui`；业务上下文与共享代码不得反向依赖 `ui`、Vue 或 Pinia。`presentation` 中的 DiningView、HistoryView、CollectionView、ApplicationView 和 ProductAppearanceProvider 是纯 TypeScript 契约；各 View 在自己的命名空间内定义 ViewModel，例如 `DiningView.ViewModel`。具体 Presenter 仍归各业务模块的基础设施层所有。
+
+Presenter 持有对应的 View 接口，将输入模型转换为该 View 所需的 ViewModel，通过 `view.present(viewModel)` 交付。Pinia Store 使用 `satisfies DiningView` 等类型约束实现 View，接收并保存 ViewModel；页面通过 `use**View` 获取只读状态后渲染。Presenter 每次生成独立快照，通过 AfterCommit 在提交成功后发布，不额外缓存一份可变展示状态。多个 View 共用的小票明细继续复用 ReceiptViewModel。
 
 各业务上下文与内部模块的 `*Configuration.ts` 均位于自身根目录，与 `application`、`infrastructure` 和 `public.ts` 同级，负责组装用例与适配器。它们是模块的组装根，不属于领域模型或基础设施实现；`ui/composition` 负责应用级装配和框架注册。
 
@@ -77,10 +79,10 @@ Vue 页面、组件、Pinia 状态和平台入口集中在 `ui`；业务上下�
 
 检查领域与应用不依赖框架和基础设施；完成流程只访问内部公开契约；跨上下文只访问公开入口；页面不读取内部模块和 Store；只读 composable 不调用写入方法；Presenter 不依赖具体数据库。Input 必须位于 port/in，输出端口位于 port/out，Request / Response 保留在 Input 命名空间内。
 
-边界依据业务职责，不强制每个模块都建立相同层级。History、Collection 目前保留现有简单集合行为；目录的数据来源和展示投影各自封装。
+边界依据业务职责，不强制每个模块都建立相同层级。History 以 DiningHistory 为聚合根，保存、删除修改当前实例；构造、保存和读取均直接共享数组及领域记录引用，无复制或冻结，records 以 readonly 声明约束调用方，增删改均原位执行。领域统计单次遍历计算，仓储每次加载独立实例。Collection 移除 ReceiptCollection，端口按操作分为 CollectionReader（findAll）、CollectionSaver（save）和 CollectionDeleter（delete）；用例协调仓储与展示输出，仓储处理同 ID 更新、新收藏置顶和独立删除。目录的数据来源和展示投影各自封装。
 
 ## 行为兼容与验收
 
 金额算法、业务操作、存储键和版本保持兼容。事务失败重试、旧数据恢复、记录与收藏独立删除均由回归测试覆盖。验证命令见 [核心流程](./core-logic.md)。边界与模型决策见 [上下文图](./context-map.md)、[领域模型](./domain-model.md)。
 
-当前共 47 项自动测试通过，同时通过 TypeScript、架构检查、H5 和微信小程序构建（小程序使用 `--minify esbuild`）。本次目录迁移还核对了构建产物中的全部八个页面路由及静态资源。此前 H5 浏览器实际验收覆盖开始、加减、提交轮次、合并待选结果、完成收藏、记录详情和刷新恢复；本次未重复浏览器点击验收。删除隔离及初始化错误恢复由页面脚本和集成测试验证；未运行微信开发者工具的真机或模拟器点击验收。
+当前自动测试共 48 项，新增可变历史聚合实例隔离与未保存变更不影响数据库的验证。目录迁移时已通过 H5 和微信小程序构建（小程序使用 `--minify esbuild`），并核对构建产物中的全部八个页面路由及静态资源。此前 H5 浏览器实际验收覆盖开始、加减、提交轮次、合并待选结果、完成收藏、记录详情和刷新恢复；本次模型调整未重复构建或浏览器点击验收。删除隔离及初始化错误恢复由页面脚本和集成测试验证；未运行微信开发者工具的真机或模拟器点击验收。

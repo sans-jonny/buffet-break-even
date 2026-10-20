@@ -1,5 +1,5 @@
 export interface SavedLine {
-    name: string;
-    count: number;
-    price: number
+    readonly name: string;
+    readonly count: number;
+    readonly price: number
 }

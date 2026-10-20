@@ -1,7 +1,7 @@
 import type {SavedLine} from './SavedLine'
 
 export interface SavedRound {
-    time: string;
-    value: number;
-    lines: SavedLine[]
+    readonly time: string;
+    readonly value: number;
+    readonly lines: readonly SavedLine[]
 }

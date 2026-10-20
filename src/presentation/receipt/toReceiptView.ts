@@ -3,8 +3,8 @@ import {calculateBreakEven} from '@/utils/break-even'
 
 export function toReceiptView(receipt: {
     id: string; restaurant: string; date: string; price: number; value: number;
-    lines: { name: string; count: number; price: number }[];
-    rounds: { time: string; value: number; lines: { name: string; count: number; price: number }[] }[]
+    lines: readonly { name: string; count: number; price: number }[];
+    rounds: readonly { time: string; value: number; lines: readonly { name: string; count: number; price: number }[] }[]
 }): ReceiptViewModel {
     return {
         id: receipt.id,

@@ -1,8 +1,7 @@
 import type {LocalDiningDatabase} from '@/infrastructure/persistence/LocalDiningDatabase'
 import type {AfterCommit} from '@/infrastructure/transaction/AfterCommit'
-import type {DiningViewModel} from '@/presentation/dining/DiningViewModel'
+import type {DiningView} from '@/presentation/dining/DiningView'
 import type {ProductAppearanceProvider} from '@/presentation/dining/ProductAppearanceProvider'
-import type {ViewStore} from '@/presentation/shared/ViewStore'
 import type {CatalogGateway} from './application/port/out/CatalogGateway'
 import {LocalDiningRepository} from './infrastructure/persistence/LocalDiningRepository'
 import {DiningPresenter} from './infrastructure/presentation/DiningPresenter'
@@ -15,12 +14,12 @@ import {CommitRoundInteractor} from './application/interactor/CommitRoundInterac
 import {PrepareDiningCompletionInteractor} from './application/interactor/PrepareDiningCompletionInteractor'
 import {CloseDiningInteractor} from './application/interactor/CloseDiningInteractor'
 
-export function createSession(database: LocalDiningDatabase, store: ViewStore<DiningViewModel>,
+export function createSession(database: LocalDiningDatabase, view: DiningView,
                               catalog: CatalogGateway, afterCommit: AfterCommit,
                               appearance: ProductAppearanceProvider) {
     const repository = new LocalDiningRepository(database)
     const clock = new SystemDiningClock()
-    const presenter = new DiningPresenter(store, appearance, catalog, clock, afterCommit)
+    const presenter = new DiningPresenter(view, appearance, catalog, clock, afterCommit)
     return {
         loadDining: new LoadDiningInteractor(repository, presenter),
         beginSession: new BeginSessionInteractor(repository, repository, presenter, new DiningIdGeneratorAdapter()),

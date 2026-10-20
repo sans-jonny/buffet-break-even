@@ -6,7 +6,6 @@ const { DiningSession } = loadModule('contexts/dining/session/model/DiningSessio
 const { DiningSelection } = loadModule('contexts/dining/session/model/DiningSelection')
 const { DiningRound } = loadModule('contexts/dining/session/model/DiningRound')
 const { DiningHistory } = loadModule('contexts/dining/history/model/DiningHistory')
-const { ReceiptCollection } = loadModule('contexts/dining/collection/model/ReceiptCollection')
 const { ProductCatalog } = loadModule('contexts/catalog/model/ProductCatalog')
 const { calculateBreakEven } = loadModule('utils/break-even')
 const plain = value => JSON.parse(JSON.stringify(value))
@@ -62,17 +61,54 @@ test('用户预览合并已提交与待选菜品，结果和会话均隔离外�
   assert.equal(preview.lines[0].count, 3)
 })
 
-test('用户保存与更新历史记录：按 ID 去重，统计包含正负差额', () => {
+test('历史聚合直接持有和返回领域记录，原位更新与删除后统计一致', () => {
   const first = DiningSession.empty().begin(20, '单人', 'first').preview(catalog, 'date').toSnapshot()
   const second = { ...first, id: 'second', value: 30, rounds: [DiningRound.create(new DiningSelection({ beef: 3 }).resolve(catalog), 'time').toSnapshot()], lines: [{ name: '牛肉', count: 3, price: 10 }] }
-  const records = new DiningHistory([first]).save(second)
-  const updated = records.save({ ...first, price: 15 })
-  assert.equal(updated.records.map(item => item.id).join(','), 'second,first')
-  assert.equal(records.records[1].price, 20)
-  assert.deepEqual(plain(updated.statistics), { lifetimeDifference: -5, totalRoundsSaved: 1, totalDishesSaved: 3 })
-  const view = updated.records
-  view[0].lines[0].count = 999
-  assert.equal(updated.records[0].lines[0].count, 3)
+  const entries = [first]
+  const history = new DiningHistory(entries)
+  assert.equal(history.records, entries)
+  assert.equal(history.records[0], first)
+  first.price = 25
+  assert.equal(history.records[0].price, 25)
+  history.save(second)
+  assert.equal(history.records[0], second)
+  assert.equal(history.records[0].lines, second.lines)
+  assert.equal(history.records[0].rounds, second.rounds)
+  const updated = {...first, price: 15}
+  history.save(updated)
+  assert.equal(history.records, entries)
+  assert.equal(history.records[1], updated)
+  assert.equal(history.records.length, 2)
+  assert.equal(history.records.map(item => item.id).join(','), 'second,first')
+  assert.deepEqual(plain(history.statistics), { lifetimeDifference: -5, totalRoundsSaved: 1, totalDishesSaved: 3 })
+  history.remove('missing')
+  assert.equal(history.records, entries)
+  assert.equal(history.records.length, 2)
+  history.remove('first')
+  assert.equal(history.records, entries)
+  assert.equal(entries.length, 1)
+  assert.equal(history.records[0], second)
+  assert.deepEqual(plain(history.statistics), { lifetimeDifference: 10, totalRoundsSaved: 1, totalDishesSaved: 3 })
+  history.remove('second')
+  assert.equal(history.records, entries)
+  assert.equal(entries.length, 0)
+  assert.deepEqual(plain(history.statistics), { lifetimeDifference: 0, totalRoundsSaved: 0, totalDishesSaved: 0 })
+})
+
+test('可变历史聚合的加载实例互相隔离，未保存的变更不影响数据库', () => {
+  const app = createApplication()
+  const receipt = DiningSession.empty().begin(20, '单人', 'meal').preview(catalog, 'date').toSnapshot()
+  const history = app.history.load()
+  const other = app.history.load()
+  history.save(receipt)
+  assert.equal(other.records.length, 0)
+  assert.equal(app.history.load().records.length, 0)
+  app.history.save(history)
+  assert.equal(app.history.load().records.length, 1)
+  assert.equal(other.records.length, 0)
+  history.remove('meal')
+  assert.equal(history.records.length, 0)
+  assert.equal(app.history.load().records.length, 1)
 })
 
 test('回本判断覆盖 60%、100%、超额和零票价边界', () => {
@@ -115,24 +151,33 @@ test('领域对象独立保护开始、覆盖、选菜与关闭规则，无需�
   assert.equal(restored.selected.beef, 1)
 })
 
-test('用户收藏、更新和移除小票，收藏聚合与输入和读出快照均隔离', () => {
+test('收藏仓储按 ID 保存更新、新收藏置顶、独立删除并隔离输入和读出快照', () => {
   const receipt = DiningSession.empty().begin(20, '单人', 'meal').changeSelection('beef', 1, catalog)
     .commitRound(catalog, 'time').preview(catalog, 'date').toSnapshot()
-  const empty = new ReceiptCollection()
-  const collection = empty.collect(receipt)
+  const { collection, database } = createApplication()
+  assert.equal(collection.findAll().length, 0)
+  collection.save(receipt)
   receipt.lines[0].count = 999
   receipt.rounds[0].lines[0].count = 999
-  assert.equal(empty.receipts.length, 0)
-  assert.equal(collection.receipts[0].lines[0].count, 1)
-  const returned = collection.receipts
+  assert.equal(collection.findAll()[0].lines[0].count, 1)
+  assert.equal(collection.findAll()[0].rounds[0].lines[0].count, 1)
+  const returned = collection.findAll()
   returned[0].lines[0].count = 888
-  assert.equal(collection.receipts[0].lines[0].count, 1)
-  const updated = collection.collect({ ...collection.receipts[0], date: 'later' })
-  assert.equal(updated.receipts.length, 1)
-  assert.equal(updated.receipts[0].date, 'later')
-  assert.equal(collection.receipts[0].date, 'date')
-  assert.equal(updated.remove('meal').receipts.length, 0)
-  assert.equal(updated.receipts.length, 1)
+  returned[0].rounds[0].lines[0].count = 888
+  returned.push(receipt)
+  assert.equal(collection.findAll().length, 1)
+  assert.equal(collection.findAll()[0].lines[0].count, 1)
+  assert.equal(collection.findAll()[0].rounds[0].lines[0].count, 1)
+  collection.save({...collection.findAll()[0], id: 'second'})
+  collection.save({...collection.findAll()[1], date: 'later'})
+  assert.equal(collection.findAll().map(item => item.id).join(','), 'second,meal')
+  assert.equal(collection.findAll()[1].date, 'later')
+  collection.delete('missing')
+  assert.equal(collection.findAll().length, 2)
+  collection.delete('meal')
+  assert.equal(collection.findAll().map(item => item.id).join(','), 'second')
+  assert.equal(database.read('records').length, 0)
+  assert.equal(database.read('session').active, false)
 })
 
 function createApplication(options = {}) {
@@ -306,7 +351,7 @@ test('三个 Presenter 分别映射 Pinia 状态，业务修改只更新所属�
   assert.equal(diningStore.view.breakEven.percent, 50)
   assert.equal(historyStore.view, oldHistory)
   const record = DiningSession.empty().begin(20, '单人', 'meal').changeSelection('beef', 1, catalog).commitRound(catalog, 'time').preview(catalog, 'date').toSnapshot()
-  history.present(new DiningHistory([record])); collection.present(new ReceiptCollection([record]))
+  history.present(new DiningHistory([record])); collection.present([record])
   assert.equal(historyStore.view.lifetimeDifference, -10)
   assert.equal(historyStore.view.totalRoundsSaved, 1)
   assert.equal(collectionStore.view.receipts[0].value, 10)

@@ -1,5 +1,5 @@
-import type {ReceiptCollection} from '../../../model/ReceiptCollection'
+import type {CollectedReceipt} from '../../../model/CollectedReceipt'
 
 export interface CollectionOutput {
-    present(value: ReceiptCollection): void
+    present(receipts: readonly CollectedReceipt[]): void
 }

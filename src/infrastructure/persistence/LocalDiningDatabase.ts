@@ -1,6 +1,8 @@
 import type {SnapshotDocument} from './schema/SnapshotDocument'
 import type {SnapshotPersistence} from './SnapshotPersistence'
 
+type ReadonlySnapshot<T> = {readonly [K in keyof T]: ReadonlySnapshot<T[K]>}
+
 /** 单实例缓存、事务暂存和提交后通知。Context Repository 只能映射自己的切片。 */
 export class LocalDiningDatabase {
     private committed: SnapshotDocument | undefined
@@ -15,9 +17,10 @@ export class LocalDiningDatabase {
         return this.copy((this.staged || this.current())[key])
     }
 
-    write<K extends keyof SnapshotDocument>(key: K, value: SnapshotDocument[K]): void {
+    write<K extends keyof SnapshotDocument>(key: K, value: ReadonlySnapshot<SnapshotDocument[K]>): void {
         const next = this.copy(this.staged || this.current())
-        next[key] = this.copy(value)
+        // JSON cloning creates mutable storage data from either readonly or mutable input.
+        next[key] = this.copy(value) as SnapshotDocument[K]
         if (this.staged) {
             this.staged = next
             this.changed = true

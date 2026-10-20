@@ -8,8 +8,9 @@ export class DeleteRecordInteractor implements DeleteRecordInput {
     }
 
     execute(request: DeleteRecordInput.Request): void {
-        const next = this.reader.load().remove(request.recordId)
-        this.writer.save(next)
-        this.output.present(next)
+        const history = this.reader.load()
+        history.remove(request.recordId)
+        this.writer.save(history)
+        this.output.present(history)
     }
 }

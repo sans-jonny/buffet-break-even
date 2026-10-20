@@ -66,7 +66,7 @@ test('保留 port/in、port/out 与 Input 内部类契约，不强制所有模�
 test('Store 与只读入口不承担业务，Presenter 不感知具体数据库', () => {
   rejected('ui/stores/example.ts', "import {DiningSession} from '@/contexts/dining/session/model/DiningSession'")
   rejected('ui/stores/example.ts', 'uni.getStorageSync("x")')
-  accepted('ui/stores/example.ts', "import {defineStore} from 'pinia'; import type {DiningViewModel} from '@/presentation/dining/DiningViewModel'")
+  accepted('ui/stores/example.ts', "import {defineStore} from 'pinia'; import type {DiningView} from '@/presentation/dining/DiningView'")
   rejected('ui/composables/useDiningView.ts', 'const store = getStore(); store.present({})')
   rejected('contexts/dining/history/infrastructure/presentation/Example.ts', "import type {LocalDiningDatabase} from '@/infrastructure/persistence/LocalDiningDatabase'")
   rejected('contexts/dining/history/infrastructure/presentation/Example.ts', "import {useHistoryStore} from '@/ui/stores/useHistoryStore'")
