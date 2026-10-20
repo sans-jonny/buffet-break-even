@@ -32,7 +32,7 @@
       </view>
       <view class="mode-actions">
         <view class="mode-button deep flex-center" @tap="start('单人')">🚀 单人模式</view>
-        <view class="mode-button flex-center" @tap="start('多人')">👥 多人模式</view>
+        <view class="mode-button flex-center" @tap="toRoom">👥 多人模式</view>
       </view>
     </view>
   </view>
@@ -94,6 +94,10 @@ function onTouchEnd(event: any) {
   current.value = dx < 0
       ? (current.value + 1) % modes.length
       : (current.value - 1 + modes.length) % modes.length
+}
+
+function toRoom() {
+  void runAction(() => navigation.toRoomLobby())
 }
 
 function start(mode: string) {

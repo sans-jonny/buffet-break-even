@@ -1,0 +1,36 @@
+# nginx 部署示例（需要自行准备 SSL 证书，或改用 certbot 自动签发）。
+# 把 buffet.example.com 换成你的域名，证书路径换成你的实际路径。
+
+# HTTP -> HTTPS 跳转
+server {
+    listen 80;
+    server_name buffet.example.com;
+    return 301 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name buffet.example.com;
+
+    ssl_certificate     /etc/ssl/buffet.example.com.pem;
+    ssl_certificate_key /etc/ssl/buffet.example.com.key;
+
+    # 健康检查（用于监控 / 负载均衡探活）
+    location = /health {
+        proxy_pass http://127.0.0.1:3000;
+    }
+
+    # 房间 WebSocket：路径需与 server 的 WS_PATH（默认 /room）一致
+    location /room {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        # 长连接超时放宽，避免空闲房间断连
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+}

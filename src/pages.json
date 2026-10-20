@@ -54,6 +54,20 @@
       "style": {
         "navigationBarTitleText": "点餐明细"
       }
+    },
+    {
+      "path": "pages/room-lobby/index",
+      "style": {
+        "navigationBarTitleText": "多人房间",
+        "disableScroll": true
+      }
+    },
+    {
+      "path": "pages/room/index",
+      "style": {
+        "navigationBarTitleText": "多人点餐",
+        "disableScroll": true
+      }
     }
   ],
   "globalStyle": {

@@ -1,4 +1,4 @@
-export type Destination = 'setup' | 'menu' | 'mine' | 'receipts' | 'records'
+export type Destination = 'setup' | 'menu' | 'mine' | 'receipts' | 'records' | 'room-lobby' | 'room'
 
 export interface BuffetNavigation {
     open(destination: Destination, mode?: 'push' | 'replace' | 'reset'): Promise<void>
@@ -8,6 +8,10 @@ export interface BuffetNavigation {
     toResult(receiptId?: string): Promise<void>
 
     toRecord(recordId: string): Promise<void>
+
+    toRoomLobby(): Promise<void>
+
+    toRoom(): Promise<void>
 
     back(fallback: Destination): Promise<void>
 }
