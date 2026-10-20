@@ -56,12 +56,12 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useHistoryStore} from '@/stores/useHistoryStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
-const records = computed(() => view.value.records)
-const totalRoundsSaved = computed(() => view.value.totalRoundsSaved)
-const totalDishesSaved = computed(() => view.value.totalDishesSaved)
+const {view: historyView} = storeToRefs(useHistoryStore())
+const records = computed(() => historyView.value.records)
+const totalRoundsSaved = computed(() => historyView.value.totalRoundsSaved)
+const totalDishesSaved = computed(() => historyView.value.totalDishesSaved)
 const expandedRecordId = ref<string | null>(null)
 
 function toggleRecord(id: string) {

@@ -23,7 +23,9 @@ test('独立用例互相隔离，协调用例只允许公开入口，公开契�
   const publicImport = "import { GetMenuInput } from '@/contexts/independent/catalog/public'"
   assert.ok(inspectSource(independent, publicImport).length)
   assert.deepEqual(inspectSource(orchestration, publicImport), [])
-  assert.ok(inspectSource(orchestration, "import { Product } from '@/contexts/independent/catalog/domain/Product'").length)
+  assert.ok(inspectSource(orchestration, "import { Product } from '@/contexts/independent/catalog/domain/entity/Product'").length)
+  assert.ok(inspectSource('contexts/orchestration/complete-dining/domain/Unexpected.ts', 'export interface Unexpected {}').length)
+  assert.deepEqual(inspectSource('contexts/orchestration/complete-dining/composition/registerCompleteDining.ts', "import type { CloseDiningInput } from '@/contexts/independent/dining/public'"), [])
   assert.ok(inspectSource('contexts/independent/buffet/public.ts', "export { BuffetState } from './application/BuffetState'").length)
   assert.ok(inspectSource('contexts/independent/buffet/public.ts', 'export class Internal {}').length)
   assert.ok(inspectSource('contexts/independent/buffet/application/port/in/ExampleResponse.ts', "import type { Receipt } from '../../../domain/Receipt'").length)

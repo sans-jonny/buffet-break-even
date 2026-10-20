@@ -35,19 +35,19 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
-import {DeleteRecordInput} from '@/contexts/independent/buffet/public'
+import {DeleteRecordInput} from '@/contexts/independent/dining-history/public'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useHistoryStore} from '@/stores/useHistoryStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
+const {view: historyView} = storeToRefs(useHistoryStore())
 const remove = useRequired<DeleteRecordInput>(DeleteRecordInput.Token)
 const recordId = ref('')
-const records = computed(() => view.value.records)
+const records = computed(() => historyView.value.records)
 const receipt = computed(() => records.value.find(record => record.id === recordId.value))
 const dishCount = computed(() => receipt.value?.dishCount || 0)
 onLoad(query => void runAction(() => {

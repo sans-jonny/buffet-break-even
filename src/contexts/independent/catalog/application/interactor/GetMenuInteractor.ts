@@ -1,6 +1,6 @@
 import {GetMenuInput} from '@/contexts/independent/catalog/application/port/in/GetMenuInput'
 import type {CatalogGateway} from '../port/out/CatalogGateway'
-import {filterProducts} from '@/contexts/independent/catalog/domain/product-filter'
+import {ProductCatalog} from '../../domain/collection/ProductCatalog'
 
 export class GetMenuInteractor implements GetMenuInput {
     constructor(private readonly catalog: CatalogGateway) {
@@ -9,7 +9,7 @@ export class GetMenuInteractor implements GetMenuInput {
     execute(request: GetMenuInput.Request): GetMenuInput.Response {
         return new GetMenuInput.Response(
             [...this.catalog.categories()], [...this.catalog.levels()],
-            filterProducts(this.catalog.products(), request.category, request.levels)
+            new ProductCatalog(this.catalog.products()).filter(request.category, request.levels)
                 .map(product => ({
                     id: product.id,
                     name: product.name,

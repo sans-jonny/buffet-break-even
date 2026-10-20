@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
-import {CommitRoundInput} from '@/contexts/independent/buffet/public'
+import {CommitRoundInput} from '@/contexts/independent/dining/public'
 import {currentDate, currentTime} from '@/utils/format'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
@@ -33,13 +33,13 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useDiningStore} from '@/stores/useDiningStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
+const {view: diningView} = storeToRefs(useDiningStore())
 const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
 const date = ref(currentDate())
 const time = ref(currentTime())
-const selectedLines = computed(() => view.value.selectedLines)
+const selectedLines = computed(() => diningView.value.selectedLines)
 const submitting = ref(false)
 onLoad(() => {
   if (!selectedLines.value.length) void runAction(() => navigation.open('menu', 'replace'))

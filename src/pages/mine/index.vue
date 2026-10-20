@@ -51,13 +51,15 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useHistoryStore} from '@/stores/useHistoryStore'
+import {useCollectionStore} from '@/stores/useCollectionStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
-const receipts = computed(() => view.value.receipts)
-const records = computed(() => view.value.records)
-const lifetimeDifference = computed(() => view.value.lifetimeDifference)
-const totalRoundsSaved = computed(() => view.value.totalRoundsSaved)
+const {view: historyView} = storeToRefs(useHistoryStore())
+const {view: collectionView} = storeToRefs(useCollectionStore())
+const receipts = computed(() => collectionView.value.receipts)
+const records = computed(() => historyView.value.records)
+const lifetimeDifference = computed(() => historyView.value.lifetimeDifference)
+const totalRoundsSaved = computed(() => historyView.value.totalRoundsSaved)
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const pageStyle = {paddingTop: (statusBarHeight + uni.upx2px(24)) + 'px'}
 const openReceipts = () => runAction(() => navigation.open('receipts'))
