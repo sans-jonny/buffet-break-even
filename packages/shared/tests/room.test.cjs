@@ -181,6 +181,20 @@ test('变更返回新对象，旧聚合与快照不可通过引用修改', () =>
   assert.equal(changed.participants[0].nickname, '房主')
 })
 
+test('参与者离开后其已提交轮次仍计入分账', () => {
+  let room = Room.create('ABC123', host).join(guest).begin('h1', 200)
+  room = room.changeSelection('g1', 'salmon', 1, products)
+  room = room.commitRound('g1', products, '12:30:00')
+  room = room.leave('g1')
+  assert.deepEqual(plain(room.participants.map(p => p.id)), ['h1'])
+
+  const result = room.finish('h1', '2026-10-20')
+  assert.equal(result.value, 15)
+  assert.deepEqual(plain(result.byParticipant), [
+    { participantId: 'g1', nickname: '小明', value: 15, lines: [{ name: '三文鱼刺身', price: 15, count: 1 }] }
+  ])
+})
+
 test('金额按整数分汇总，避免浮点误差', () => {
   let room = Room.create('ABC123', host).begin('h1', 200)
   const cheap = [{ id: 'a', name: '零头菜', price: 0.1 }]

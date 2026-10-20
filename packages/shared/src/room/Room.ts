@@ -128,19 +128,18 @@ export class Room {
         this.requireHost(actorId)
         if (!this.active) return null
         const rounds = this.rounds
-        const byParticipant = this.participants
-            .map(participant => {
-                const lines = mergeLines(rounds
-                    .filter(round => round.participantId === participant.id)
-                    .flatMap(round => round.lines))
+        // 按轮次中的参与者分组，而非当前在房参与者：断线离开的人其已提交轮次仍计入分账。
+        const byParticipant = [...new Set(rounds.map(round => round.participantId))]
+            .map(participantId => {
+                const participantRounds = rounds.filter(round => round.participantId === participantId)
+                const lines = mergeLines(participantRounds.flatMap(round => round.lines))
                 return {
-                    participantId: participant.id,
-                    nickname: participant.nickname,
+                    participantId,
+                    nickname: participantRounds[0].nickname,
                     value: sumMoney(lines.map(line => cents(line.price) * line.count / 100)),
                     lines
                 }
             })
-            .filter(totals => totals.lines.length > 0)
         return {
             code: this.code,
             date,
