@@ -6,7 +6,7 @@
                       :tips="progressTips"/>
     </view>
 
-    <scroll-view scroll-x class="dining-level-tabs" :show-scrollbar="false">
+    <scroll-view :scroll-x="true" class="dining-level-tabs" :show-scrollbar="false">
       <view
           v-for="level in diningLevels"
           :key="level"
@@ -18,13 +18,13 @@
     </scroll-view>
 
     <view class="menu-content">
-      <scroll-view scroll-y class="category-list" :show-scrollbar="false">
+      <scroll-view :scroll-y="true" class="category-list" :show-scrollbar="false">
         <view v-for="category in categories" :key="category" class="category-item flex-center"
               :class="{ active: activeCategory === category }" @tap="selectCategory(category)">{{ category }}
         </view>
       </scroll-view>
 
-      <scroll-view scroll-y class="product-list" :show-scrollbar="false">
+      <scroll-view :scroll-y="true" class="product-list" :show-scrollbar="false">
         <view class="section-title">
           <view class="title-mark"/>
           {{ activeCategory }}
@@ -132,13 +132,18 @@ const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, '
 <style scoped>
 .menu-page {
   height: 100vh;
-  height: 100svh;
   padding-bottom: calc(104rpx + env(safe-area-inset-bottom));
   overflow: hidden;
   background: #fff9f2;
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+}
+
+@supports (height: 100svh) {
+  .menu-page {
+    height: 100svh;
+  }
 }
 
 .progress-area {

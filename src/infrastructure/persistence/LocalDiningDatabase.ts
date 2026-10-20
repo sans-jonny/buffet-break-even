@@ -19,8 +19,8 @@ export class LocalDiningDatabase {
         const next = this.copy(this.staged || this.current())
         next[key] = this.copy(value)
         if (this.staged) {
-            this.staged = next;
-            this.changed = true;
+            this.staged = next
+            this.changed = true
             return
         }
         this.persistence.save(this.copy(next))
@@ -50,8 +50,8 @@ export class LocalDiningDatabase {
             this.staged = undefined
             this.publications.clear()
         }
-        for (const publish of notifications!) publish()
-        return result!
+        for (const publish of notifications) publish()
+        return result
     }
 
     private current(): SnapshotDocument {

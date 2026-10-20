@@ -17,6 +17,8 @@ onLaunch(() => { bootstrap.initialize() })
   font-display: swap;
 }
 
+/* page 是 uni-app 的页面根元素。 */
+/*noinspection CssInvalidHtmlTagReference */
 page {
   min-height: 100%;
   background: #fff9f2;
@@ -35,6 +37,8 @@ navigator {
 }
 
 /* 图标继承控件字号，使用图标字体自身的字重和行高。 */
+/* 全局工具类由其他页面和组件引用。 */
+/*noinspection CssUnusedSymbol */
 .iconfont {
   font-size: inherit;
   font-weight: 400;
@@ -50,14 +54,17 @@ navigator {
 }
 
 /* 按钮、徽标等内容的水平和垂直居中；行内元素使用 inline-flex-center。 */
+/*noinspection CssUnusedSymbol */
 .flex-center {
   display: flex;
 }
 
+/*noinspection CssUnusedSymbol */
 .inline-flex-center {
   display: inline-flex;
 }
 
+/*noinspection CssUnusedSymbol */
 .flex-center,
 .inline-flex-center {
   align-items: center;

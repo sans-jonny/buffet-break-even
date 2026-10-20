@@ -98,6 +98,8 @@ defineEmits<{ (event: 'add', id: string): void }>()
   box-shadow: 0 12rpx 22rpx rgba(255, 98, 48, .23);
 }
 
+/* uni-app 通过 hover-class 动态附加此类。 */
+/*noinspection CssUnusedSymbol */
 .button-pressed {
   transform: scale(.94);
   opacity: .9;

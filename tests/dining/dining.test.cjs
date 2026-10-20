@@ -148,7 +148,7 @@ function createApplication(options = {}) {
   const collection = new (load('contexts/dining/collection/infrastructure/persistence/LocalCollectionRepository').LocalCollectionRepository)(database)
   const clock = { createId: () => 'meal-1', roundTime: () => '12:34:56', receiptDate: () => '10/19/26 12:35' }
   const gateway = { products: () => catalog, categories: () => ['肉类', '饮料', '我的最爱'], levels: () => ['牛牛', '大牛'] }
-  const publish = owner => ({ present: value => {
+  const publish = owner => ({ present: () => {
     database.afterCommit(owner, () => {
       const snapshot = repository.load()
       app.presented = { snapshot, products: catalog,
@@ -270,7 +270,9 @@ test('GetMenu 专属 Response 显式映射，不暴露 Domain 引用或展示字
   assert.equal(response.products.length, 1)
   assert.deepEqual(Object.keys(response.products[0]).sort(), ['category', 'id', 'level', 'name', 'price'])
   response.products[0].price = 999
-  response.categories.push('fake')
+  /** @type {string[]} */
+  const responseCategories = response.categories
+  responseCategories.push('fake')
   assert.equal(catalog[1].price, 7.5)
   assert.equal(app.GetMenu.execute({ category: '饮料', levels: ['牛牛'] }).products.length, 0)
 })
@@ -433,6 +435,7 @@ test('Input.Request / Response 是可构造的内部类，Input.Token 继续使�
 
 test('删除记录仅需读、写、输出三个端口，加载记录不需要写端口', () => {
   const app = createApplication()
+  /** @type {string[]} */
   const calls = []
   let saved
   const record = DiningSession.empty().begin(20, '单人', 'remove').preview(catalog, 'date').toSnapshot()
@@ -472,6 +475,7 @@ test('结束用餐协调调用顺序、可选收藏和 DTO 映射，不直接依
   const Complete = app.load('contexts/dining/completion/application/interactor/CompleteDiningInteractor').CompleteDiningInteractor
   const result = DiningSession.empty().begin(20, '单人', 'meal').changeSelection('beef', 1, catalog).commitRound(catalog, 'time').preview(catalog, 'date').toSnapshot()
   for (const collectReceipt of [true, false]) {
+    /** @type {string[]} */
     const calls = []
     const interactor = new Complete(
       { execute: () => { calls.push('prepare'); return { result } } },

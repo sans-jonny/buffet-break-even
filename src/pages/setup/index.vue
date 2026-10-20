@@ -35,7 +35,7 @@
       </view>
       <view class="price-input-wrap">
         <text class="currency">¥</text>
-        <input v-model="ticketInput" type="digit" placeholder="输入总价" placeholder-class="price-placeholder"/>
+        <input v-model="ticketInput" type="digit" placeholder="输入总价" placeholder-style="color: #8f8d8a;"/>
       </view>
       <view class="mode-actions">
         <view class="mode-button deep flex-center" @tap="start('单人')">🚀 单人模式</view>
@@ -88,12 +88,17 @@ function start(mode: string) {
 <style scoped>
 .setup-page {
   height: 100vh;
-  height: 100svh;
   overflow: hidden;
   background: linear-gradient(180deg, #ffe4b8 0 76%, #ffdcb2 100%);
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+}
+
+@supports (height: 100svh) {
+  .setup-page {
+    height: 100svh;
+  }
 }
 
 .hero-copy {
@@ -249,10 +254,6 @@ function start(mode: string) {
   color: #8d6500;
   font-weight: 800;
   margin-right: 28rpx;
-}
-
-.price-placeholder {
-  color: #8f8d8a;
 }
 
 .mode-actions {

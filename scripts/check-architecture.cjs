@@ -60,7 +60,7 @@ function inspectSource(file, source) {
       if (!own && !shared && !coordination) report(`内层越界依赖 ${specifier}`)
     }
     if (input && (ts.isImportDeclaration(node) || ts.isImportTypeNode(node) || ts.isCallExpression(node))) report('Input 契约必须自包含，不泄露内部模型')
-    if (context && target?.startsWith('contexts/')) {
+    if (context && target !== null && target.startsWith('contexts/')) {
       if (targetContext !== context && !(contextEntry.test(target) && !inner)) report(`跨上下文仅允许访问公共入口 ${specifier}`)
       if (module && targetContext === context && !target.startsWith(`${module}/`)
         && !(moduleEntry.test(target) && (workflow || configuration))) report(`内部模块只能通过约定的公共 Input 协作 ${specifier}`)

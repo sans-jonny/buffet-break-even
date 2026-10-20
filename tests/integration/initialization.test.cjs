@@ -36,6 +36,7 @@ test('后续加载投影失败也不会发布先前暂存的投影，修复后�
   const Bootstrap = load('composition/ApplicationBootstrap').ApplicationBootstrap
   let writes = 0
   const database = new Database({load: () => ({session: {}, records: [], receipts: []}), save: () => writes++})
+  /** @type {string[]} */
   const published = []
   let fail = true
   let status

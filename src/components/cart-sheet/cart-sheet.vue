@@ -5,7 +5,7 @@
         <text>本轮待选</text>
         <view class="sheet-close flex-center" @tap="$emit('close')">×</view>
       </view>
-      <scroll-view scroll-y class="cart-lines">
+      <scroll-view :scroll-y="true" class="cart-lines">
         <view v-for="line in lines" :key="line.product.id" class="cart-line">
           <view class="cart-copy">
             <text class="cart-name">{{ line.product.name }}</text>

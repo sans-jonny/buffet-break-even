@@ -20,7 +20,7 @@ test('页面仅访问上下文 API，覆盖相对路径、类型、动态导入�
     "const module = require('@/contexts/catalog/model/Product')",
     "import {useDiningStore} from '@/stores/useDiningStore'",
   ]) rejected(file, `<script>${source}</script>`)
-  accepted(file, '<script>import {BeginSessionInput} from "@/contexts/dining/public.ts"</script>')
+  accepted(file, '<script>import {BeginSessionInput} from "@/contexts/dining/public.ts"; void BeginSessionInput.Token</script>')
 })
 
 test('领域和应用层不依赖框架、基础设施及其他上下文', () => {
