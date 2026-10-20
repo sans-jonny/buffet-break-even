@@ -33,7 +33,7 @@ test('后续加载投影失败也不会发布先前暂存的投影，修复后�
   const cache = new Map()
   const load = name => loadModule(name, {}, cache)
   const Database = load('infrastructure/persistence/LocalDiningDatabase').LocalDiningDatabase
-  const Bootstrap = load('composition/ApplicationBootstrap').ApplicationBootstrap
+  const Bootstrap = load('ui/composition/ApplicationBootstrap').ApplicationBootstrap
   let writes = 0
   const database = new Database({load: () => ({session: {}, records: [], receipts: []}), save: () => writes++})
   /** @type {string[]} */
@@ -58,9 +58,9 @@ test('后续加载投影失败也不会发布先前暂存的投影，修复后�
 test('只读查询入口不暴露写入方法，投影和按 ID 查询随 Store 更新', async () => {
   const app = application()
   app.bootstrap.initialize()
-  const dining = app.load('composables/useDiningView').useDiningView()
-  const history = app.load('composables/useHistoryView').useHistoryView()
-  const collection = app.load('composables/useCollectionView').useCollectionView()
+  const dining = app.load('ui/composables/useDiningView').useDiningView()
+  const history = app.load('ui/composables/useHistoryView').useHistoryView()
+  const collection = app.load('ui/composables/useCollectionView').useCollectionView()
   for (const facade of [dining, history, collection]) {
     assert.equal(facade.present, undefined)
     assert.equal(isReadonly(facade.view), true)

@@ -50,14 +50,14 @@ function harness(options = {}) {
   }
   const pinia = createPinia()
   setActivePinia(pinia)
-  const store = load('stores/useDiningStore').useDiningStore(pinia)
-  load('composition/registerApplication').registerApplication({ provide: (token, service) => services.set(token, service) }, pinia)
+  const store = load('ui/stores/useDiningStore').useDiningStore(pinia)
+  load('ui/composition/registerApplication').registerApplication({ provide: (token, service) => services.set(token, service) }, pinia)
   const nav = Object.fromEntries(['open', 'toOrderSlip', 'toResult', 'toRecord', 'back'].map(method => [method, async (...args) => { navigation.push([method, ...args]) }]))
-  services.set(load('navigation/BuffetNavigation').BuffetNavigation, nav)
-  const bootstrap = services.get(load('composition/ApplicationBootstrap').ApplicationBootstrap.Token)
+  services.set(load('ui/navigation/BuffetNavigation').BuffetNavigation, nav)
+  const bootstrap = services.get(load('ui/composition/ApplicationBootstrap').ApplicationBootstrap.Token)
   bootstrap.initialize()
-  return { store, bootstrap, status: load('stores/useApplicationStore').useApplicationStore(pinia), history: load('stores/useHistoryStore').useHistoryStore(pinia), collection: load('stores/useCollectionStore').useCollectionStore(pinia), navigation, toasts, hooks,
-    page: file => load(`pages/${file}/index.vue`).default.setup({}, { expose: () => {} }),
+  return { store, bootstrap, status: load('ui/stores/useApplicationStore').useApplicationStore(pinia), history: load('ui/stores/useHistoryStore').useHistoryStore(pinia), collection: load('ui/stores/useCollectionStore').useCollectionStore(pinia), navigation, toasts, hooks,
+    page: file => load(`ui/pages/${file}/index.vue`).default.setup({}, { expose: () => {} }),
     input: name => services.get(load('contexts/' + ({ CompleteDining: 'dining/completion', DeleteRecord: 'dining/history', DeleteReceipt: 'dining/collection', GetMenu: 'catalog' }[name] || 'dining/session') + '/public')[name + 'Input'].Token) }
 }
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); await vue.nextTick() }

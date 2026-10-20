@@ -10,6 +10,7 @@ const moduleOf = file => file.match(/^(contexts\/dining\/(session|history|collec
 function inspectSource(file, source) {
   file = file.replaceAll('\\', '/')
   const errors = []
+  if (file.endsWith('.vue') && !file.startsWith('ui/')) errors.push(`${file}: Vue 组件必须放在 ui 目录`)
   const report = message => errors.push(`${file}: ${message}`)
   if (file.endsWith('.vue')) source = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map(match => match[1]).join('\n')
   const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true)
@@ -51,6 +52,7 @@ function inspectSource(file, source) {
       : specifier.startsWith('.') ? path.posix.join(path.posix.dirname(file), specifier) : null
     const target = resolved === null ? null : path.posix.normalize(resolved).replace(/\.(ts|js)$/, '')
     const targetContext = target && contextOf(target)
+    if (!file.startsWith('ui/') && (target?.startsWith('ui/') || (target === null && ['vue', 'pinia', '@dcloudio/uni-app'].includes(specifier)))) report('业务与共享代码不得依赖 UI 或 Vue / Pinia')
     if (inner && target === null) report(`内层禁止框架与外部模块 ${specifier}`)
     if (inner && target !== null) {
       const own = target.startsWith(`${owner}/${model ? 'model/' : 'application/'}`)
@@ -71,14 +73,14 @@ function inspectSource(file, source) {
       if (!ts.isExportDeclaration(node) || !allowedTarget || !node.exportClause || !ts.isNamedExports(node.exportClause)
         || node.exportClause.elements.some(item => !/Input$/.test((item.propertyName || item.name).text) || !/Input$/.test(item.name.text))) report('公共入口只能具名导出 Input')
     }
-    if (/^(pages|components|composables)\//.test(file) && target?.startsWith('contexts/') && !contextEntry.test(target)) report(`页面只能访问上下文公共入口 ${specifier}`)
-    if (/^(pages|components)\//.test(file) && target?.startsWith('stores/')) report('页面和组件通过只读 composable 访问展示状态')
-    if (file.startsWith('composables/') && target?.startsWith('stores/') && !/^composables\/use(Dining|History|Collection|Application)View\.ts$/.test(file)) report('Store 只允许由约定的只读入口访问')
-    if (file.startsWith('stores/') && ((target !== null && !target.startsWith('presentation/'))
+    if (/^ui\/(pages|components|composables)\//.test(file) && target?.startsWith('contexts/') && !contextEntry.test(target)) report(`页面只能访问上下文公共入口 ${specifier}`)
+    if (/^ui\/(pages|components)\//.test(file) && target?.startsWith('ui/stores/')) report('页面和组件通过只读 composable 访问展示状态')
+    if (file.startsWith('ui/composables/') && target?.startsWith('ui/stores/') && !/^ui\/composables\/use(Dining|History|Collection|Application)View\.ts$/.test(file)) report('Store 只允许由约定的只读入口访问')
+    if (file.startsWith('ui/stores/') && ((target !== null && !target.startsWith('presentation/'))
       || (target === null && !['vue', 'pinia'].includes(specifier)))) report('Store 只能依赖展示契约和 Vue / Pinia')
     if (file.startsWith('presentation/') && ((target !== null && !/^(presentation|utils|data)\//.test(target)) || target === null)) report('共享展示契约与映射保持无框架、无领域依赖')
     if (/\/infrastructure\/presentation\//.test(file) && target?.startsWith('infrastructure/persistence/')) report('Presenter 不得依赖具体数据库')
-    if (context && target?.startsWith('stores/')) report('业务模块由装配层注入展示输出，不直接获取 Store')
+    if (context && target?.startsWith('ui/stores/')) report('业务模块由装配层注入展示输出，不直接获取 Store')
     if (context === 'dining' && target?.startsWith('data/')) report('Dining 通过 Catalog 公开查询获取菜品')
   }
 
@@ -87,8 +89,8 @@ function inspectSource(file, source) {
     if (ts.isCallExpression(node) && (node.expression.kind === ts.SyntaxKind.ImportKeyword || node.expression.getText(ast) === 'require')
       && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) check(node.arguments[0].text, node)
     if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) check(node.argument.literal.text, node)
-    if ((inner || file.startsWith('stores/')) && ts.isIdentifier(node) && node.text === 'uni') report('内层和 Store 不得访问平台 API')
-    if (file.startsWith('composables/') && ts.isPropertyAccessExpression(node) && ['present', '$patch', '$reset', '$state'].includes(node.name.text)) report('只读入口不得调用 Store 写入能力')
+    if ((inner || file.startsWith('ui/stores/')) && ts.isIdentifier(node) && node.text === 'uni') report('内层和 Store 不得访问平台 API')
+    if (file.startsWith('ui/composables/') && ts.isPropertyAccessExpression(node) && ['present', '$patch', '$reset', '$state'].includes(node.name.text)) report('只读入口不得调用 Store 写入能力')
     if (input && ts.isClassDeclaration(node) && node.name && /^(Request|Response)$/.test(node.name.text) && !ts.isModuleBlock(node.parent)) report('Request / Response 必须放在 Input 命名空间内')
     ts.forEachChild(node, visit)
   }

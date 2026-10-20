@@ -27,15 +27,15 @@ function application(platform = {getStorageSync: () => undefined, setStorageSync
   const services = new Map()
   const pinia = createPinia()
   setActivePinia(pinia)
-  load('composition/registerApplication').registerApplication({provide: (token, service) => services.set(token, service)}, pinia)
+  load('ui/composition/registerApplication').registerApplication({provide: (token, service) => services.set(token, service)}, pinia)
   const inputs = {...load('contexts/dining/public'), ...load('contexts/catalog/public')}
   return {
     load, services, pinia,
-    bootstrap: services.get(load('composition/ApplicationBootstrap').ApplicationBootstrap.Token),
-    status: load('stores/useApplicationStore').useApplicationStore(pinia),
-    dining: load('stores/useDiningStore').useDiningStore(pinia),
-    history: load('stores/useHistoryStore').useHistoryStore(pinia),
-    collection: load('stores/useCollectionStore').useCollectionStore(pinia),
+    bootstrap: services.get(load('ui/composition/ApplicationBootstrap').ApplicationBootstrap.Token),
+    status: load('ui/stores/useApplicationStore').useApplicationStore(pinia),
+    dining: load('ui/stores/useDiningStore').useDiningStore(pinia),
+    history: load('ui/stores/useHistoryStore').useHistoryStore(pinia),
+    collection: load('ui/stores/useCollectionStore').useCollectionStore(pinia),
     execute: (name, request = {}) => services.get(inputs[name + 'Input'].Token).execute(request),
   }
 }

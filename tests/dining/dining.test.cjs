@@ -289,9 +289,9 @@ test('三个 Presenter 分别映射 Pinia 状态，业务修改只更新所属�
   const { watch, nextTick } = require('vue')
   const app = createApplication()
   const pinia = createPinia()
-  const diningStore = app.load('stores/useDiningStore').useDiningStore(pinia)
-  const historyStore = app.load('stores/useHistoryStore').useHistoryStore(pinia)
-  const collectionStore = app.load('stores/useCollectionStore').useCollectionStore(pinia)
+  const diningStore = app.load('ui/stores/useDiningStore').useDiningStore(pinia)
+  const historyStore = app.load('ui/stores/useHistoryStore').useHistoryStore(pinia)
+  const collectionStore = app.load('ui/stores/useCollectionStore').useCollectionStore(pinia)
   const dining = new (app.load('contexts/dining/session/infrastructure/presentation/DiningPresenter').DiningPresenter)(diningStore, () => ({ emoji: '🥩', gradient: 'test' }), app.gateway, app.clock, app.database.afterCommit.bind(app.database))
   const history = new (app.load('contexts/dining/history/infrastructure/presentation/HistoryPresenter').HistoryPresenter)(historyStore, app.database.afterCommit.bind(app.database))
   const collection = new (app.load('contexts/dining/collection/infrastructure/presentation/CollectionPresenter').CollectionPresenter)(collectionStore, app.database.afterCommit.bind(app.database))
@@ -344,7 +344,7 @@ test('损坏存储与平台异常明确报错，不静默覆盖历史记录', ()
 })
 
 test('Navigation 统一路径、参数编码、返回降级和错误传播', async () => {
-  const Navigation = loadModule('navigation/UniBuffetNavigation').UniBuffetNavigation
+  const Navigation = loadModule('ui/navigation/UniBuffetNavigation').UniBuffetNavigation
   const calls = []
   const platform = Object.fromEntries(['navigateTo', 'redirectTo', 'reLaunch', 'navigateBack'].map(method => [method, options => {
     calls.push([method, options.url]); options.success()
@@ -366,10 +366,10 @@ test('全局组合根注册全部公共 Port.In，应用实例隔离且新实例
   const data = new Map()
   const platform = { getStorageSync: key => data.get(key), setStorageSync: (key, value) => data.set(key, plain(value)) }
   const load = entry => loadModule(entry, platform, cache)
-  const { registerApplication } = load('composition/registerApplication')
+  const { registerApplication } = load('ui/composition/registerApplication')
   const inputs = load('contexts/dining/public')
   const catalog = load('contexts/catalog/public')
-  const navigation = load('navigation/BuffetNavigation')
+  const navigation = load('ui/navigation/BuffetNavigation')
   function create() {
     const services = new Map()
     const pinia = createPinia()
@@ -378,7 +378,7 @@ test('全局组合根注册全部公共 Port.In，应用实例隔离且新实例
       assert.equal(typeof token, 'symbol')
       assert.ok(services.has(token), `${String(token)} must be registered`)
     }
-    return { services, store: load('stores/useDiningStore').useDiningStore(pinia), history: load('stores/useHistoryStore').useHistoryStore(pinia), collection: load('stores/useCollectionStore').useCollectionStore(pinia),
+    return { services, store: load('ui/stores/useDiningStore').useDiningStore(pinia), history: load('ui/stores/useHistoryStore').useHistoryStore(pinia), collection: load('ui/stores/useCollectionStore').useCollectionStore(pinia),
       execute: (token, request = {}) => services.get(token.Token).execute(request) }
   }
   const first = create()
@@ -525,13 +525,13 @@ function registeredApplication(platform) {
   const load = entry => loadModule(entry, platform, cache)
   const pinia = createPinia()
   const services = new Map()
-  load('composition/registerApplication').registerApplication({ provide: (token, input) => services.set(token, input) }, pinia)
+  load('ui/composition/registerApplication').registerApplication({ provide: (token, input) => services.set(token, input) }, pinia)
   const inputs = Object.assign({}, ...['dining/session', 'dining/history', 'dining/collection', 'dining/completion']
     .map(ctx => load('contexts/' + ctx + '/public')))
   const execute = (name, request = {}) => services.get(inputs[name + 'Input'].Token).execute(request)
   for (const name of ['LoadDining', 'LoadHistory', 'LoadCollection']) execute(name)
-  return { execute, dining: load('stores/useDiningStore').useDiningStore(pinia),
-    history: load('stores/useHistoryStore').useHistoryStore(pinia), collection: load('stores/useCollectionStore').useCollectionStore(pinia) }
+  return { execute, dining: load('ui/stores/useDiningStore').useDiningStore(pinia),
+    history: load('ui/stores/useHistoryStore').useHistoryStore(pinia), collection: load('ui/stores/useCollectionStore').useCollectionStore(pinia) }
 }
 
 test('真实组合根保存失败时三个 Store 保持原值，重试一次写入且提交后才通知', () => {

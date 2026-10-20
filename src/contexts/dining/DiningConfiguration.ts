@@ -1,19 +1,21 @@
 import type {LocalDiningDatabase} from '@/infrastructure/persistence/LocalDiningDatabase'
 import type {GetCatalogInput} from '@/contexts/catalog/public'
 import type {DiningViewModel} from '@/presentation/dining/DiningViewModel'
+import type {ProductAppearanceProvider} from '@/presentation/dining/ProductAppearanceProvider'
 import type {HistoryViewModel} from '@/presentation/history/HistoryViewModel'
 import type {CollectionViewModel} from '@/presentation/collection/CollectionViewModel'
-import {createSession} from './session/infrastructure/configuration/SessionConfiguration'
-import {createHistory} from './history/infrastructure/configuration/HistoryConfiguration'
-import {createCollection} from './collection/infrastructure/configuration/CollectionConfiguration'
-import {createCompletion} from './completion/infrastructure/configuration/CompletionConfiguration'
+import type {ViewStore} from '@/presentation/shared/ViewStore'
+import {createSession} from './session/SessionConfiguration'
+import {createHistory} from './history/HistoryConfiguration'
+import {createCollection} from './collection/CollectionConfiguration'
+import {createCompletion} from './completion/CompletionConfiguration'
 import {CatalogGatewayAdapter} from './session/infrastructure/integration/CatalogGatewayAdapter'
 
 export function createDining(database: LocalDiningDatabase, catalog: GetCatalogInput, views: {
-    dining: {present(view: DiningViewModel): void}
-    history: {present(view: HistoryViewModel): void}
-    collection: {present(view: CollectionViewModel): void}
-}, appearance: (id: string) => {emoji: string; gradient: string}) {
+    dining: ViewStore<DiningViewModel>
+    history: ViewStore<HistoryViewModel>
+    collection: ViewStore<CollectionViewModel>
+}, appearance: ProductAppearanceProvider) {
     const afterCommit = database.afterCommit.bind(database)
     const session = createSession(database, views.dining, new CatalogGatewayAdapter(catalog), afterCommit, appearance)
     const history = createHistory(database, views.history, afterCommit)
