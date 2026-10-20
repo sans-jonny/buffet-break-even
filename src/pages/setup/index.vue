@@ -8,17 +8,17 @@
       </view>
     </view>
 
-    <view class="mode-stage">
-      <swiper class="mode-swiper" :current="current" circular previous-margin="110rpx" next-margin="110rpx"
-              @change="onSwiperChange">
-        <swiper-item v-for="mode in modes" :key="mode.name" class="mode-slide">
-          <view class="mode-card flex-center" :style="{ background: mode.gradient }">
-            <text class="mode-emoji">{{ mode.emoji }}</text>
-            <text class="mode-name">{{ mode.name }}</text>
-            <text class="mode-note">{{ mode.note }}</text>
-          </view>
-        </swiper-item>
-      </swiper>
+    <view class="mode-stage" @touchstart="onTouchStart" @touchend="onTouchEnd">
+      <view
+          v-for="(mode, i) in modes"
+          :key="mode.name"
+          class="mode-card flex-center"
+          :style="cardStyle(i)"
+      >
+        <text class="mode-emoji">{{ mode.emoji }}</text>
+        <text class="mode-name">{{ mode.name }}</text>
+        <text class="mode-note">{{ mode.note }}</text>
+      </view>
     </view>
 
     <view class="setup-panel">
@@ -60,8 +60,40 @@ const modes = [
   {name: '寿司', emoji: '🍣', note: '海鲜控的天堂', gradient: 'linear-gradient(145deg,#b8e9e5,#f2996c)'}
 ]
 const current = ref(0)
-const onSwiperChange = (event: any) => {
-  current.value = event.detail.current
+
+const CENTER_SCALE = 1.06
+const SIDE_SCALE = 0.86
+const SIDE_OFFSET = 180
+
+function cardState(i: number): number {
+  return (i - current.value + modes.length) % modes.length
+}
+
+function cardStyle(i: number) {
+  const background = modes[i].gradient
+  if (cardState(i) === 0) {
+    return {background, transform: `translate(-50%, -50%) scale(${CENTER_SCALE})`, zIndex: 3, opacity: 1}
+  }
+  const dir = cardState(i) === 1 ? 1 : -1
+  return {
+    background,
+    transform: `translate(calc(-50% + ${dir * SIDE_OFFSET}rpx), -50%) scale(${SIDE_SCALE})`,
+    zIndex: 2,
+    opacity: 0.9
+  }
+}
+
+let touchStartX = 0
+function onTouchStart(event: any) {
+  touchStartX = event.touches[0].clientX
+}
+
+function onTouchEnd(event: any) {
+  const dx = event.changedTouches[0].clientX - touchStartX
+  if (Math.abs(dx) < 40) return
+  current.value = dx < 0
+      ? (current.value + 1) % modes.length
+      : (current.value - 1 + modes.length) % modes.length
 }
 
 function start(mode: string) {
@@ -150,19 +182,21 @@ function start(mode: string) {
 }
 
 .mode-card {
+  position: absolute;
+  left: 50%;
+  top: 50%;
   width: 500rpx;
   height: calc(100% - 30rpx);
   max-height: 650rpx;
   min-height: 420rpx;
   border-radius: 100rpx;
-  background: linear-gradient(145deg, #a9e9d5, #6fc5ad);
   border: 8rpx solid rgba(255, 255, 255, .25);
   box-shadow: 0 38rpx 38rpx rgba(133, 93, 54, .18);
   flex-direction: column;
-  position: relative;
-  z-index: 2;
   color: white;
   box-sizing: border-box;
+  transition: transform .35s ease, opacity .35s ease;
+  will-change: transform;
 }
 
 .mode-emoji {
@@ -179,18 +213,6 @@ function start(mode: string) {
   font-size: 24rpx;
   opacity: .9;
   margin-top: 16rpx;
-}
-
-.mode-swiper {
-  width: 100%;
-  height: 100%;
-}
-
-.mode-slide {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
 }
 
 .setup-panel {
