@@ -1,0 +1,12 @@
+# Caddy 部署示例（推荐：自动申请/续期 HTTPS 证书，且原生代理 WebSocket/wss）。
+# 把 buffet.example.com 换成你的域名，并把本文件内容写入 /etc/caddy/Caddyfile。
+
+buffet.example.com {
+    # 反向代理到本地 room server。Caddy 会自动处理 WebSocket 升级（wss），无需额外配置。
+    reverse_proxy 127.0.0.1:3000
+
+    # 可选：开启访问日志
+    # log {
+    #     output file /var/log/caddy/buffet.log
+    # }
+}
