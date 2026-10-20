@@ -4,27 +4,21 @@
       <text class="hero-title">自助餐回本神器</text>
       <text class="hero-subtitle">准备吃垮老板！</text>
       <view class="dots flex-center">
-        <view class="dot active"/>
-        <view class="dot"/>
-        <view class="dot"/>
-        <view class="dot"/>
+        <view v-for="(mode, i) in modes" :key="mode.name" class="dot" :class="{ active: i === current }" @tap="current = i"/>
       </view>
     </view>
 
-    <view class="mode-stage flex-center">
-      <view class="side-mode left-card flex-center">
-        <text>✏️</text>
-        <text>自定义</text>
-      </view>
-      <view class="mode-card flex-center">
-        <text class="mode-emoji">🍣</text>
-        <text class="mode-name">寿喜烧</text>
-        <text class="mode-note">肉肉星人的快乐老家</text>
-      </view>
-      <view class="side-mode right-card flex-center">
-        <text>🥩</text>
-        <text>烤肉</text>
-      </view>
+    <view class="mode-stage">
+      <swiper class="mode-swiper" :current="current" circular previous-margin="110rpx" next-margin="110rpx"
+              @change="onSwiperChange">
+        <swiper-item v-for="mode in modes" :key="mode.name" class="mode-slide">
+          <view class="mode-card flex-center" :style="{ background: mode.gradient }">
+            <text class="mode-emoji">{{ mode.emoji }}</text>
+            <text class="mode-name">{{ mode.name }}</text>
+            <text class="mode-note">{{ mode.note }}</text>
+          </view>
+        </swiper-item>
+      </swiper>
     </view>
 
     <view class="setup-panel">
@@ -59,6 +53,16 @@ const {view: diningView} = storeToRefs(useDiningStore())
 const begin = useRequired<BeginSessionInput>(BeginSessionInput.Token)
 const ticketInput = ref('200')
 const starting = ref(false)
+
+const modes = [
+  {name: '烤肉自助', emoji: '🥩', note: '肉食动物的狂欢', gradient: 'linear-gradient(145deg,#ff9c71,#d94c44)'},
+  {name: '寿喜烧', emoji: '🍲', note: '肉肉星人的快乐老家', gradient: 'linear-gradient(145deg,#a9e9d5,#6fc5ad)'},
+  {name: '寿司', emoji: '🍣', note: '海鲜控的天堂', gradient: 'linear-gradient(145deg,#b8e9e5,#f2996c)'}
+]
+const current = ref(0)
+const onSwiperChange = (event: any) => {
+  current.value = event.detail.current
+}
 
 function start(mode: string) {
   if (starting.value) return
@@ -177,33 +181,16 @@ function start(mode: string) {
   margin-top: 16rpx;
 }
 
-.side-mode {
-  position: absolute;
-  top: 50%;
-  width: 260rpx;
-  height: 70%;
-  max-height: 430rpx;
-  min-height: 300rpx;
-  transform: translateY(-50%);
-  border-radius: 48rpx;
-  flex-direction: column;
-  font-size: 34rpx;
-  color: white;
-  gap: 32rpx;
+.mode-swiper {
+  width: 100%;
+  height: 100%;
 }
 
-.left-card {
-  left: -150rpx;
-  background: #dfbdca;
-}
-
-.right-card {
-  right: -150rpx;
-  background: #f4cf78;
-}
-
-.side-mode text:first-child {
-  font-size: 76rpx;
+.mode-slide {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .setup-panel {
