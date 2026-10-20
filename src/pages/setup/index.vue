@@ -46,16 +46,16 @@
 
 <script setup lang="ts">
 import {ref} from 'vue'
-import {BeginSessionInput} from '@/contexts/independent/buffet/public'
+import {BeginSessionInput} from '@/contexts/independent/dining/public'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
 import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useDiningStore} from '@/stores/useDiningStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
+const {view: diningView} = storeToRefs(useDiningStore())
 const begin = useRequired<BeginSessionInput>(BeginSessionInput.Token)
 const ticketInput = ref('200')
 const starting = ref(false)
@@ -71,7 +71,7 @@ function start(mode: string) {
       starting.value = false
     }
   })
-  if (view.value.session.active) {
+  if (diningView.value.session.active) {
     uni.showModal({
       title: '已有进行中的用餐', content: '重新开始会清空当前待选和轮次。取消可继续当前用餐。',
       confirmText: '重新开始', cancelText: '继续用餐',

@@ -56,8 +56,8 @@
 import {computed, ref} from 'vue'
 import {onShow} from '@dcloudio/uni-app'
 import {GetMenuInput} from '@/contexts/independent/catalog/public'
-import {ChangeSelectionInput} from '@/contexts/independent/buffet/public'
-import {LoadBuffetInput} from '@/contexts/independent/buffet/public'
+import {ChangeSelectionInput} from '@/contexts/independent/dining/public'
+import {LoadDiningInput} from '@/contexts/independent/dining/public'
 import {productAppearance} from '@/components/product-card/productAppearance'
 import ProgressPanel from '@/components/progress-panel/progress-panel.vue'
 import {useRequired} from '@/composables/useRequired'
@@ -66,12 +66,12 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useDiningStore} from '@/stores/useDiningStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
+const {view: diningView} = storeToRefs(useDiningStore())
 const getMenu = useRequired<GetMenuInput>(GetMenuInput.Token)
 const changeSelection = useRequired<ChangeSelectionInput>(ChangeSelectionInput.Token)
-const load = useRequired<LoadBuffetInput>(LoadBuffetInput.Token)
+const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
 const initialMenu = getMenu.execute({category: '', levels: []})
 const categories = initialMenu.categories
 const diningLevels = initialMenu.levels
@@ -96,12 +96,12 @@ const progressTips = [
   {progress: 50, text: '🔥 胜利就在眼前！', color: '#ff7439'},
   {progress: 100, text: '🎉 已经回本，继续快乐！', color: '#35a86b'}
 ]
-const session = computed(() => view.value.session)
-const selectedLines = computed(() => view.value.selectedLines)
-const currentRoundValue = computed(() => view.value.currentRoundValue)
-const displayValue = computed(() => view.value.displayValue)
-const totalSelectedCount = computed(() => view.value.totalSelectedCount)
-const breakEven = computed(() => view.value.breakEven)
+const session = computed(() => diningView.value.session)
+const selectedLines = computed(() => diningView.value.selectedLines)
+const currentRoundValue = computed(() => diningView.value.currentRoundValue)
+const displayValue = computed(() => diningView.value.displayValue)
+const totalSelectedCount = computed(() => diningView.value.totalSelectedCount)
+const breakEven = computed(() => diningView.value.breakEven)
 const addItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: 1}))
 const removeItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: -1}))
 onShow(() => void runAction(async () => {
@@ -116,7 +116,7 @@ function openOrderSlip() {
 }
 
 function finish() {
-  if (!view.value.canFinish) {
+  if (!diningView.value.canFinish) {
     uni.showToast({title: '先点一些菜吧', icon: 'none'});
     return
   }

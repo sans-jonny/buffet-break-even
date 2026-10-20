@@ -12,8 +12,8 @@ export namespace GetMenuInput {
 
     export class Response {
         constructor(public categories: string[],
-            public levels: string[],
-            public products: { id: string; name: string; category: string; level: string; price: number }[]) {
+                    public levels: string[],
+                    public products: { id: string; name: string; category: string; level: string; price: number }[]) {
         }
     }
 }

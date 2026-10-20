@@ -48,8 +48,8 @@
 <script setup lang="ts">
 import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
-import {CompleteDiningInput} from '@/contexts/independent/buffet/public'
-import {DeleteReceiptInput} from '@/contexts/independent/buffet/public'
+import {CompleteDiningInput} from '@/contexts/orchestration/complete-dining/public'
+import {DeleteReceiptInput} from '@/contexts/independent/receipt-collection/public'
 import ResultNavbar from '@/components/result-navbar/result-navbar.vue'
 import {useRequired} from '@/composables/useRequired'
 import {runAction} from '@/composables/runAction'
@@ -57,23 +57,25 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useDiningStore} from '@/stores/useDiningStore'
+import {useCollectionStore} from '@/stores/useCollectionStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
+const {view: diningView} = storeToRefs(useDiningStore())
+const {view: collectionView} = storeToRefs(useCollectionStore())
 const complete = useRequired<CompleteDiningInput>(CompleteDiningInput.Token)
 const removeReceipt = useRequired<DeleteReceiptInput>(DeleteReceiptInput.Token)
 const receiptId = ref('')
 const finishing = ref(false)
 const isSavedView = computed(() => Boolean(receiptId.value))
-const savedReceipt = computed(() => view.value.receipts.find(receipt => receipt.id === receiptId.value))
-const displayReceipt = computed(() => savedReceipt.value || view.value.previewReceipt)
+const savedReceipt = computed(() => collectionView.value.receipts.find(receipt => receipt.id === receiptId.value))
+const displayReceipt = computed(() => savedReceipt.value || diningView.value.previewReceipt)
 const receiptResult = computed(() => displayReceipt.value.result)
 const shortId = computed(() => displayReceipt.value.id.split('-').pop()?.toUpperCase() || 'DINING')
 const goBack = () => runAction(() => navigation.back(isSavedView.value ? 'receipts' : 'menu'))
 onLoad(query => void runAction(async () => {
   receiptId.value = query?.receiptId ? decodeURIComponent(query.receiptId) : ''
   if (receiptId.value && !savedReceipt.value) await navigation.open('receipts', 'replace')
-  else if (!receiptId.value && !view.value.canFinish) await navigation.open('menu', 'replace')
+  else if (!receiptId.value && !diningView.value.canFinish) await navigation.open('menu', 'replace')
 }))
 
 function finish(collectReceipt: boolean) {

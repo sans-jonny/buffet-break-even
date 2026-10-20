@@ -20,6 +20,7 @@ function inspectSource(file, source) {
   const context = file.match(/^(contexts\/(independent|orchestration)\/[^/]+)\//)
   const inner = /\/(domain|application)\//.test(file)
   const domain = /\/domain\//.test(file)
+  if (domain && context?.[2] === 'orchestration') report('Orchestration 不得建立 Domain')
   const publicFile = context && file === `${context[1]}/public.ts`
   if (publicFile && ast.statements.some(node => !ts.isExportDeclaration(node))) {
     report('public.ts 只能包含 Port.In 契约的具名导出')
@@ -54,7 +55,7 @@ function inspectSource(file, source) {
         if (domain && context[2] === 'orchestration') report('Orchestration 不得建立 Domain')
       }
       if (!inner && target.startsWith('contexts/') && !target.startsWith(`${context[1]}/`)) {
-        if (/\/composition\//.test(file) || !/\/public(?:\.ts)?$/.test(target)) report(`Context 不得访问其他 Context 的内部实现 ${specifier}`)
+        if ((context[2] === 'independent' && /\/composition\//.test(file)) || !/\/public(?:\.ts)?$/.test(target)) report(`Context 不得访问其他 Context 的内部实现 ${specifier}`)
       }
       if (/\/application\/port\/in\//.test(file) && !target.startsWith(`${path.posix.dirname(file)}/`)) {
         report(`Port.In 契约必须自包含，不得泄露内部模型 ${specifier}`)
@@ -63,8 +64,8 @@ function inspectSource(file, source) {
     if (publicFile) {
       if (!ts.isExportDeclaration(node) || !target?.startsWith(`${context[1]}/application/port/in/`)
         || !node.exportClause || !ts.isNamedExports(node.exportClause)
-        || node.exportClause.elements.some(item => !/(Input|Request|Response)$/.test((item.propertyName || item.name).text))) {
-        report('public.ts 只能具名导出 Port.In、Request、Response')
+        || node.exportClause.elements.some(item => !/Input$/.test((item.propertyName || item.name).text))) {
+        report('public.ts 只能具名导出 Input，Request / Response 由 Input 内部公开')
       }
     }
     if (/^(pages|components|composables)\//.test(file) && target?.startsWith('contexts/')

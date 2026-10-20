@@ -50,14 +50,14 @@ function harness() {
   }
   const pinia = createPinia()
   setActivePinia(pinia)
-  const store = load('stores/useBuffetViewStore').useBuffetViewStore(pinia)
+  const store = load('stores/useDiningStore').useDiningStore(pinia)
   load('composition/registerApplication').registerApplication({ provide: (token, service) => services.set(token, service) }, pinia)
   const nav = Object.fromEntries(['open', 'toOrderSlip', 'toResult', 'toRecord', 'back'].map(method => [method, async (...args) => { navigation.push([method, ...args]) }]))
   services.set(load('navigation/BuffetNavigation').BuffetNavigation, nav)
-  services.get(load('contexts/independent/buffet/public').LoadBuffetInput.Token).execute({})
-  return { store, navigation, toasts, hooks,
+  for (const [ctx, name] of [['dining', 'LoadDining'], ['dining-history', 'LoadHistory'], ['receipt-collection', 'LoadCollection']]) services.get(load('contexts/independent/' + ctx + '/public')[name + 'Input'].Token).execute({})
+  return { store, history: load('stores/useHistoryStore').useHistoryStore(pinia), collection: load('stores/useCollectionStore').useCollectionStore(pinia), navigation, toasts, hooks,
     page: file => load(`pages/${file}/index.vue`).default.setup({}, { expose: () => {} }),
-    input: name => services.get(load(`contexts/independent/${name === 'GetMenu' ? 'catalog' : 'buffet'}/public`)[`${name}Input`].Token) }
+    input: name => services.get(load('contexts/' + ({ CompleteDining: 'orchestration/complete-dining', DeleteRecord: 'independent/dining-history', DeleteReceipt: 'independent/receipt-collection', GetMenu: 'independent/catalog' }[name] || 'independent/dining') + '/public')[name + 'Input'].Token) }
 }
 const flush = async () => { await Promise.resolve(); await Promise.resolve(); await vue.nextTick() }
 
@@ -92,8 +92,8 @@ test('真实页面事件从开始、菜单加减、提交到结果收藏，展�
   assert.equal(app.store.view.session.rounds.length, 1)
   result.save()
   await flush()
-  assert.equal(app.store.view.records[0].rounds.length, 2)
-  assert.equal(app.store.view.receipts[0].value, 15.5)
+  assert.equal(app.history.view.records[0].rounds.length, 2)
+  assert.equal(app.collection.view.receipts[0].value, 15.5)
   assert.deepEqual(app.navigation.at(-1), ['open', 'mine', 'reset'])
 })
 
@@ -111,7 +111,7 @@ test('页面无效输入展示错误且不导航；多个结果页的选择状�
   app.input('CompleteDining').execute({ collectReceipt: true })
   const first = app.page('result')
   const second = app.page('result')
-  const receiptId = app.store.view.records[0].id
+  const receiptId = app.history.view.records[0].id
   first.receiptId.value = receiptId
   assert.equal(first.displayReceipt.value.value, 8)
   assert.equal(second.receiptId.value, '')
@@ -120,7 +120,7 @@ test('页面无效输入展示错误且不导航；多个结果页的选择状�
   detail.recordId.value = receiptId
   detail.confirmDelete()
   await flush()
-  assert.equal(app.store.view.records.length, 0)
-  assert.equal(app.store.view.receipts.length, 1)
+  assert.equal(app.history.view.records.length, 0)
+  assert.equal(app.collection.view.receipts.length, 1)
   assert.equal(detail.receipt.value, undefined)
 })

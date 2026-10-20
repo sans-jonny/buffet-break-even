@@ -32,10 +32,10 @@ import {BuffetNavigation} from '@/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 import {storeToRefs} from 'pinia'
-import {useBuffetViewStore} from '@/stores/useBuffetViewStore'
+import {useCollectionStore} from '@/stores/useCollectionStore'
 
-const {view} = storeToRefs(useBuffetViewStore())
-const receipts = computed(() => view.value.receipts)
+const {view: collectionView} = storeToRefs(useCollectionStore())
+const receipts = computed(() => collectionView.value.receipts)
 const openReceipt = (id: string) => runAction(() => navigation.toResult(id))
 </script>
 
