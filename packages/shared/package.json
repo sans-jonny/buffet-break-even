@@ -1,0 +1,8 @@
+{
+  "name": "@buffet/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "纯领域与协议共享包，供前端 uni-app 与后端 NestJS 复用",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}
