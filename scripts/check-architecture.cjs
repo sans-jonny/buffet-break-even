@@ -2,9 +2,9 @@ const fs = require('node:fs')
 const path = require('node:path')
 const ts = require('typescript')
 
-const contextEntry = /^contexts\/(catalog|dining)\/public$/
+const contextEntry = /^contexts\/(catalog|dining|room)\/public$/
 const moduleEntry = /^contexts\/dining\/(session|history|collection|completion)\/public$/
-const contextOf = file => file.match(/^contexts\/(catalog|dining)\//)?.[1]
+const contextOf = file => file.match(/^contexts\/(catalog|dining|room)\//)?.[1]
 const moduleOf = file => file.match(/^(contexts\/dining\/(session|history|collection|completion))\//)?.[1]
 
 function inspectSource(file, source) {
@@ -69,13 +69,13 @@ function inspectSource(file, source) {
     }
     if (publicFile) {
       const allowedTarget = module ? target?.startsWith(`${owner}/application/port/in/`)
-        : context === 'dining' ? moduleEntry.test(target || '') : target?.startsWith('contexts/catalog/application/port/in/')
+        : context === 'dining' ? moduleEntry.test(target || '') : target?.startsWith(`${owner}/application/port/in/`)
       if (!ts.isExportDeclaration(node) || !allowedTarget || !node.exportClause || !ts.isNamedExports(node.exportClause)
         || node.exportClause.elements.some(item => !/Input$/.test((item.propertyName || item.name).text) || !/Input$/.test(item.name.text))) report('公共入口只能具名导出 Input')
     }
     if (/^ui\/(pages|components|composables)\//.test(file) && target?.startsWith('contexts/') && !contextEntry.test(target)) report(`页面只能访问上下文公共入口 ${specifier}`)
     if (/^ui\/(pages|components)\//.test(file) && target?.startsWith('ui/stores/')) report('页面和组件通过只读 composable 访问展示状态')
-    if (file.startsWith('ui/composables/') && target?.startsWith('ui/stores/') && !/^ui\/composables\/use(Dining|History|Collection|Application)View\.ts$/.test(file)) report('Store 只允许由约定的只读入口访问')
+    if (file.startsWith('ui/composables/') && target?.startsWith('ui/stores/') && !/^ui\/composables\/use(Dining|History|Collection|Application|Room)View\.ts$/.test(file)) report('Store 只允许由约定的只读入口访问')
     if (file.startsWith('ui/stores/') && ((target !== null && !target.startsWith('presentation/'))
       || (target === null && !['vue', 'pinia'].includes(specifier)))) report('Store 只能依赖展示契约和 Vue / Pinia')
     if (file.startsWith('presentation/') && ((target !== null && !/^(presentation|utils|data)\//.test(target)) || target === null)) report('共享展示契约与映射保持无框架、无领域依赖')
