@@ -1,8 +1,8 @@
 <template>
   <view class="sub-page">
     <initialization-gate>
-    <view v-if="receipts.length" class="receipt-grid">
-      <view v-for="(item, index) in receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
+    <view v-if="collectionStore.view.receipts.length" class="receipt-grid">
+      <view v-for="(item, index) in collectionStore.view.receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
         <view class="thumb-paper">
           <text class="paper-title">BUFFET-CALC</text>
           <text class="paper-price">¥{{ item.value }} / ¥{{ item.price }}</text>
@@ -28,16 +28,14 @@
 
 <script setup lang="ts">
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed} from 'vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useCollectionView} from '@/ui/composables/useCollectionView'
+import {useCollectionStore} from '@/ui/stores/useCollectionStore'
 
-const {view: collectionView} = useCollectionView()
-const receipts = computed(() => collectionView.value.receipts)
+const collectionStore = useCollectionStore()
 const openReceipt = (id: string) => runAction(() => navigation.toResult(id))
 </script>
 

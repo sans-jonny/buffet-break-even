@@ -74,8 +74,6 @@ function inspectSource(file, source) {
         || node.exportClause.elements.some(item => !/Input$/.test((item.propertyName || item.name).text) || !/Input$/.test(item.name.text))) report('公共入口只能具名导出 Input')
     }
     if (/^ui\/(pages|components|composables)\//.test(file) && target?.startsWith('contexts/') && !contextEntry.test(target)) report(`页面只能访问上下文公共入口 ${specifier}`)
-    if (/^ui\/(pages|components)\//.test(file) && target?.startsWith('ui/stores/')) report('页面和组件通过只读 composable 访问展示状态')
-    if (file.startsWith('ui/composables/') && target?.startsWith('ui/stores/') && !/^ui\/composables\/use(Dining|History|Collection|Application|Room)View\.ts$/.test(file)) report('Store 只允许由约定的只读入口访问')
     if (file.startsWith('ui/stores/') && ((target !== null && !target.startsWith('presentation/'))
       || (target === null && !['vue', 'pinia'].includes(specifier)))) report('Store 只能依赖展示契约和 Vue / Pinia')
     if (file.startsWith('presentation/') && ((target !== null && !/^(presentation|utils|data)\//.test(target)) || target === null)) report('共享展示契约与映射保持无框架、无领域依赖')
@@ -90,7 +88,7 @@ function inspectSource(file, source) {
       && node.arguments[0] && ts.isStringLiteral(node.arguments[0])) check(node.arguments[0].text, node)
     if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument) && ts.isStringLiteral(node.argument.literal)) check(node.argument.literal.text, node)
     if ((inner || file.startsWith('ui/stores/')) && ts.isIdentifier(node) && node.text === 'uni') report('内层和 Store 不得访问平台 API')
-    if (file.startsWith('ui/composables/') && ts.isPropertyAccessExpression(node) && ['present', '$patch', '$reset', '$state'].includes(node.name.text)) report('只读入口不得调用 Store 写入能力')
+    if (/^ui\/(pages|components|composables)\//.test(file) && ts.isPropertyAccessExpression(node) && ['present', '$patch', '$reset', '$state'].includes(node.name.text)) report('页面和组件不得绕过 Presenter 写入展示快照')
     if (input && ts.isClassDeclaration(node) && node.name && /^(Request|Response)$/.test(node.name.text) && !ts.isModuleBlock(node.parent)) report('Request / Response 必须放在 Input 命名空间内')
     ts.forEachChild(node, visit)
   }

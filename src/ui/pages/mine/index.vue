@@ -11,24 +11,24 @@
 
     <view class="stats-row">
       <view class="flex-center">
-        <text class="stat-value">¥{{ lifetimeDifference }}</text>
+        <text class="stat-value">¥{{ historyStore.view.lifetimeDifference }}</text>
         <text>累计回本</text>
       </view>
       <view class="flex-center">
-        <text class="stat-value">{{ records.length }}</text>
+        <text class="stat-value">{{ historyStore.view.records.length }}</text>
         <text>就餐次数</text>
       </view>
       <view class="trophy flex-center">
         <text class="stat-value">🏆</text>
         <text>成就奖杯</text>
-        <text class="progress-badge inline-flex-center">{{ Math.min(records.length + 1, 7) }}/7</text>
+        <text class="progress-badge inline-flex-center">{{ Math.min(historyStore.view.records.length + 1, 7) }}/7</text>
       </view>
     </view>
 
     <text class="section-title">我的资产</text>
     <view class="settings-card">
-      <mine-setting-row icon="🧾" label="小票夹" icon-theme="orange" :badge="receipts.length" @click="openReceipts"/>
-      <mine-setting-row icon="📋" label="点餐明细" icon-theme="green" :badge="totalRoundsSaved" @click="openRecords"/>
+      <mine-setting-row icon="🧾" label="小票夹" icon-theme="orange" :badge="collectionStore.view.receipts.length" @click="openReceipts"/>
+      <mine-setting-row icon="📋" label="点餐明细" icon-theme="green" :badge="historyStore.view.totalRoundsSaved" @click="openRecords"/>
       <mine-setting-row icon="❤️" label="我的最爱" icon-theme="white"/>
       <mine-setting-row icon="🔥" label="必吃榜" icon-theme="peach" :divider="false"/>
     </view>
@@ -46,22 +46,17 @@
 
 <script setup lang="ts">
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed} from 'vue'
 import MineSettingRow from '@/ui/components/mine-setting-row/mine-setting-row.vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useHistoryView} from '@/ui/composables/useHistoryView'
-import {useCollectionView} from '@/ui/composables/useCollectionView'
+import {useHistoryStore} from '@/ui/stores/useHistoryStore'
+import {useCollectionStore} from '@/ui/stores/useCollectionStore'
 
-const {view: historyView} = useHistoryView()
-const {view: collectionView} = useCollectionView()
-const receipts = computed(() => collectionView.value.receipts)
-const records = computed(() => historyView.value.records)
-const lifetimeDifference = computed(() => historyView.value.lifetimeDifference)
-const totalRoundsSaved = computed(() => historyView.value.totalRoundsSaved)
+const historyStore = useHistoryStore()
+const collectionStore = useCollectionStore()
 const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
 const pageStyle = {paddingTop: (statusBarHeight + uni.upx2px(24)) + 'px'}
 const openReceipts = () => runAction(() => navigation.open('receipts'))

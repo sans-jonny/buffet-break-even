@@ -1,17 +1,17 @@
 <template>
-  <slot v-if="view.status === 'ready'"/>
+  <slot v-if="applicationStore.view.status === 'ready'"/>
   <view v-else class="initialization-state">
-    <text>{{ view.status === 'error' ? view.message : '正在读取用餐数据…' }}</text>
-    <button v-if="view.status === 'error'" size="mini" @tap="retry">重新读取</button>
+    <text>{{ applicationStore.view.status === 'error' ? applicationStore.view.message : '正在读取用餐数据…' }}</text>
+    <button v-if="applicationStore.view.status === 'error'" size="mini" @tap="retry">重新读取</button>
   </view>
 </template>
 
 <script setup lang="ts">
 import {ApplicationBootstrap} from '@/ui/composition/ApplicationBootstrap'
 import {useRequired} from '@/ui/composables/useRequired'
-import {useApplicationView} from '@/ui/composables/useApplicationView'
+import {useApplicationStore} from '@/ui/stores/useApplicationStore'
 
-const {view} = useApplicationView()
+const applicationStore = useApplicationStore()
 const bootstrap = useRequired<ApplicationBootstrap>(ApplicationBootstrap.Token)
 const retry = () => bootstrap.initialize()
 </script>

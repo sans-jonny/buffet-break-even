@@ -26,9 +26,9 @@ test('页面仅访问上下文 API，覆盖相对路径、类型、动态导入�
     "const module = import('@/contexts/dining/session/public')",
     "export {Product} from '@/contexts/catalog/../dining/session/model/snapshot/Product'",
     "const module = require('@/contexts/catalog/model/Product')",
-    "import {useDiningStore} from '@/ui/stores/useDiningStore'",
   ]) rejected(file, `<script>${source}</script>`)
   accepted(file, '<script>import {BeginSessionInput} from "@/contexts/dining/public.ts"; void BeginSessionInput.Token</script>')
+  accepted(file, '<script>import {useDiningStore} from "@/ui/stores/useDiningStore"</script>')
 })
 
 test('领域和应用层不依赖框架、基础设施及其他上下文', () => {
@@ -63,11 +63,12 @@ test('保留 port/in、port/out 与 Input 内部类契约，不强制所有模�
   accepted('contexts/dining/session/application/interactor/Example.ts', "import type {DiningReader} from '../port/out/DiningReader'; export class Example {constructor(private reader: DiningReader) {}}")
 })
 
-test('Store 与只读入口不承担业务，Presenter 不感知具体数据库', () => {
+test('Store 不承担领域业务，页面直接使用 Store，展示快照由 Presenter 发布', () => {
   rejected('ui/stores/example.ts', "import {DiningSession} from '@/contexts/dining/session/model/DiningSession'")
   rejected('ui/stores/example.ts', 'uni.getStorageSync("x")')
   accepted('ui/stores/example.ts', "import {defineStore} from 'pinia'; import type {DiningView} from '@/presentation/dining/DiningView'")
-  rejected('ui/composables/useDiningView.ts', 'const store = getStore(); store.present({})')
+  rejected('ui/pages/menu/index.vue', '<script>const store = useDiningStore(); store.present({})</script>')
+  rejected('ui/components/example.vue', '<script>const store = useDiningStore(); store.$patch({})</script>')
   rejected('contexts/dining/history/infrastructure/presentation/Example.ts', "import type {LocalDiningDatabase} from '@/infrastructure/persistence/LocalDiningDatabase'")
   rejected('contexts/dining/history/infrastructure/presentation/Example.ts', "import {useHistoryStore} from '@/ui/stores/useHistoryStore'")
 })

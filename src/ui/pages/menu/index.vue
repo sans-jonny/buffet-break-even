@@ -2,7 +2,7 @@
   <view class="menu-page">
     <initialization-gate>
     <view class="progress-area">
-      <progress-panel :value="displayValue" :target="session.ticketPrice" :percent="breakEven.percent"
+      <progress-panel :value="diningStore.view.displayValue" :target="diningStore.view.session.ticketPrice" :percent="diningStore.view.breakEven.percent"
                       :tips="progressTips"/>
     </view>
 
@@ -30,7 +30,7 @@
           {{ activeCategory }}
         </view>
         <product-card v-for="product in filteredProducts" :key="product.id" :product="product"
-                      :count="session.selected[product.id]" @add="addItem"/>
+                      :count="diningStore.view.session.selected[product.id]" @add="addItem"/>
         <view v-if="!filteredProducts.length" class="empty-products flex-center">
           <text>🍽️</text>
           <text>所选等级暂无此类菜品</text>
@@ -39,15 +39,15 @@
       </scroll-view>
     </view>
 
-    <view v-if="totalSelectedCount > 0 || session.rounds.length" class="floating-actions">
+    <view v-if="diningStore.view.totalSelectedCount > 0 || diningStore.view.session.rounds.length" class="floating-actions">
       <view class="outline-action flex-center" @tap="finish">🧾 今日战果</view>
-      <view v-if="totalSelectedCount > 0" class="solid-action flex-center" @tap="showCart = true">🛒 已选
-        ({{ totalSelectedCount }})
+      <view v-if="diningStore.view.totalSelectedCount > 0" class="solid-action flex-center" @tap="showCart = true">🛒 已选
+        ({{ diningStore.view.totalSelectedCount }})
       </view>
       <view v-else class="solid-action flex-center" @tap="finish">查看结果</view>
     </view>
 
-    <cart-sheet v-if="showCart" :lines="selectedLines" :total="currentRoundValue" @close="showCart = false"
+    <cart-sheet v-if="showCart" :lines="diningStore.view.selectedLines" :total="diningStore.view.currentRoundValue" @close="showCart = false"
                 @add="addItem" @remove="removeItem" @confirm="openOrderSlip"/>
     <app-tabbar active="menu" @select="openTab"/>
   </initialization-gate>
@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import {useApplicationView} from '@/ui/composables/useApplicationView'
+import {useApplicationStore} from '@/ui/stores/useApplicationStore'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {computed, ref, watch} from 'vue'
 import {onShow} from '@dcloudio/uni-app'
@@ -68,11 +68,11 @@ import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const {ready} = useApplicationView()
+const applicationStore = useApplicationStore()
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useDiningView} from '@/ui/composables/useDiningView'
+import {useDiningStore} from '@/ui/stores/useDiningStore'
 
-const {view: diningView, session, selectedLines, currentRoundValue, displayValue, totalSelectedCount, breakEven} = useDiningView()
+const diningStore = useDiningStore()
 const getMenu = useRequired<GetMenuInput>(GetMenuInput.Token)
 const changeSelection = useRequired<ChangeSelectionInput>(ChangeSelectionInput.Token)
 const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
@@ -84,8 +84,7 @@ const selectedDiningLevels = ref<string[]>([])
 const filteredProducts = computed(() => getMenu.execute({
   category: activeCategory.value,
   levels: [...selectedDiningLevels.value]
-})
-    .products.map(product => ({...product, ...productAppearance(product.id)})))
+}).products.map(product => ({...product, ...productAppearance(product.id)})))
 const selectCategory = (category: string) => {
   activeCategory.value = category
 }
@@ -103,23 +102,23 @@ const progressTips = [
 const addItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: 1}))
 const removeItem = (productId: string) => runAction(() => changeSelection.execute({productId, change: -1}))
 function checkDining() {
-  if (!ready.value) return
+  if (!applicationStore.ready) return
   return runAction(async () => {
     load.execute({})
-    if (!session.value.active) await navigation.open('setup', 'reset')
+    if (!diningStore.view.session.active) await navigation.open('setup', 'reset')
   })
 }
 onShow(() => { void checkDining() })
-watch(ready, initialized => { if (initialized) void checkDining() })
+watch(() => applicationStore.ready, initialized => { if (initialized) void checkDining() })
 
 function openOrderSlip() {
-  if (!selectedLines.value.length) return
+  if (!diningStore.view.selectedLines.length) return
   showCart.value = false
   void runAction(() => navigation.toOrderSlip())
 }
 
 function finish() {
-  if (!diningView.value.canFinish) {
+  if (!diningStore.view.canFinish) {
     uni.showToast({title: '先点一些菜吧', icon: 'none'});
     return
   }

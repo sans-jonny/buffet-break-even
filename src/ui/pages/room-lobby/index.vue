@@ -24,8 +24,8 @@
 
       <view class="button" @tap="join">加入房间</view>
 
-      <text v-if="view.connection === 'connecting'" class="hint">连接中…</text>
-      <text v-if="view.error" class="error">{{ view.error }}</text>
+      <text v-if="roomStore.view.connection === 'connecting'" class="hint">连接中…</text>
+      <text v-if="roomStore.view.error" class="error">{{ roomStore.view.error }}</text>
     </view>
   </view>
 </template>
@@ -37,23 +37,23 @@ import {CreateRoomInput, JoinRoomInput} from '@/contexts/room/public'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {useRoomView} from '@/ui/composables/useRoomView'
+import {useRoomStore} from '@/ui/stores/useRoomStore'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 const createRoom = useRequired<CreateRoomInput>(CreateRoomInput.Token)
 const joinRoom = useRequired<JoinRoomInput>(JoinRoomInput.Token)
-const {view} = useRoomView()
+const roomStore = useRoomStore()
 
 const nickname = ref('')
 const roomCodeInput = ref('')
 
 function goRoom() {
-  if (view.value.roomCode) void navigation.toRoom()
+  if (roomStore.view.roomCode) void navigation.toRoom()
 }
 
 // 首次显示（或从房间返回）时若已在房，直接进房；建房/加入成功后靠 watch 兜底跳转。
 onShow(() => goRoom())
-watch(() => view.value.roomCode, code => {
+watch(() => roomStore.view.roomCode, code => {
   if (code) goRoom()
 })
 

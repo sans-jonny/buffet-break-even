@@ -55,9 +55,9 @@ import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useDiningView} from '@/ui/composables/useDiningView'
+import {useDiningStore} from '@/ui/stores/useDiningStore'
 
-const {view: diningView} = useDiningView()
+const diningStore = useDiningStore()
 const begin = useRequired<BeginSessionInput>(BeginSessionInput.Token)
 const ticketInput = ref('200')
 const starting = ref(false)
@@ -73,7 +73,7 @@ function start(mode: string) {
       starting.value = false
     }
   })
-  if (diningView.value.session.active) {
+  if (diningStore.view.session.active) {
     uni.showModal({
       title: '已有进行中的用餐', content: '重新开始会清空当前待选和轮次。取消可继续当前用餐。',
       confirmText: '重新开始', cancelText: '继续用餐',

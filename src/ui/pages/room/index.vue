@@ -2,22 +2,22 @@
   <view class="room">
     <view class="topbar">
       <view class="topbar-info">
-        <text class="room-code">房间 {{ view.roomCode }}</text>
+        <text class="room-code">房间 {{ roomStore.view.roomCode }}</text>
         <text class="room-status">{{ statusText }}</text>
       </view>
       <view class="leave" @tap="doLeave">离开</view>
     </view>
 
-    <text v-if="view.error" class="error">{{ view.error }}</text>
+    <text v-if="roomStore.view.error" class="error">{{ roomStore.view.error }}</text>
 
     <scroll-view scroll-y class="scroll">
       <!-- 结算结果 -->
-      <view v-if="view.result" class="result">
+      <view v-if="roomStore.view.result" class="result">
         <text class="result-title">🎉 结算完成</text>
-        <text class="result-value">合计回本 ¥{{ view.result.value }}</text>
-        <text class="result-price">门票 ¥{{ view.result.price }}</text>
+        <text class="result-value">合计回本 ¥{{ roomStore.view.result.value }}</text>
+        <text class="result-price">门票 ¥{{ roomStore.view.result.price }}</text>
         <text v-if="amHost && savedLocally" class="result-saved">✅ 已保存到本地（仅你可见）</text>
-        <view v-for="p in view.result.byParticipant" :key="p.participantId" class="result-person">
+        <view v-for="p in roomStore.view.result.byParticipant" :key="p.participantId" class="result-person">
           <view class="result-person-head">
             <text class="person-name">{{ p.nickname }}</text>
             <text class="person-value">¥{{ p.value }}</text>
@@ -27,8 +27,8 @@
       </view>
 
       <!-- 参与者 -->
-      <view v-if="!view.result" class="participants">
-        <view v-for="p in view.participants" :key="p.id" class="chip" :class="{self: p.isSelf}">
+      <view v-if="!roomStore.view.result" class="participants">
+        <view v-for="p in roomStore.view.participants" :key="p.id" class="chip" :class="{self: p.isSelf}">
           <text>{{ p.nickname }}</text>
           <text v-if="p.isHost" class="badge">房主</text>
           <text v-if="p.isSelf" class="badge me">我</text>
@@ -36,7 +36,7 @@
       </view>
 
       <!-- 未开始：房主开始 -->
-      <view v-if="!view.result && !view.active" class="begin-panel">
+      <view v-if="!roomStore.view.result && !roomStore.view.active" class="begin-panel">
         <text v-if="!amHost" class="wait">⏳ 等待房主开始…</text>
         <template v-else>
           <text class="label">门票价格</text>
@@ -49,10 +49,10 @@
       </view>
 
       <!-- 用餐中 -->
-      <template v-if="!view.result && view.active">
+      <template v-if="!roomStore.view.result && roomStore.view.active">
         <view class="section">
           <text class="section-title">当前待选</text>
-          <view v-for="s in view.selections" :key="s.participantId" v-show="s.lines.length" class="selection">
+          <view v-for="s in roomStore.view.selections" :key="s.participantId" v-show="s.lines.length" class="selection">
             <text class="selection-name">{{ s.nickname }}</text>
             <view class="selection-lines">
               <view v-for="line in s.lines" :key="line.id" class="selection-line">
@@ -83,17 +83,17 @@
         </view>
 
         <view class="section">
-          <text class="section-title">已提交 · 合计 ¥{{ view.committedValue }}</text>
-          <view v-for="r in view.rounds" :key="r.time + r.participantId" class="round">
+          <text class="section-title">已提交 · 合计 ¥{{ roomStore.view.committedValue }}</text>
+          <view v-for="r in roomStore.view.rounds" :key="r.time + r.participantId" class="round">
             <text class="round-head">{{ r.nickname }} · ¥{{ r.value }}</text>
             <text class="round-lines">{{ linesText(r.lines) }}</text>
           </view>
-          <text v-if="!view.rounds.length" class="empty">还没有提交记录</text>
+          <text v-if="!roomStore.view.rounds.length" class="empty">还没有提交记录</text>
         </view>
       </template>
     </scroll-view>
 
-    <view v-if="!view.result && view.active" class="footer">
+    <view v-if="!roomStore.view.result && roomStore.view.active" class="footer">
       <view class="action ghost" @tap="doCommit">提交本轮</view>
       <view v-if="amHost" class="action danger" @tap="doFinish">结束用餐</view>
     </view>
@@ -114,7 +114,7 @@ import {SaveRecordInput, CollectReceiptInput} from '@/contexts/dining/public'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {useRoomView} from '@/ui/composables/useRoomView'
+import {useRoomStore} from '@/ui/stores/useRoomStore'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 const begin = useRequired<BeginRoomInput>(BeginRoomInput.Token)
@@ -125,24 +125,24 @@ const leaveRoom = useRequired<LeaveRoomInput>(LeaveRoomInput.Token)
 const saveRecord = useRequired<SaveRecordInput>(SaveRecordInput.Token)
 const collectReceipt = useRequired<CollectReceiptInput>(CollectReceiptInput.Token)
 
-const {view} = useRoomView()
+const roomStore = useRoomStore()
 const ticketInput = ref('200')
 const savedLocally = ref(false)
 
-const me = computed(() => view.value.participants.find(p => p.isSelf))
+const me = computed(() => roomStore.view.participants.find(p => p.isSelf))
 const amHost = computed(() => me.value?.isHost ?? false)
 const grouped = computed(() => categories
     .map(category => ({category, items: products.filter(p => p.category === category)}))
     .filter(g => g.items.length))
-const noSelection = computed(() => view.value.selections.every(s => s.lines.length === 0))
+const noSelection = computed(() => roomStore.view.selections.every(s => s.lines.length === 0))
 const statusText = computed(() => {
-  if (view.value.result) return '已结束'
-  if (view.value.active) return '用餐中'
+  if (roomStore.view.result) return '已结束'
+  if (roomStore.view.active) return '用餐中'
   return '等待开始'
 })
 
 function myCount(id: string): number {
-  return view.value.selections.find(s => s.participantId === view.value.selfId)?.lines.find(l => l.id === id)?.count ?? 0
+  return roomStore.view.selections.find(s => s.participantId === roomStore.view.selfId)?.lines.find(l => l.id === id)?.count ?? 0
 }
 
 function change(id: string, delta: 1 | -1) {
@@ -170,7 +170,7 @@ function doLeave() {
 }
 
 // 结算结果仅由房主落到本地（历史记录 + 小票收藏）。
-function saveLocally(result: NonNullable<typeof view.value.result>) {
+function saveLocally(result: NonNullable<typeof roomStore.view.result>) {
   const record = {
     id: `room-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
     restaurant: '多人房间',
@@ -188,7 +188,7 @@ function saveLocally(result: NonNullable<typeof view.value.result>) {
   collectReceipt.execute(new CollectReceiptInput.Request(record))
 }
 
-watch(() => view.value.result, result => {
+watch(() => roomStore.view.result, result => {
   if (!result) {
     savedLocally.value = false
     return
@@ -200,7 +200,7 @@ watch(() => view.value.result, result => {
 })
 
 // 离开或房间结束后房码清空，自动退回上一页。
-watch(() => view.value.roomCode, code => {
+watch(() => roomStore.view.roomCode, code => {
   if (!code) void navigation.back('setup')
 })
 </script>

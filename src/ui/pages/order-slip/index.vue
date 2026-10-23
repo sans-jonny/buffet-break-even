@@ -11,7 +11,7 @@
       </view>
       <text class="order-time">{{ date }} {{ time }}</text>
       <view class="paper-rule"/>
-      <view v-for="line in selectedLines" :key="line.product.id" class="order-line">
+      <view v-for="line in diningStore.view.selectedLines" :key="line.product.id" class="order-line">
         <text class="order-qty">{{ line.count }}x</text>
         <text>{{ line.product.name }}</text>
         <text class="order-check">✓</text>
@@ -26,8 +26,8 @@
 
 <script setup lang="ts">
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed, ref, watch} from 'vue'
-import {useApplicationView} from '@/ui/composables/useApplicationView'
+import {ref, watch} from 'vue'
+import {useApplicationStore} from '@/ui/stores/useApplicationStore'
 import {onLoad} from '@dcloudio/uni-app'
 import {CommitRoundInput} from '@/contexts/dining/public'
 import {currentDate, currentTime} from '@/utils/format'
@@ -36,20 +36,19 @@ import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const {ready} = useApplicationView()
-import {useDiningView} from '@/ui/composables/useDiningView'
+const applicationStore = useApplicationStore()
+import {useDiningStore} from '@/ui/stores/useDiningStore'
 
-const {view: diningView} = useDiningView()
+const diningStore = useDiningStore()
 const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
 const date = ref(currentDate())
 const time = ref(currentTime())
-const selectedLines = computed(() => diningView.value.selectedLines)
 const submitting = ref(false)
 function checkSelection() {
-  if (ready.value && !selectedLines.value.length) return runAction(() => navigation.open('menu', 'replace'))
+  if (applicationStore.ready && !diningStore.view.selectedLines.length) return runAction(() => navigation.open('menu', 'replace'))
 }
 onLoad(() => { void checkSelection() })
-watch(ready, initialized => { if (initialized) void checkSelection() })
+watch(() => applicationStore.ready, initialized => { if (initialized) void checkSelection() })
 
 function completeRound() {
   if (submitting.value) return

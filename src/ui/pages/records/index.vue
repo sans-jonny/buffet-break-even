@@ -2,13 +2,13 @@
   <view class="sub-page">
     <initialization-gate>
     <view class="records-body">
-      <records-overview :meals="records.length" :rounds="totalRoundsSaved" :dishes="totalDishesSaved"/>
-      <view v-for="(item, index) in records" :key="item.id" class="record-card"
+      <records-overview :meals="historyStore.view.records.length" :rounds="historyStore.view.totalRoundsSaved" :dishes="historyStore.view.totalDishesSaved"/>
+      <view v-for="(item, index) in historyStore.view.records" :key="item.id" class="record-card"
             :class="{ expanded: expandedRecordId === item.id }">
         <view class="record-summary" @tap="toggleRecord(item.id)">
           <view class="record-copy">
             <view>
-              <text class="label-chip inline-flex-center">第 {{ records.length - index }} 餐</text>
+              <text class="label-chip inline-flex-center">第 {{ historyStore.view.records.length - index }} 餐</text>
               <text class="restaurant">{{ item.restaurant }}</text>
             </view>
             <text class="record-date">{{ item.date }}</text>
@@ -40,7 +40,7 @@
           </view>
         </view>
       </view>
-      <view v-if="!records.length" class="empty-state flex-center">
+      <view v-if="!historyStore.view.records.length" class="empty-state flex-center">
         <text class="empty-icon">📋</text>
         <text class="empty-title">还没有点餐记录</text>
         <text>开始第一顿自助餐吧</text>
@@ -52,18 +52,15 @@
 
 <script setup lang="ts">
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed, ref} from 'vue'
+import {ref} from 'vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useHistoryView} from '@/ui/composables/useHistoryView'
+import {useHistoryStore} from '@/ui/stores/useHistoryStore'
 
-const {view: historyView} = useHistoryView()
-const records = computed(() => historyView.value.records)
-const totalRoundsSaved = computed(() => historyView.value.totalRoundsSaved)
-const totalDishesSaved = computed(() => historyView.value.totalDishesSaved)
+const historyStore = useHistoryStore()
 const expandedRecordId = ref<string | null>(null)
 
 function toggleRecord(id: string) {
