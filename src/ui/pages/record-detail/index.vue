@@ -2,7 +2,7 @@
   <view class="sub-page">
     <initialization-gate>
     <view v-if="receipt" class="detail-body">
-      <records-overview :meals="records.length" :rounds="receipt.rounds.length" :dishes="dishCount"/>
+      <records-overview :meals="historyStore.view.records.length" :rounds="receipt.rounds.length" :dishes="dishCount"/>
       <view class="detail-card">
         <view class="detail-head">
           <view>
@@ -44,16 +44,15 @@ import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-import {useHistoryView} from '@/ui/composables/useHistoryView'
+import {useHistoryStore} from '@/ui/stores/useHistoryStore'
 
-const {view: historyView, recordById} = useHistoryView()
+const historyStore = useHistoryStore()
 const remove = useRequired<DeleteRecordInput>(DeleteRecordInput.Token)
 const recordId = ref('')
-const records = computed(() => historyView.value.records)
-const receipt = computed(() => recordById(recordId.value))
+const receipt = computed(() => historyStore.recordById(recordId.value))
 const dishCount = computed(() => receipt.value?.dishCount || 0)
 onLoad(query => void runAction(() => {
-  recordId.value = query?.recordId ? decodeURIComponent(query.recordId) : records.value[Number(query?.index ?? -1)]?.id || ''
+  recordId.value = query?.recordId ? decodeURIComponent(query.recordId) : historyStore.view.records[Number(query?.index ?? -1)]?.id || ''
 }))
 
 function confirmDelete() {

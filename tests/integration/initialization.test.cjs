@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict')
 const test = require('node:test')
 const {application, loadModule, plain} = require('../helpers/runtime.cjs')
-const {isReadonly, nextTick} = require('vue')
+const {computed, isReadonly, nextTick, ref} = require('vue')
 
 test('初始化失败保留已有数据和展示状态，恢复后重试无需写存储', () => {
   const seed = application()
@@ -55,27 +55,37 @@ test('后续加载投影失败也不会发布先前暂存的投影，修复后�
   assert.equal(writes, 0)
 })
 
-test('只读查询入口不暴露写入方法，投影和按 ID 查询随 Store 更新', async () => {
+test('页面直接使用 Store，派生状态和按 ID 查询随 Presenter 更新', async () => {
   const app = application()
+  const status = app.status
+  const dining = app.dining
+  assert.equal(status.ready, false)
   app.bootstrap.initialize()
-  const dining = app.load('ui/composables/useDiningView').useDiningView()
-  const history = app.load('ui/composables/useHistoryView').useHistoryView()
-  const collection = app.load('ui/composables/useCollectionView').useCollectionView()
-  for (const facade of [dining, history, collection]) {
-    assert.equal(facade.present, undefined)
-    assert.equal(isReadonly(facade.view), true)
-    assert.equal(isReadonly(facade.view.value), true)
+  assert.equal(status.ready, true)
+  for (const store of [app.dining, app.history, app.collection]) {
+    assert.equal(isReadonly(store.view), true)
   }
+  const receiptId = ref('')
+  const record = computed(() => app.history.recordById(receiptId.value))
+  const receipt = computed(() => app.collection.receiptById(receiptId.value))
+  assert.equal(record.value, undefined)
   app.execute('BeginSession', {ticketPrice: 20, diningMode: '单人'})
   app.execute('ChangeSelection', {productId: 'beef', change: 1})
-  assert.equal(dining.displayValue.value, 8)
+  assert.equal(dining.view.displayValue, 8)
+  assert.equal(dining.view.selectedLines.length, 1)
+  assert.equal(dining.view.session.active, true)
   const result = app.execute('CompleteDining', {collectReceipt: true})
+  receiptId.value = result.receiptId
   await nextTick()
-  assert.equal(history.recordById(result.receiptId).value, 8)
-  assert.equal(collection.receiptById(result.receiptId).value, 8)
+  assert.equal(record.value.value, 8)
+  assert.equal(receipt.value.value, 8)
+  assert.equal(isReadonly(record.value), true)
+  assert.equal(isReadonly(receipt.value), true)
+  assert.equal(dining.view.session.active, false)
+  assert.equal(dining.view.selectedLines.length, 0)
   app.execute('DeleteRecord', {recordId: result.receiptId})
-  assert.equal(history.recordById(result.receiptId), undefined)
-  assert.equal(collection.receiptById(result.receiptId).value, 8)
+  assert.equal(record.value, undefined)
+  assert.equal(receipt.value.value, 8)
 })
 
 test('默认视图与真实空会话投影一致，纯映射结果不泄露领域引用', () => {

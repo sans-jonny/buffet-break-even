@@ -33,8 +33,8 @@ src/
   utils/             # 纯函数工具
   ui/                # Vue / Pinia / uni-app 源码入口
     composition/     # 全局框架注册与启动加载
-    stores/          # 三个业务快照 Store 和初始化状态
-    composables/     # 页面只读入口与视图逻辑
+    stores/          # 快照状态、按 ID 查询、初始化状态
+    composables/     # 通用注入和动作执行辅助
     navigation/      # uni-app 路由适配
     pages/
     components/
@@ -50,11 +50,11 @@ src/
 
 Vue 页面、组件、Pinia 状态和平台入口集中在 `ui`；业务上下文与共享代码不得反向依赖 `ui`、Vue 或 Pinia。`presentation` 中的 DiningView、HistoryView、CollectionView、ApplicationView 和 ProductAppearanceProvider 是纯 TypeScript 契约；各 View 在自己的命名空间内定义 ViewModel，例如 `DiningView.ViewModel`。具体 Presenter 仍归各业务模块的基础设施层所有。
 
-Presenter 持有对应的 View 接口，将输入模型转换为该 View 所需的 ViewModel，通过 `view.present(viewModel)` 交付。Pinia Store 使用 `satisfies DiningView` 等类型约束实现 View，接收并保存 ViewModel；页面通过 `use**View` 获取只读状态后渲染。Presenter 每次生成独立快照，通过 AfterCommit 在提交成功后发布，不额外缓存一份可变展示状态。多个 View 共用的小票明细继续复用 ReceiptViewModel。
+Presenter 持有对应的 View 接口，将输入模型转换为该 View 所需的 ViewModel，通过 `view.present(viewModel)` 交付。Pinia Store 使用 `satisfies DiningView` 等类型约束实现 View，接收并保存 ViewModel，同时提供按 ID 查询和初始化 ready 状态；页面直接访问 store.view，不再为字段转发添加 computed 或 storeToRefs 解构。四个 use**View composable 已移除。Presenter 每次生成独立快照，通过 AfterCommit 在提交成功后发布，不额外缓存一份可变展示状态。多个 View 共用的小票明细继续复用 ReceiptViewModel。
 
 各业务上下文与内部模块的 `*Configuration.ts` 均位于自身根目录，与 `application`、`infrastructure` 和 `public.ts` 同级，负责组装用例与适配器。它们是模块的组装根，不属于领域模型或基础设施实现；`ui/composition` 负责应用级装配和框架注册。
 
-所有 `dev:*` / `build:*` 命令通过 `scripts/uni.cjs` 把 `UNI_INPUT_DIR` 设置为 `src/ui`。因此 `pages.json` 中的 `pages/...` 路由、组件自动扫描及 `/static/...` 资源路径继续沿用原值。Vite 与 TypeScript 的 `@/` 都指向 `src/`，例如 `@/ui/composables/useDiningView` 和 `@/contexts/dining/public`。日常开发继续使用原来的 npm 命令；直接运行 `uni` 或使用 HBuilderX 时，需要使用同样的输入目录设置。
+所有 `dev:*` / `build:*` 命令通过 `scripts/uni.cjs` 把 `UNI_INPUT_DIR` 设置为 `src/ui`。因此 `pages.json` 中的 `pages/...` 路由、组件自动扫描及 `/static/...` 资源路径继续沿用原值。Vite 与 TypeScript 的 `@/` 都指向 `src/`，例如 `@/ui/stores/useDiningStore` 和 `@/contexts/dining/public`。日常开发继续使用原来的 npm 命令；直接运行 `uni` 或使用 HBuilderX 时，需要使用同样的输入目录设置。
 
 ## 迁移内容
 
@@ -77,7 +77,7 @@ Presenter 持有对应的 View 接口，将输入模型转换为该 View 所需�
 
 ## 边界守卫
 
-检查领域与应用不依赖框架和基础设施；完成流程只访问内部公开契约；跨上下文只访问公开入口；页面不读取内部模块和 Store；只读 composable 不调用写入方法；Presenter 不依赖具体数据库。Input 必须位于 port/in，输出端口位于 port/out，Request / Response 保留在 Input 命名空间内。
+检查领域与应用不依赖框架和基础设施；完成流程只访问内部公开契约；跨上下文只访问公开入口；页面可直接使用展示 Store，但不读取业务内部模块或直接发布、改写展示快照；Store 不依赖业务用例、模型或持久化；Presenter 不依赖具体数据库。Input 必须位于 port/in，输出端口位于 port/out，Request / Response 保留在 Input 命名空间内。
 
 边界依据业务职责，不强制每个模块都建立相同层级。History 以 DiningHistory 为聚合根，保存、删除修改当前实例；构造、保存和读取均直接共享数组及领域记录引用，无复制或冻结，records 以 readonly 声明约束调用方，增删改均原位执行。领域统计单次遍历计算，仓储每次加载独立实例。Collection 移除 ReceiptCollection，端口按操作分为 CollectionReader（findAll）、CollectionSaver（save）和 CollectionDeleter（delete）；用例协调仓储与展示输出，仓储处理同 ID 更新、新收藏置顶和独立删除。目录的数据来源和展示投影各自封装。
 
