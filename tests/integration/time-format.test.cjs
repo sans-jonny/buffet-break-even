@@ -6,7 +6,8 @@ test('ISO 时间按设备时区格式化，包含时区偏移和跨日，不修�
   const previous = process.env.TZ
   process.env.TZ = 'Asia/Taipei'
   try {
-    const {formatDateTime, formatRoundTime} = loadModule('ui/format/time')
+    const {formatDateTime, formatRoundTime, formatReceiptTimestamp} = loadModule('ui/format/time')
+    assert.equal(formatReceiptTimestamp('2026-10-23T08:17:13.654Z'),'2026-10-23 16:17:13')
     assert.equal(formatDateTime('2026-10-23T08:17:13.654Z'), '2026-10-23 16:17')
     assert.equal(formatRoundTime('2026-10-23T08:17:13.654Z'), '16:17:13')
     assert.equal(formatDateTime('2026-10-23T20:17:13Z'), '2026-10-24 04:17')

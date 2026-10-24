@@ -1,14 +1,14 @@
 <template>
   <view class="records-overview">
-    <view>
+    <view class="overview-item overview-divider">
       <text class="overview-value">{{ meals }}</text>
       <text>用餐次数</text>
     </view>
-    <view>
+    <view class="overview-item overview-divider">
       <text class="overview-value">{{ rounds }}</text>
       <text>点餐轮次</text>
     </view>
-    <view>
+    <view class="overview-item">
       <text class="overview-value">{{ dishes }}</text>
       <text>菜品数量</text>
     </view>
@@ -29,7 +29,7 @@ defineProps<{ meals: number; rounds: number; dishes: number }>()
   margin-bottom: 30rpx;
 }
 
-.records-overview > view {
+.overview-item {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -41,7 +41,7 @@ defineProps<{ meals: number; rounds: number; dishes: number }>()
   font-weight: 800;
 }
 
-.records-overview > view:not(:last-child)::after {
+.overview-divider::after {
   content: '';
   position: absolute;
   right: 0;

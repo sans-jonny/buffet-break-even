@@ -1,7 +1,7 @@
 <template>
   <view class="result-page">
     <initialization-gate>
-    <result-navbar @back="goBack"/>
+    <app-navbar fallback title="今日战果" subtitle="今日用餐记录" :show-back="isRoomView && roomEnded ? true : undefined" @back="goBack" @fallback="goBack"/>
 
     <view class="receipt-stage" :class="{'saved-receipt': isSavedView}">
       <view v-if="!isSavedView" class="printer-shell">
@@ -20,33 +20,40 @@
             <text>BUFFET-CALC</text>
             <text class="printing" aria-live="polite">{{ printComplete ? 'PRINT COMPLETE' : 'PRINTING...' }}</text>
           </view>
-          <depth-button class="camera-key" :depth="8" shadow-color="#aaa299" ambient-shadow="0 14rpx 18rpx rgba(0, 0, 0, .16)" label="保存小票到相册" :disabled="album.busy.value || isPrinting" @click="saveToAlbum">
+          <depth-button class="camera-key" :depth="8" shadow-color="#aaa299" ambient-shadow="0 14rpx 18rpx rgba(0, 0, 0, .16)" label="打开保存小票图片" :disabled="album.busy.value || isPrinting" @click="openReceiptPreview">
             <text class="camera-icon iconfont icon-xiangji"/>
           </depth-button>
         </view>
         <view class="printer-slot"/>
       </view>
-      <view v-if="savedReceipt || diningStore.view.canFinish" class="receipt-output" :class="{'is-feeding': isPrinting}" @animationend="onPrintEnd">
+      <view v-if="savedReceipt || diningStore.view.canFinish" class="receipt-output" :class="{'is-feeding': isPrinting}" :style="{'--receipt-print-duration': RECEIPT_PRINT_MS + 'ms'}" @animationend="onPrintEnd">
         <receipt-paper
           :detached="isSavedView"
           :restaurant="displayReceipt.restaurant"
           :type-name="displayReceipt.typeName"
           :participants="displayReceipt.participants"
           :receipt-id="shortId"
-          :date-time="formatDateTime(displayReceipt.date)"
+          :date-time="formatReceiptTimestamp(displayReceipt.date)"
           :price="displayReceipt.price"
           :value="displayReceipt.value"
           :lines="displayReceipt.lines"
           :result="displayReceipt.result"
-          @save-image="saveToAlbum"
+          @save-image="openReceiptPreview"
       />
       </view>
     </view>
 
     <canvas v-if="album.canvasVersion.value" :key="album.canvasVersion.value" canvas-id="receipt-album" id="receipt-album" class="receipt-canvas" :hidpi="false" :style="{width: album.canvasSize.value.width + 'px', height: album.canvasSize.value.height + 'px'}" :width="album.canvasSize.value.width" :height="album.canvasSize.value.height"/>
     <app-dialog v-if="album.previewPath.value" title="保存小票图片" @close="album.previewPath.value = ''">
-      <text class="album-preview-note">长按图片保存，电脑可右键另存为。</text>
-      <image class="album-preview" :src="album.previewPath.value" mode="widthFix" :show-menu-by-longpress="true"/>
+      <text class="album-preview-note">{{ album.busy.value ? '正在保存图片…' : '点击图片下载' }}</text>
+      <!-- #ifdef H5 -->
+      <a :href="album.previewPath.value" :download="album.filename.value" class="album-download">
+        <image class="album-preview" :src="album.previewPath.value" mode="widthFix" :show-menu-by-longpress="false"/>
+      </a>
+      <!-- #endif -->
+      <!-- #ifndef H5 -->
+      <image class="album-preview" :src="album.previewPath.value" mode="widthFix" :show-menu-by-longpress="false" @tap="album.download"/>
+      <!-- #endif -->
     </app-dialog>
     <app-confirm-dialog :controller="album.permissionDialog"/>
 
@@ -56,18 +63,17 @@
     <text v-if="isRoomView && roomStore.view.message" class="room-result-note">{{ roomStore.view.message }}</text>
     <view v-if="isRoomView" class="result-actions">
       <template v-if="roomEnded">
-        <view class="secondary-action flex-center" @tap="finishShared(false)">不收藏，返回首页</view>
-        <view class="primary-action flex-center" @tap="finishShared(true)">存到小票夹</view>
+        <view class="secondary-action flex-center" @tap="finishShared">返回首页</view>
+        <view class="primary-action flex-center" :class="{'receipt-saving': savingReceipt}" @tap="save">{{ savingReceipt ? '保存中…' : '存到小票夹' }}</view>
       </template>
       <template v-else>
-        <view class="secondary-action flex-center" @tap="goBack">继续用餐</view>
-        <view v-if="isHost" class="primary-action flex-center" @tap="endRoom">结束整桌用餐</view>
-        <view v-else class="secondary-action flex-center">等待房主结束</view>
+        <view class="secondary-action flex-center" @tap="isHost ? endRoom() : goBack()">{{ isHost ? '结束整桌用餐' : '继续用餐' }}</view>
+        <view class="primary-action flex-center" :class="{'receipt-saving': savingReceipt}" @tap="save">{{ savingReceipt ? '保存中…' : '存到小票夹' }}</view>
       </template>
     </view>
     <view v-if="!isSavedView && !isRoomView" class="result-actions">
       <view class="secondary-action flex-center" @tap="endDining">结束用餐</view>
-      <view class="primary-action flex-center" @tap="save">存到小票夹</view>
+      <view class="primary-action flex-center" :class="{'receipt-saving': savingReceipt}" @tap="save">{{ savingReceipt ? '保存中…' : '存到小票夹' }}</view>
     </view>
     <app-confirm-dialog :controller="confirmation"/>
   </initialization-gate>
@@ -82,15 +88,15 @@ const confirmation = useAppDialog()
 import {useApplicationStore} from '@/ui/stores/useApplicationStore'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {computed, ref, watch} from 'vue'
-import {onLoad} from '@dcloudio/uni-app'
+import {onLoad, onUnload, onBackPress} from '@dcloudio/uni-app'
 import {CompleteDiningInput} from '@/contexts/dining/public'
 import {DeleteReceiptInput} from '@/contexts/dining/public'
-import ResultNavbar from '@/ui/components/result-navbar/result-navbar.vue'
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {formatDateTime} from '@/ui/format/time'
-import {RoomInput, SaveRoomResultInput} from '@/contexts/dining/public'
+import {formatReceiptTimestamp} from '@/ui/format/time'
+import {RoomInput, SaveRoomResultInput, SaveDiningReceiptInput} from '@/contexts/dining/public'
 import {useRoomStore} from '@/ui/stores/useRoomStore'
 import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 import {useReceiptAlbum} from '@/ui/composables/useReceiptAlbum'
@@ -106,12 +112,22 @@ const roomInput = useRequired<RoomInput>(RoomInput.Token)
 const saveRoom = useRequired<SaveRoomResultInput>(SaveRoomResultInput.Token)
 const collectionStore = useCollectionStore()
 const complete = useRequired<CompleteDiningInput>(CompleteDiningInput.Token)
+const saveReceipt = useRequired<SaveDiningReceiptInput>(SaveDiningReceiptInput.Token)
 const removeReceipt = useRequired<DeleteReceiptInput>(DeleteReceiptInput.Token)
 const receiptId = ref('')
 const finishing = ref(false)
+const savingReceipt = ref(false)
 const isSavedView = computed(() => Boolean(receiptId.value))
 const printComplete = ref(false)
+const RECEIPT_PRINT_MS = 1500
 const isPrinting = computed(() => applicationStore.ready && !isSavedView.value && diningStore.view.canFinish && !printComplete.value)
+// 小程序的组件内动画事件不一定冒泡到页面，不能只依赖 animationend 解锁保存。
+const stopPrintTimer = watch(isPrinting, (printing, _previous, onCleanup) => {
+  if (!printing) return
+  const timer = setTimeout(() => {printComplete.value = true}, RECEIPT_PRINT_MS)
+  onCleanup(() => clearTimeout(timer))
+}, {immediate: true})
+onUnload(stopPrintTimer)
 function onPrintEnd(event: {animationName?: string; detail?: {animationName?: string}}) {
   const name = event.animationName || event.detail?.animationName
   if (!name || name.startsWith('receipt-feed')) printComplete.value = true
@@ -122,12 +138,18 @@ const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view
 const savedReceipt = computed(() => collectionStore.receiptById(receiptId.value))
 const displayReceipt = computed(() => savedReceipt.value || diningStore.view.previewReceipt)
 const shortId = computed(() => displayReceipt.value.id.split('-').pop()?.toUpperCase() || 'DINING')
-const album = useReceiptAlbum(() => ({...displayReceipt.value, receiptId:shortId.value, dateTime:formatDateTime(displayReceipt.value.date)}))
-function saveToAlbum() {
+const album = useReceiptAlbum(() => ({...displayReceipt.value, receiptId:shortId.value, dateTime:formatReceiptTimestamp(displayReceipt.value.date)}))
+function openReceiptPreview() {
   if (!applicationStore.ready || isPrinting.value || (!savedReceipt.value && !diningStore.view.canFinish)) return
-  return album.save()
+  return album.openPreview()
 }
-const goBack = () => runAction(() => navigation.back(isSavedView.value ? 'receipts' : 'menu'))
+const goBack = () => isRoomView.value && roomEnded.value ? finishShared()
+    : runAction(() => navigation.back(isSavedView.value ? 'receipts' : 'menu'))
+onBackPress(() => {
+  if (!isRoomView.value || !roomEnded.value) return false
+  finishShared()
+  return true
+})
 function checkReceipt() {
   if (!applicationStore.ready) return
   return runAction(async () => {
@@ -164,7 +186,16 @@ function confirmSingle(collect: boolean) {
   confirmation.open({title: '结算当前餐厅', content: '将结算「' + restaurant + '」，其他餐厅草稿将被丢弃。', success: result => {if (result.confirm) finish(collect)}})
 }
 const endDining = () => confirmSingle(false)
-const save = () => confirmSingle(true)
+const save = () => runAction(() => {
+  if (savingReceipt.value || finishing.value || isSavedView.value || !applicationStore.ready || !diningStore.view.canFinish) return
+  savingReceipt.value = true
+  try {
+    const existed = Boolean(collectionStore.receiptById(displayReceipt.value.id))
+    const response = saveReceipt.execute(new SaveDiningReceiptInput.Request(isRoomView.value ? JSON.parse(JSON.stringify(displayReceipt.value)) : undefined))
+    if (!response.saved) throw Error('请先点菜后再保存小票')
+    uni.showToast({title:existed ? '小票已更新' : '已保存到小票夹',icon:'none'})
+  } finally {savingReceipt.value = false}
+})
 
 function endRoom() {
   if (finishing.value || roomStore.view.status !== 'online') return
@@ -178,15 +209,14 @@ function endRoom() {
     })
   }})
 }
-function finishShared(collectReceipt: boolean) {
+function finishShared() {
   if (finishing.value || !roomStore.view.snapshot?.receipt) return
   void runAction(async () => {
     finishing.value = true
     try {
-      saveRoom.execute({receipt: JSON.parse(JSON.stringify(roomStore.view.snapshot!.receipt)), collectReceipt})
-      await roomInput.execute({command: 'leave', params: {}})
-      uni.showToast({title: collectReceipt ? '已保存到小票夹和点餐明细' : '已保存到点餐明细', icon: 'none'})
-      await navigation.open(collectReceipt ? 'mine' : 'setup', 'reset')
+      saveRoom.execute({receipt: JSON.parse(JSON.stringify(roomStore.view.snapshot!.receipt)), collectReceipt:false})
+      await roomInput.execute({command: 'suspend', params: {}})
+      await navigation.open('setup', 'reset')
     } finally {finishing.value = false}
   })
 }
@@ -204,9 +234,11 @@ function confirmDelete() {
 </script>
 
 <style scoped>
+.receipt-saving {filter:grayscale(50%)}
 .receipt-canvas {position:fixed;left:-10000px;top:0;pointer-events:none}
 .album-preview-note {display:block;margin-bottom:24rpx;color:#946e4c;font-size:26rpx;line-height:1.7}
 .album-preview {display:block;width:100%}
+.album-download {display:block}
 .room-result-note {display:block;margin:24rpx 32rpx;color:#a66c38;font-size:26rpx;text-align:center}
 .result-page {
   min-height: 100vh;
@@ -225,7 +257,7 @@ function confirmDelete() {
 }
 
 .is-feeding :deep(.receipt) {
-  animation: receipt-feed 1.5s cubic-bezier(.2, .55, .45, 1) both;
+  animation: receipt-feed var(--receipt-print-duration, 1500ms) cubic-bezier(.2, .55, .45, 1) both;
 }
 
 .saved-receipt {margin-top: 40rpx}

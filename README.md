@@ -26,3 +26,5 @@ npm run build:mp-weixin -- --minify esbuild
 - [领域模型与规则](docs/domain-model.md)
 - [核心流程、事务、展示与存储](docs/core-logic.md)
 - [重构结构、迁移和验证记录](docs/refactoring.md)
+- [DDD 重设计提案：领域模型、事件与迁移路线（尚未实施）](docs/ddd-redesign.md)
+- [Catalog 设计决策：简单 CRUD、职责与目录结构（尚未实施）](docs/catalog-design.md)

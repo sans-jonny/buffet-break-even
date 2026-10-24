@@ -18,3 +18,11 @@ export function formatRoundTime(value: string): string {
     if (!date) return value
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
+
+/** 小票和导出文件名共用同一个原始时间；旧记录缺失秒时补零。 */
+export function formatReceiptTimestamp(value: string): string {
+    const date = isoDate(value)
+    if (date) return `${formatDateTime(value)}:${pad(date.getSeconds())}`
+    const local = /^(\d{4}-\d{2}-\d{2})(?:[ T](\d{2}:\d{2})(?::(\d{2}))?)?$/.exec(value)
+    return local ? `${local[1]} ${local[2] || '00:00'}:${local[3] || '00'}` : value
+}

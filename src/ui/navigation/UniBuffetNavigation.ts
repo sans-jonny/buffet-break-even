@@ -4,8 +4,8 @@ import type {NavigationPlatform} from './NavigationPlatform'
 
 const routes: Record<Destination, string> = {
     setup: '/pages/setup/index', menu: '/pages/menu/index', mine: '/pages/mine/index',
-    receipts: '/pages/receipts/index', records: '/pages/records/index', room: '/pages/room/index', 'custom-menu': '/pages/custom-menu/index',
-    creator: '/pages/creator/index', 'my-restaurants': '/pages/my-restaurants/index'
+    receipts: '/pages/receipts/index', records: '/pages/records/index', 'custom-menu': '/pages/custom-menu/index',
+    creator: '/pages/creator/index'
 }
 
 export class UniBuffetNavigation implements BuffetNavigation {
@@ -29,8 +29,8 @@ export class UniBuffetNavigation implements BuffetNavigation {
         return this.go('/pages/order-slip/index')
     }
 
-    toResult(receiptId?: string) {
-        return this.go(`/pages/result/index${receiptId ? `?receiptId=${encodeURIComponent(receiptId)}` : ''}`)
+    toResult(receiptId?: string, mode: 'push' | 'replace' | 'reset' = 'push') {
+        return this.go(`/pages/result/index${receiptId ? `?receiptId=${encodeURIComponent(receiptId)}` : ''}`, mode)
     }
 
     toRecord(recordId: string) {
@@ -39,10 +39,6 @@ export class UniBuffetNavigation implements BuffetNavigation {
 
     toCustomMenu(restaurantId?: string) {
         return this.go(`/pages/custom-menu/index${restaurantId ? '?restaurantId=' + encodeURIComponent(restaurantId) : ''}`)
-    }
-
-    toCustomDining(restaurantId?: string) {
-        return this.go(`/pages/setup/index?typeId=custom${restaurantId ? '&restaurantId=' + encodeURIComponent(restaurantId) : ''}`)
     }
 
     toMenuPreview(previewId: string) {

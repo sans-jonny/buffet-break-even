@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <app-navbar fallback centered title="点餐明细" @back="goBack" @fallback="goBack"/>
     <initialization-gate>
     <view class="records-body">
       <records-overview :meals="historyStore.view.records.length" :rounds="historyStore.view.totalRoundsSaved" :dishes="historyStore.view.totalDishesSaved"/>
@@ -9,7 +10,7 @@
           <view class="record-copy">
             <view>
               <text class="label-chip inline-flex-center">第 {{ historyStore.view.records.length - index }} 餐</text>
-              <text class="restaurant">{{ item.restaurant }}</text>
+              <text class="restaurant">{{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
             </view>
             <text class="record-date">{{ formatDateTime(item.date) }}</text>
           </view>
@@ -54,14 +55,17 @@
 </template>
 
 <script setup lang="ts">
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {ref} from 'vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {formatDateTime, formatRoundTime} from '@/ui/format/time'
+import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+const goBack = () => runAction(() => navigation.back('mine'))
 import {useHistoryStore} from '@/ui/stores/useHistoryStore'
 
 const historyStore = useHistoryStore()
@@ -159,7 +163,7 @@ const openDetail = (id: string) => runAction(() => navigation.toRecord(id))
 }
 
 .record-total {
-  padding: 24rpx 0 8rpx;
+  padding-top: 24rpx;
   display: flex;
   justify-content: space-between;
   color: #ff7439;
@@ -168,7 +172,7 @@ const openDetail = (id: string) => runAction(() => navigation.toRecord(id))
 }
 
 .round-box {
-  margin-top: 20rpx;
+  margin-top: 24rpx;
   padding: 20rpx;
   border: 2rpx solid #ffe1cd;
   border-radius: 18rpx;

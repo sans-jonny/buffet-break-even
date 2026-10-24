@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <app-navbar fallback centered title="小票夹" @back="goBack" @fallback="goBack"/>
     <initialization-gate>
     <view v-if="collectionStore.view.receipts.length" class="receipt-grid">
       <view v-for="(item, index) in collectionStore.view.receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
@@ -12,7 +13,7 @@
           </view>
         </view>
         <view class="thumb-caption">
-          <text>{{ index + 1 }}. {{ item.restaurant }}</text>
+          <text>{{ index + 1 }}. {{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
           <text>{{ formatDateTime(item.date) }}</text>
         </view>
       </view>
@@ -27,13 +28,16 @@
 </template>
 
 <script setup lang="ts">
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {formatDateTime} from '@/ui/format/time'
+import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+const goBack = () => runAction(() => navigation.back('mine'))
 import {useCollectionStore} from '@/ui/stores/useCollectionStore'
 
 const collectionStore = useCollectionStore()

@@ -17,8 +17,8 @@ defineProps<{controller: AppDialogController}>()
 <style scoped>
 .confirmation-content {display:block;font-size:28rpx;line-height:1.8;color:#946e4c;overflow-wrap:anywhere}
 .confirmation-actions {display:flex;gap:20rpx;margin-top:32rpx}
-.confirmation-actions button {flex:1;min-width:0;margin:0;padding:0 12rpx;font-size:28rpx;line-height:88rpx;font-weight:800;--button-radius:32rpx}
-.confirmation-actions button::after {border:0}
+.cancel-action, .confirm-action {flex:1;min-width:0;margin:0;padding:0 12rpx;font-size:28rpx;line-height:88rpx;font-weight:800;--button-radius:32rpx}
+.cancel-action::after, .confirm-action::after {border:0}
 .cancel-action {background:#fff0dd;color:#b66d34}
 .confirm-action {color:white}
 </style>

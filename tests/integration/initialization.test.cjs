@@ -11,7 +11,12 @@ test('初始化失败保留已有数据和展示状态，恢复后重试无需�
   const saved = {version: 3, session: session.toSnapshot(), records: [record], receipts: [record]}
   let fail = true
   let writes = 0
-  const app = application({getStorageSync: key => {if (fail) throw Error('unavailable'); return key === 'buffet-state-v4' ? saved : undefined}, setStorageSync: () => writes++})
+  const app = application({getStorageSync: key => {
+    if (fail) throw Error('unavailable')
+    if (key === 'buffet-profile-nickname-v1') return '已有昵称'
+    if (key === 'buffet-user-id-v1') return '019a15e1-a57b-7000-8000-000000000001'
+    return key === 'buffet-state-v4' ? saved : undefined
+  }, setStorageSync: () => writes++})
   const before = [app.dining.view, app.history.view, app.collection.view]
   assert.equal(app.status.view.status, 'idle')
   assert.equal(app.bootstrap.initialize(), false)

@@ -16,7 +16,5 @@ export function useActiveDining() {
 
 export function useRoomConnection() {
     const input = useRequired<RoomInput>(RoomInput.Token)
-    const single = useDiningStore(), room = useRoomStore()
-    return () => single.view.session.active && !room.view.snapshot ? Promise.resolve()
-        : input.execute({command: 'resume', params: {url: roomServerUrl(), automatic: true}})
+    return () => input.execute({command: 'resume', params: {url: roomServerUrl(), automatic: true}})
 }

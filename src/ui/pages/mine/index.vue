@@ -89,7 +89,7 @@ import {useCollectionStore} from '@/ui/stores/useCollectionStore'
 
 const historyStore = useHistoryStore()
 const collectionStore = useCollectionStore()
-const statusBarHeight = uni.getSystemInfoSync().statusBarHeight || 0
+const statusBarHeight = (typeof uni.getWindowInfo === 'function' ? uni.getWindowInfo() : uni.getSystemInfoSync()).statusBarHeight || 0
 const pageStyle = {paddingTop: (statusBarHeight + uni.upx2px(24)) + 'px'}
 const openReceipts = () => runAction(() => navigation.open('receipts'))
 const openRecords = () => runAction(() => navigation.open('records'))
@@ -131,6 +131,7 @@ const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, '
 .profile-copy {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: 16rpx;
 }
 

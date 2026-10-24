@@ -54,6 +54,9 @@ const activeTip = computed(() => {
 <style scoped>
 .target-money.editable {color:#a47857;cursor:pointer}
 .progress-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--menu-section-gap, 24rpx);
   padding: var(--menu-section-gap, 24rpx) var(--menu-gutter, 24rpx) 0;
 }
 
@@ -82,7 +85,6 @@ const activeTip = computed(() => {
 }
 
 .progress-track {
-  margin-top: var(--menu-section-gap, 24rpx);
   height: 22rpx;
   border-radius: 20rpx;
   background: #ffe1b6;
@@ -112,7 +114,6 @@ const activeTip = computed(() => {
 
 .progress-tip {
   display: block;
-  margin: var(--menu-section-gap, 24rpx) 0 0;
   font-size: 26rpx;
   font-weight: 800;
 }

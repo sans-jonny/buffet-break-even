@@ -9,6 +9,7 @@ export class ApplicationBootstrap {
     constructor(private readonly loads: {
         dining: LoadDiningInput; history: LoadHistoryInput; collection: LoadCollectionInput
         profile?: ProfileSettings
+        identity?: {load(): string}
     }, private readonly transaction: <T>(work: () => T) => T,
                 private readonly output: ApplicationView) {}
 
@@ -19,6 +20,7 @@ export class ApplicationBootstrap {
                 this.loads.history.execute({})
                 this.loads.collection.execute({})
             })
+            this.loads.identity?.load()
             this.loads.profile?.load()
             this.output.present({status: 'ready', message: ''})
             return true

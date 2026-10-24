@@ -4,33 +4,55 @@ import {useAppDialog} from './useAppDialog'
 import {runAction} from './runAction'
 import {renderReceiptWeb} from '@/ui/receipt/renderReceiptWeb'
 import {receiptImageBounds} from '@/ui/receipt/receiptImageBounds'
+import {receiptImageFilename} from '@/ui/receipt/receiptImageFilename'
 
 export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb = renderReceiptWeb) {
     const owner = getCurrentInstance()?.proxy
     const busy = ref(false), previewPath = ref('')
+    const filename = ref('')
     const canvasSize = ref({width:600,height:800})
     const canvasVersion = ref(0)
     const permissionDialog = useAppDialog()
-    async function saveImage(filePath: string) {
-        await new Promise<void>((resolve,reject)=>uni.saveImageToPhotosAlbum({filePath,success:()=>resolve(),fail:reject}))
-        uni.showToast({title:'已保存到相册',icon:'success'})
+    async function saveImage(filePath: string, name: string) {
+        const root = (uni as unknown as {env?: {USER_DATA_PATH?: string}}).env?.USER_DATA_PATH
+        const fs = root && typeof uni.getFileSystemManager === 'function' ? uni.getFileSystemManager() : null
+        let namedPath = fs ? `${root}/${name}` : filePath
+        if (fs) {
+            const copy = () => new Promise<void>((resolve,reject)=>fs.copyFile({srcPath:filePath,destPath:namedPath,success:()=>resolve(),fail:reject}))
+            try {await copy()} catch (error) {
+                // Windows 开发者工具的文件系统不允许文件名包含冒号。
+                if (!name.includes(':')) throw error
+                namedPath = `${root}/${name.replace(/:/g, '-')}`
+                await copy()
+            }
+        }
+        try {
+            await new Promise<void>((resolve,reject)=>uni.saveImageToPhotosAlbum({filePath:namedPath,success:()=>resolve(),fail:reject}))
+            uni.showToast({title:'已保存到相册',icon:'success'})
+        } finally {
+            if (fs) fs.unlink({filePath:namedPath,fail:()=>{}})
+        }
     }
-    function requestPermission(filePath: string) {
+    function requestPermission(filePath: string, name: string) {
         permissionDialog.open({title:'允许保存到相册',content:'请在设置中允许保存图片到相册，然后重试。',confirmText:'去设置',success:result=>{
             if (result.confirm) void runAction(async()=>{
                 const settings = await new Promise<UniApp.GetSettingSuccessResult>((resolve,reject)=>uni.openSetting({success:resolve,fail:reject}))
                 if (settings.authSetting['scope.writePhotosAlbum']) {
-                    try {await saveImage(filePath)} catch {throw Error('保存失败，请重试')}
+                    try {await saveImage(filePath, name)} catch {throw Error('保存失败，请重试')}
                 } else uni.showToast({title:'尚未允许保存到相册',icon:'none'})
             })
         }})
     }
-    async function save() {
+    async function openPreview() {
         if (busy.value) return
         busy.value = true
         try {
-            const layout = layoutReceiptImage(readReceipt())
-            const platform = uni.getSystemInfoSync().uniPlatform
+            const receipt = readReceipt()
+            const name = receiptImageFilename(receipt.restaurant, receipt.date || receipt.dateTime, receipt.typeName)
+            filename.value = name
+            const layout = layoutReceiptImage(receipt)
+            const appInfo = typeof uni.getAppBaseInfo === 'function' ? uni.getAppBaseInfo() : uni.getSystemInfoSync()
+            const platform = (appInfo as {uniPlatform?: string}).uniPlatform
             if (platform === 'web' || platform === 'h5') {
                 previewPath.value = renderWeb(layout)
                 return
@@ -54,15 +76,21 @@ export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb =
                 destWidth:bounds.width,destHeight:bounds.height,fileType:'png',
                 success:result=>resolve(result.tempFilePath),fail:reject
             },owner))
-            try {await saveImage(path)} catch (error) {
-                const message = (error as {errMsg?: string})?.errMsg || ''
-                if (/auth|permission|authorize|scope/i.test(message)) requestPermission(path)
-                else if (/cancel/i.test(message)) uni.showToast({title:'已取消保存',icon:'none'})
-                else throw Error('保存失败，请重试')
-            }
+            previewPath.value = path
         } catch (error) {
             uni.showToast({title:error instanceof Error ? error.message : '生成小票图片失败，请重试',icon:'none'})
         } finally {busy.value = false}
     }
-    return {busy,canvasSize,canvasVersion,previewPath,permissionDialog,save}
+    async function download() {
+        if (busy.value || !previewPath.value) return
+        const path = previewPath.value, name = filename.value
+        busy.value = true
+        try {await saveImage(path, name)} catch (error) {
+            const message = (error as {errMsg?: string})?.errMsg || ''
+            if (/auth|permission|authorize|scope/i.test(message)) requestPermission(path, name)
+            else if (/cancel/i.test(message)) uni.showToast({title:'已取消保存',icon:'none'})
+            else uni.showToast({title:'保存失败，请重试',icon:'none'})
+        } finally {busy.value = false}
+    }
+    return {busy,canvasSize,canvasVersion,previewPath,filename,permissionDialog,openPreview,download}
 }

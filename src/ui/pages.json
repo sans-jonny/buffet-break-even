@@ -10,12 +10,7 @@
         "disableScroll": true
       }
     },
-    {
-      "path": "pages/room/index",
-      "style": {"navigationBarTitleText": "多人共享用餐"}
-    },
     {"path": "pages/creator/index", "style": {"navigationStyle": "custom", "navigationBarTitleText": "创造者模式"}},
-    {"path": "pages/my-restaurants/index", "style": {"navigationStyle": "custom", "navigationBarTitleText": "我的餐厅"}},
     {"path": "pages/custom-menu/index", "style": {"navigationStyle": "custom", "navigationBarTitleText": "创造者模式"}},
     {
       "path": "pages/menu/index",
@@ -64,9 +59,7 @@
     }
   ],
   "globalStyle": {
-    // #ifdef H5
     "navigationStyle": "custom",
-    // #endif
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "自助餐回本神器",
     "navigationBarBackgroundColor": "#FFF9F2",

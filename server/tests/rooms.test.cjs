@@ -33,6 +33,46 @@ test('共享增量、幂等请求、广播不泄露身份凭证', () => {
   assert.equal(status.processed, true)
   assert.equal(f.send(a.p, 'requestStatus', {targetRequestId: 'missing'}).processed, false)
 })
+test('UUID识别同一用户：重新加入和多连接复用成员，改昵称不重复，其他UUID独立',()=>{
+  const f=fixture(),first=f.peer(),userId='019a15e1-a57b-7000-8000-000000000001'
+  const created=f.send(first,'create',{userId,nickname:'小羊',ticketPrice:100,entryKey:'u'.repeat(40)})
+  const code=created.snapshot.code,memberId=created.identity.memberId
+  f.service.disconnect(first)
+  const second=f.peer()
+  const joined=f.send(second,'join',{userId,nickname:'新昵称',code,entryKey:'v'.repeat(40)})
+  assert.equal(joined.identity.memberId,memberId)
+  assert.equal(joined.snapshot.members.length,1)
+  assert.equal(joined.snapshot.members[0].nickname,'新昵称')
+  const third=f.peer()
+  const same=f.send(third,'join',{userId:userId.toUpperCase(),nickname:'新昵称',code,entryKey:'w'.repeat(40)})
+  assert.equal(same.identity.memberId,memberId)
+  assert.equal(same.snapshot.members.length,1)
+  for(let i=0;i<5;i++) {
+    const repeated=f.send(third,'join',{userId,nickname:'新昵称',code,entryKey:'repeat'.repeat(8)+i})
+    assert.equal(repeated.identity.memberId,memberId)
+    assert.equal(repeated.snapshot.members.length,1)
+  }
+  const other=f.send(f.peer(),'join',{userId:'019a15e1-a57b-7000-8000-000000000002',nickname:'新昵称',code,entryKey:'x'.repeat(40)})
+  assert.equal(other.snapshot.members.length,2)
+  assert.notEqual(other.identity.memberId,memberId)
+  for(const message of first.messages.filter(m=>m.type==='snapshot')) assert.equal(JSON.stringify(message).includes(userId),false)
+  assert.equal(f.send(f.peer(),'resume',{...created.identity,userId:'019a15e1-a57b-7000-8000-000000000002'}).code,'UNAUTHORIZED')
+  assert.equal(f.send(f.peer(),'join',{userId:'invalid',nickname:'小羊',code,entryKey:'y'.repeat(40)}).code,'INVALID_USER_ID')
+})
+
+test('结束后同UUID可重新进入原结果，新用户仍不能加入且最终昵称保持冻结',()=>{
+  const f=fixture(),p=f.peer(),userId='019a15e1-a57b-7000-8000-000000000003'
+  const created=f.send(p,'create',{userId,nickname:'原昵称',ticketPrice:100,entryKey:'z'.repeat(40)})
+  const added=f.send(p,'changeSelection',{productId:'niuniu-p1-1',change:1})
+  const ended=f.send(p,'end',{expectedRevision:added.snapshot.revision})
+  f.service.disconnect(p)
+  const recovered=f.send(f.peer(),'join',{userId,nickname:'新的昵称',code:created.snapshot.code,entryKey:'r'.repeat(40)})
+  assert.equal(recovered.snapshot.members.length,1)
+  assert.equal(recovered.identity.memberId,created.identity.memberId)
+  assert.deepEqual(recovered.snapshot.receipt,ended.snapshot.receipt)
+  assert.deepEqual(recovered.snapshot.receipt.participants,['原昵称'])
+})
+
 test('版本冲突阻止旧提交；成员无法设置票价或结束', () => {
   const f = fixture(), a = f.create(), b = f.join(a.result.snapshot.code)
   const before = f.send(a.p, 'sync').snapshot.revision

@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <app-navbar fallback centered title="点餐明细" @back="goBack" @fallback="goBack"/>
     <initialization-gate>
     <view v-if="receipt" class="detail-body">
       <records-overview :meals="historyStore.view.records.length" :rounds="receipt.rounds.length" :dishes="dishCount"/>
@@ -7,7 +8,7 @@
         <view class="detail-head">
           <view>
             <text class="label-chip inline-flex-center">本餐</text>
-            <text class="restaurant">{{ receipt.restaurant }}</text>
+            <text class="restaurant">{{ formatRestaurantTitle(receipt.restaurant, receipt.typeName) }}</text>
           </view>
           <text class="record-date">{{ formatDateTime(receipt.date) }}</text>
           <text v-if="receipt.participants?.length" class="record-date">用餐人：{{ receipt.participants.join('、') }}</text>
@@ -37,6 +38,7 @@
 </template>
 
 <script setup lang="ts">
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import {useAppDialog} from '@/ui/composables/useAppDialog'
 const confirmation = useAppDialog()
@@ -48,8 +50,10 @@ import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {formatDateTime, formatRoundTime} from '@/ui/format/time'
+import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+const goBack = () => runAction(() => navigation.back('records'))
 import {useHistoryStore} from '@/ui/stores/useHistoryStore'
 
 const historyStore = useHistoryStore()

@@ -1,5 +1,6 @@
 <template>
   <view class="order-page">
+    <app-navbar fallback centered title="本轮点单" @back="goBack" @fallback="goBack"/>
     <initialization-gate>
     <view v-if="!roomStore.view.snapshot || isHost" class="notebook">
       <view class="rings">
@@ -26,10 +27,11 @@
 </template>
 
 <script setup lang="ts">
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {computed, ref, watch} from 'vue'
 import {useApplicationStore} from '@/ui/stores/useApplicationStore'
-import {onLoad, onShow, onHide} from '@dcloudio/uni-app'
+import {onLoad, onShow} from '@dcloudio/uni-app'
 import {CommitRoundInput} from '@/contexts/dining/public'
 import {currentDate, currentTime} from '@/utils/format'
 import {useRequired} from '@/ui/composables/useRequired'
@@ -40,17 +42,12 @@ import {useRoomStore} from '@/ui/stores/useRoomStore'
 import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+const goBack = () => runAction(() => navigation.back('menu'))
 const applicationStore = useApplicationStore()
 const diningStore = useActiveDining()
 const roomStore = useRoomStore(), restoreRoom = useRoomConnection()
 const roomInput = useRequired<RoomInput>(RoomInput.Token)
 const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view.memberId)
-const visible = ref(false), openingResult = ref(false)
-async function openFinalResult() {
-  if (openingResult.value) return
-  openingResult.value = true
-  try {await navigation.toResult()} catch (error) {openingResult.value = false; throw error}
-}
 const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
 const date = ref(currentDate())
 const time = ref(currentTime())
@@ -59,14 +56,12 @@ function checkSelection() {
   if (!applicationStore.ready) return
   return runAction(async () => {
     try {await restoreRoom()} catch (error) {if (!roomStore.view.snapshot) throw error}
-    if (roomStore.view.snapshot?.status === 'ended') await openFinalResult()
-    else if ((roomStore.view.snapshot && !isHost.value) || !diningStore.view.selectedLines.length) await navigation.open('menu', 'replace')
+    if (roomStore.view.snapshot?.status === 'ended') return
+    if ((roomStore.view.snapshot && !isHost.value) || !diningStore.view.selectedLines.length) await navigation.open('menu', 'replace')
   })
 }
 onLoad(() => { void checkSelection() })
-onShow(() => {visible.value = true; openingResult.value = false; void checkSelection()})
-onHide(() => {visible.value = false})
-watch(() => roomStore.view.snapshot?.status, status => {if (status === 'ended' && visible.value) void runAction(openFinalResult)})
+onShow(() => {void checkSelection()})
 watch(() => applicationStore.ready, initialized => { if (initialized) void checkSelection() })
 
 function completeRound() {

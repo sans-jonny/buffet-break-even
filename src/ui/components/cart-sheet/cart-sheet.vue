@@ -13,7 +13,7 @@
           </view>
           <view class="stepper">
             <view class="step-button flex-center" @tap="$emit('remove', line.product.id)">−</view>
-            <text>{{ line.count }}</text>
+            <text class="step-count">{{ line.count }}</text>
             <view class="step-button plus flex-center" @tap="$emit('add', line.product.id)">+</view>
           </view>
         </view>
@@ -21,7 +21,7 @@
       <view class="sheet-footer">
         <view class="sheet-total">
           <text>本轮合计</text>
-          <text>¥{{ formatPrice(total) }}</text>
+          <text class="sheet-total-value">¥{{ formatPrice(total) }}</text>
         </view>
         <view v-if="canConfirm && lines.length" class="waiter-button flex-center" @tap="$emit('confirm')">给 Waiter 看菜单</view>
         <text v-else class="cart-hint">{{ !lines.length ? '本轮还没有选择菜品' : '等待房主给 Waiter 看菜单并提交本轮' }}</text>
@@ -139,7 +139,7 @@ defineEmits<{
   color: white;
 }
 
-.stepper > text {
+.step-count {
   font-size: 29rpx;
   font-weight: 800;
 }
@@ -159,7 +159,7 @@ defineEmits<{
   margin-bottom: 22rpx;
 }
 
-.sheet-total text:last-child {
+.sheet-total-value {
   color: #ff6331;
   font-size: 43rpx;
   font-weight: 900;

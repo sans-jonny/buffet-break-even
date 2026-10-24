@@ -1,0 +1,83 @@
+const test=require('node:test')
+const assert=require('node:assert/strict')
+const {application,plain}=require('../helpers/runtime.cjs')
+
+test('保存当前小票包含待选，不提交轮次、不结束、不记账，同 ID 再保存覆盖',()=>{
+    const app=application()
+    app.execute('BeginSession',{ticketPrice:100,diningMode:'单人'})
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    const before=plain(app.dining.view.session)
+    const first=app.execute('SaveDiningReceipt')
+    assert.equal(first.saved,true)
+    assert.deepEqual(plain(app.dining.view.session),before)
+    assert.equal(app.history.view.records.length,0)
+    assert.equal(app.collection.view.receipts[0].value,8)
+    assert.equal(app.collection.view.receipts[0].rounds.length,1)
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    app.execute('ChangeTicketPrice',{ticketPrice:150})
+    const second=app.execute('SaveDiningReceipt')
+    assert.equal(second.receiptId,first.receiptId)
+    assert.equal(app.collection.view.receipts.length,1)
+    assert.equal(app.collection.view.receipts[0].value,24)
+    assert.equal(app.collection.view.receipts[0].price,150)
+    assert.equal(app.dining.view.session.rounds.length,0)
+    assert.equal(app.dining.view.totalSelectedCount,3)
+    app.execute('CompleteDining',{collectReceipt:false})
+    assert.equal(app.history.view.records[0].value,24)
+    assert.equal(app.dining.view.session.active,false)
+})
+
+test('保存失败保留原收藏和当前用餐，可重试；重新打开仍恢复两份独立数据',()=>{
+    let fail=false
+    const storage=new Map()
+    const platform={getStorageSync:key=>storage.get(key),setStorageSync:(key,value)=>{
+        if(fail) throw Error('disk full')
+        storage.set(key,plain(value))
+    }}
+    const app=application(platform)
+    app.execute('BeginSession',{ticketPrice:100,diningMode:'单人'})
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    app.execute('SaveDiningReceipt')
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    app.execute('ChangeSelection',{productId:'beef',change:1})
+    const before=plain(app.dining.view.session)
+    fail=true
+    assert.throws(()=>app.execute('SaveDiningReceipt'),/保存失败/)
+    assert.deepEqual(plain(app.dining.view.session),before)
+    assert.equal(app.collection.view.receipts[0].value,8)
+    assert.equal(app.history.view.records.length,0)
+    fail=false
+    app.execute('SaveDiningReceipt')
+    const reopened=application(platform)
+    reopened.bootstrap.initialize()
+    assert.equal(reopened.collection.view.receipts.length,1)
+    assert.equal(reopened.collection.view.receipts[0].value,24)
+    assert.equal(reopened.dining.view.session.active,true)
+    assert.equal(reopened.dining.view.totalSelectedCount,3)
+})
+
+test('多人快照只写个人收藏、保留昵称，同 ID 更新不影响另一成员和本地单人用餐',()=>{
+    const a=application(),b=application()
+    a.execute('BeginSession',{ticketPrice:100,diningMode:'单人'})
+    const before=plain(a.dining.view.session)
+    const receipt={id:'shared-meal',restaurant:'牛牛',participants:['团长','小羊'],date:'2026-10-24T08:00:00Z',price:200,value:20,
+        lines:[{name:'牛肉',price:10,count:2}],rounds:[{time:'2026-10-24T08:00:00Z',value:20,lines:[{name:'牛肉',price:10,count:2}]}]}
+    a.execute('SaveDiningReceipt',{receipt})
+    a.execute('SaveDiningReceipt',{receipt:{...receipt,value:30,lines:[{name:'牛肉',price:10,count:3}]}})
+    assert.equal(a.collection.view.receipts.length,1)
+    assert.equal(a.collection.view.receipts[0].value,30)
+    assert.deepEqual(plain(a.collection.view.receipts[0].participants),['团长','小羊'])
+    assert.deepEqual(plain(a.dining.view.session),before)
+    assert.equal(a.history.view.records.length,0)
+    assert.equal(b.collection.view.receipts.length,0)
+})
+
+test('没有点菜时不生成空小票，保留当前用餐',()=>{
+    const app=application()
+    app.execute('BeginSession',{ticketPrice:100,diningMode:'单人'})
+    const result=app.execute('SaveDiningReceipt')
+    assert.equal(result.saved,false)
+    assert.equal(app.collection.view.receipts.length,0)
+    assert.equal(app.dining.view.session.active,true)
+})

@@ -32,7 +32,7 @@ Catalog 管理种类、餐厅、每店分类与商品，以及本地自定义菜
 | Completion | 准备、保存、可选收藏、关闭的事务协调 | CompleteDiningInput |
 | Room | 共享房间操作、连接恢复、请求确认及快照展示 | RoomInput |
 
-多人结束结果通过 Completion 的 SaveRoomResultInput 幂等导入本地历史，并独立选择是否收藏，不关闭或覆盖单人会话。创建／加入成功后的单人覆盖由明确确认后的 DiscardSessionInput 执行。单人与多人展示使用独立 Store，房间详情及部署见 [多人模式](multiplayer.md)。
+多人结束结果通过 Completion 的 SaveRoomResultInput 幂等导入本地历史，并独立选择是否收藏，不关闭或覆盖单人会话。创建、加入和退出房间不修改单人进度；退出时清空多人展示并断开连接，保留恢复凭证，再次进入前经服务端校验可用性后才允许继续。空单人会话在返回 setup 或退出应用时通过 DiscardSessionInput 清理。单人与多人展示使用独立 Store，房间详情及部署见 [多人模式](multiplayer.md)。
 
 ## 公开 API 和装配
 

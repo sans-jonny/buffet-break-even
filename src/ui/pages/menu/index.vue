@@ -1,11 +1,13 @@
 <template>
   <view class="menu-page" :class="{'preview-mode': isPreview}">
+    <app-navbar centered fallback :title="isPreview ? '菜单预览' : '菜单'" :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" @back="goBack" @fallback="returnToSetup"/>
     <initialization-gate>
-    <view v-if="isPreview" class="preview-heading"><button :hover-stay-time="0" @tap="closePreview">‹ 返回</button><view><text>菜单预览</text><text>仅供浏览，不能添加或下单</text></view></view>
-    <view v-else class="progress-area">
+    <view v-if="!isPreview" class="progress-area">
       <progress-panel :value="diningStore.view.displayValue" :target="diningStore.view.session.ticketPrice" :percent="diningStore.view.breakEven.percent"
                       :tips="progressTips" :editable="canChangePrice" @edit-price="editPrice">
-        <template #before-tip><room-team class="progress-team"/></template>
+        <template #before-tip>
+          <view v-if="roomStore.view.snapshot"><room-team/></view>
+        </template>
       </progress-panel>
     </view>
 
@@ -59,10 +61,11 @@
 </template>
 
 <script setup lang="ts">
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {useApplicationStore} from '@/ui/stores/useApplicationStore'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {computed, ref, watch} from 'vue'
-import {onLoad, onShow, onHide, onUnload} from '@dcloudio/uni-app'
+import {onLoad, onShow, onBackPress} from '@dcloudio/uni-app'
 import {GetMenuInput} from '@/contexts/catalog/public'
 import {ChangeSelectionInput, SelectRestaurantInput} from '@/contexts/dining/public'
 import {restaurantProducts, type DiningCatalog} from '@/utils/restaurant-catalog'
@@ -73,8 +76,7 @@ import ProgressPanel from '@/ui/components/progress-panel/progress-panel.vue'
 import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {RoomInput, DiscardSessionInput} from '@/contexts/dining/public'
-import {useDiningStore} from '@/ui/stores/useDiningStore'
+import {RoomInput} from '@/contexts/dining/public'
 import {useRoomStore} from '@/ui/stores/useRoomStore'
 import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 import RoomTeam from '@/ui/components/room-team/room-team.vue'
@@ -97,12 +99,23 @@ onLoad(query => {
   })
 })
 const closePreview = () => runAction(() => navigation.back('creator'))
+const returnToSetup = () => runAction(async () => {
+  if (roomStore.view.snapshot) await roomInput.execute({command:'suspend',params:{}})
+  await navigation.open('setup','reset')
+})
+const goBack = () => {
+  if (isPreview.value) return closePreview()
+  if (roomStore.view.snapshot) return returnToSetup()
+  return runAction(() => navigation.back('setup'))
+}
 const diningStore = useActiveDining()
-const singleStore = useDiningStore()
-const discard = useRequired<DiscardSessionInput>(DiscardSessionInput.Token)
-const viewedSessionId = ref(singleStore.view.session.id)
 const roomStore = useRoomStore()
 const roomInput = useRequired<RoomInput>(RoomInput.Token)
+onBackPress(() => {
+  if (isPreview.value || !roomStore.view.snapshot) return false
+  void goBack()
+  return true
+})
 const restoreRoom = useRoomConnection()
 const canEditRoom = computed(() => roomStore.view.status === 'online' && !roomStore.view.busy && roomStore.view.snapshot?.status === 'active')
 const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view.memberId)
@@ -120,7 +133,6 @@ const savePrice = () => runAction(async () => {
     editingPrice.value = false
   } finally {savingPrice.value = false}
 })
-const visible = ref(false), openingResult = ref(false)
 const getMenu = useRequired<GetMenuInput>(GetMenuInput.Token)
 const changeSelection = useRequired<ChangeSelectionInput>(ChangeSelectionInput.Token)
 const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
@@ -164,36 +176,18 @@ function changeItem(productId: string, change: 1 | -1) {
 }
 const addItem = (productId: string) => changeItem(productId, 1)
 const removeItem = (productId: string) => changeItem(productId, -1)
-function openFinalResult() {
-  if (isPreview.value) return
-  if (openingResult.value) return
-  openingResult.value = true
-  void runAction(async () => {try {await navigation.toResult()} catch (error) {openingResult.value = false; throw error}})
-}
 function checkDining() {
   if (isPreview.value || !applicationStore.ready) return
   return runAction(async () => {
     try {await restoreRoom()} catch (error) {if (!roomStore.view.snapshot) throw error}
     if (roomStore.view.snapshot) {
-      if (roomStore.view.snapshot.status === 'ended') openFinalResult()
       return
     }
     load.execute({})
-    viewedSessionId.value = singleStore.view.session.id
     if (!diningStore.view.session.active) await navigation.open('setup', 'reset')
   })
 }
-onShow(() => {visible.value = true; openingResult.value = false; void checkDining()})
-onHide(() => {visible.value = false})
-onUnload(() => {
-  if (isPreview.value) return
-  const session = singleStore.view.session
-  if (applicationStore.ready && session.active && session.id === viewedSessionId.value && session.diningMode === '单人'
-      && !session.hasAnyDraft && !singleStore.view.totalSelectedCount && !session.rounds.length) {
-    void runAction(() => discard.execute({sessionId: session.id}))
-  }
-})
-watch(() => roomStore.view.snapshot?.status, status => {if (!isPreview.value && status === 'ended' && visible.value) openFinalResult()})
+onShow(() => {void checkDining()})
 watch(() => applicationStore.ready, initialized => { if (initialized) void checkDining() })
 
 function openOrderSlip() {
@@ -217,7 +211,7 @@ const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, '
 </script>
 
 <style scoped>
-.menu-page.preview-mode {padding-bottom:0}.preview-heading {display:flex;align-items:center;gap:24rpx;padding:24rpx;flex:none}.preview-heading button {margin:0;padding:0 24rpx;line-height:64rpx;background:white;--button-radius:32rpx;color:#ae6735;font-size:28rpx}.preview-heading>view {display:flex;flex-direction:column;gap:6rpx}.preview-heading text:first-child {font-size:34rpx;font-weight:900}.preview-heading text:last-child {font-size:23rpx;color:#a18c74}
+.menu-page.preview-mode {padding-bottom:0}
 .valuation-note {display:block;font-size:22rpx;line-height:1.6;color:#c1bcb6;padding:4rpx 12rpx 16rpx;text-align:center}
 .price-editor {height:100rpx;padding:0 24rpx;background:white;border:3rpx solid #eadabd;border-radius:24rpx;font-size:36rpx}
 .price-save,.price-save[disabled] {margin-top:28rpx;background:#ff6331;color:white;--button-radius:24rpx;font-size:30rpx}
@@ -247,10 +241,6 @@ const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, '
 
 .progress-area {
   flex: 0 0 auto;
-}
-
-.progress-area :deep(.progress-team) {
-  margin: var(--menu-section-gap) 0 0;
 }
 
 .dining-level-tabs {
@@ -286,7 +276,8 @@ const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, '
 }
 
 .menu-content {
-  flex: 1 1 auto;
+  flex: 1 1 0;
+  height: 0;
   min-height: 0;
   overflow: hidden;
   display: flex;

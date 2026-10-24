@@ -1,7 +1,7 @@
 <template>
-  <view class="result-navbar" :class="{'is-inset': inset}" :style="navbarStyle">
+  <view class="app-navbar" :class="{'is-inset': inset, 'is-centered': centered}" :style="navbarStyle">
     <view class="navbar-content" :style="contentStyle">
-      <button class="back-button flex-center" :hover-stay-time="0" aria-label="返回" @tap="emit('back')">
+      <button v-if="canGoBack" class="back-button flex-center" :hover-stay-time="0" aria-label="返回" @tap="handleBack">
         <text class="iconfont icon-fanhui"/>
       </button>
       <view class="title-copy">
@@ -12,23 +12,48 @@
   </view>
 </template>
 
+<script lang="ts">
+export default {options: {virtualHost: true}}
+</script>
+
 <script setup lang="ts">
+import {computed, onMounted, ref} from 'vue'
+import {onShow} from '@dcloudio/uni-app'
+
 const props = withDefaults(defineProps<{
   title?: string
   subtitle?: string
   titleColor?: string
   subtitleColor?: string
+  /** 主副标题相对导航栏整体居中，同时避让返回键和微信胶囊。 */
+  centered?: boolean
+  /** 为有明确返回目标的根页面显示返回键；默认根据页面栈判断。 */
+  showBack?: boolean
+  /** 无上一级时显示返回键，并触发 fallback 事件，由页面指定返回目标。 */
+  fallback?: boolean
   /** The parent page already provides horizontal gutters. */
   inset?: boolean
 }>(), {
-  title: '今日战果',
-  subtitle: '今日用餐记录',
+  title: '',
+  subtitle: '',
   titleColor: '#342a23',
   subtitleColor: '#b9a89a',
+  centered: false,
+  showBack: undefined,
+  fallback: false,
   inset: false
 })
 
-const systemInfo = uni.getSystemInfoSync()
+const hasPreviousPage = ref(false)
+const canGoBack = computed(() => props.showBack ?? (hasPreviousPage.value || props.fallback))
+function updateBackVisibility() {
+  hasPreviousPage.value = typeof getCurrentPages === 'function' && getCurrentPages().length > 1
+}
+updateBackVisibility()
+onMounted(updateBackVisibility)
+onShow(updateBackVisibility)
+
+const systemInfo = typeof uni.getWindowInfo === 'function' ? uni.getWindowInfo() : uni.getSystemInfoSync()
 const statusBarHeight = systemInfo.statusBarHeight || 0
 const menuButton = typeof uni.getMenuButtonBoundingClientRect === 'function'
     ? uni.getMenuButtonBoundingClientRect()
@@ -37,18 +62,27 @@ const rightGuard = menuButton && menuButton.left
     ? Math.max((systemInfo.windowWidth || systemInfo.screenWidth) - menuButton.left + 8, 24)
     : 24
 const navbarStyle = {paddingTop: `${statusBarHeight}px`}
-const contentStyle = {paddingRight: `${rightGuard}px`}
+const contentStyle = computed(() => ({
+  paddingRight: `${rightGuard}px`,
+  '--navbar-center-guard': canGoBack.value ? `max(${rightGuard}px, 120rpx)` : `${rightGuard}px`
+}))
 
-const emit = defineEmits<{ (event: 'back'): void }>()
+const emit = defineEmits<{ (event: 'back'): void; (event: 'fallback'): void }>()
+function handleBack() {
+  updateBackVisibility()
+  if (!hasPreviousPage.value && props.fallback) emit('fallback')
+  else emit('back')
+}
 </script>
 
 <style scoped>
-.result-navbar {
+.app-navbar {
   flex: 0 0 auto;
   box-sizing: border-box;
 }
 
 .navbar-content {
+  position: relative;
   min-height: 120rpx;
   padding-left: 24rpx;
   display: flex;
@@ -81,6 +115,15 @@ const emit = defineEmits<{ (event: 'back'): void }>()
   display: flex;
   flex-direction: column;
   gap: 8rpx;
+}
+
+.is-centered .title-copy {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: calc(100% - var(--navbar-center-guard) - var(--navbar-center-guard));
+  text-align: center;
 }
 
 .navbar-title {

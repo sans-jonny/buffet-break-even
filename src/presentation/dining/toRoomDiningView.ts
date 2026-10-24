@@ -23,7 +23,8 @@ export function toRoomDiningView(room: RoomSnapshot, products: readonly ProductV
     selectedLines.forEach(line => add({name: line.product.name, count: line.count, price: line.product.price}))
     const preview = room.receipt || {id: room.id, restaurant: restaurant?.name || '旧版菜单', restaurantId, typeId: catalog?.typeId, typeName: catalog?.typeName, date, price: room.ticketPrice, value,
         participants: room.members.map(member => member.nickname),
-        lines: [...merged.values()], rounds: draft.rounds}
+        lines: [...merged.values()], rounds: [...draft.rounds, ...(selectedLines.length ? [{time:date, value:currentRoundValue,
+            lines:selectedLines.map(line=>({name:line.product.name,count:line.count,price:line.product.price}))}] : [])]}
     return {
         session: {catalog, restaurantId, hasAnyDraft: Object.values(room.drafts).some(d => d.rounds.length || Object.keys(d.selected).length), active: room.status === 'active', id: room.id, ticketPrice: room.ticketPrice, diningMode: '多人',
             selected: {...draft.selected}, rounds: draft.rounds.map(round => ({...round, lines: round.lines.map(line => ({...line}))}))},

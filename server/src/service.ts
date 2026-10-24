@@ -2,9 +2,10 @@ import {randomInt, randomUUID, randomBytes} from 'node:crypto'
 import {presetCatalog} from '../../src/data/restaurants'
 import {validateCatalog, type DiningCatalog, type RestaurantMenu} from '../../src/utils/restaurant-catalog'
 import {ROOM_PROTOCOL_VERSION, RoomMessage, RoomRequest, RoomSnapshot, RoomReceipt} from '../../src/utils/room-protocol'
+import {isUserId} from '../../src/utils/user-id'
 
 type Peer = {send(message: RoomMessage): void; roomId?: string; memberId?: string}
-type Member = {id: string; nickname: string; token: string; joined: number; offlineAt: number | null; peers: Set<Peer>}
+type Member = {id: string; userId?: string; nickname: string; token: string; joined: number; offlineAt: number | null; peers: Set<Peer>}
 type Room = {catalog: DiningCatalog; snapshot: RoomSnapshot; members: Map<string, Member>; requests: Map<string, RoomMessage>;
     createdAt: number; emptyAt: number | null; endedAt: number | null}
 class Fault extends Error {constructor(public code: string, message: string) {super(message)}}
@@ -74,6 +75,8 @@ export class RoomService {
 
     private enter(peer: Peer, request: RoomRequest) {
         const p = request.params
+        if (p.userId !== undefined && !isUserId(p.userId)) fail('INVALID_USER_ID', '用户UUID无效，请重新进入应用')
+        const userId = typeof p.userId === 'string' ? p.userId.toLowerCase() : undefined
         // A random client entry key allows recovery of a lost create/join acknowledgement.
         if (!text(p.entryKey, 128) || !/^[a-zA-Z0-9_-]{32,128}$/.test(p.entryKey as string)) fail('INVALID_REQUEST', '进入凭证无效')
         const key = `${p.entryKey}:${request.requestId}`
@@ -82,15 +85,16 @@ export class RoomService {
             const identity = previous.message.identity!
             const room = this.rooms.get(previous.roomId)
             if (!room) fail('ROOM_NOT_FOUND', '房间已失效')
+            if (room.members.get(identity.memberId)?.userId !== userId) fail('UNAUTHORIZED', '用户身份不匹配')
             if (peer.roomId && (peer.roomId !== room.snapshot.id || peer.memberId !== identity.memberId)) fail('ALREADY_JOINED', '请先离开当前房间')
             this.attach(peer, room, room.members.get(identity.memberId)!)
             peer.send({...copy(previous.message), snapshot: this.snapshot(room), catalog: copy(room.catalog)})
             return
         }
         if (!text(p.nickname, 20)) fail('INVALID_NICKNAME', '昵称需为1至20个字符')
-        if (peer.roomId) fail('ALREADY_JOINED', '请先离开当前房间')
         let room: Room
         if (request.command === 'create') {
+            if (peer.roomId) fail('ALREADY_JOINED', '请先离开当前房间')
             if (this.rooms.size >= 5000) fail('ROOM_CAPACITY', '服务房间数已达上限，请稍后再试')
             const ticketPrice = this.price(p.ticketPrice)
             let catalog: DiningCatalog
@@ -108,14 +112,21 @@ export class RoomService {
         } else {
             if (typeof p.code !== 'string' || !/^\d{6}$/.test(p.code)) fail('INVALID_CODE', '请输入六位房间号')
             room = this.rooms.get(this.codes.get(p.code) || '') || fail('ROOM_NOT_FOUND', '房间不存在或已失效')
-            if (room.snapshot.status !== 'active') fail('ROOM_ENDED', '用餐已结束，不能加入')
-            if (room.members.size >= 50) fail('ROOM_CAPACITY', '房间最多支持50人')
         }
-        const member: Member = {id: randomUUID(), nickname: (p.nickname as string).trim(), token: randomBytes(32).toString('hex'),
+        const existing = userId ? [...room.members.values()].find(member => member.userId === userId) : undefined
+        if (peer.roomId && (peer.roomId !== room.snapshot.id || peer.memberId !== existing?.id)) fail('ALREADY_JOINED', '请先离开当前房间')
+        if (!existing && room.snapshot.status !== 'active') fail('ROOM_ENDED', '用餐已结束，不能加入')
+        if (!existing && room.members.size >= 50) fail('ROOM_CAPACITY', '房间最多支持50人')
+        const member: Member = existing || {id: randomUUID(), userId, nickname: (p.nickname as string).trim(), token: randomBytes(32).toString('hex'),
             joined: room.members.size, offlineAt: null, peers: new Set()}
         room.members.set(member.id, member)
         if (!room.snapshot.hostId) room.snapshot.hostId = member.id
         this.attach(peer, room, member)
+        if (existing && room.snapshot.status === 'active' && member.nickname !== (p.nickname as string).trim()) {
+            member.nickname = (p.nickname as string).trim()
+            room.snapshot.revision++
+            this.broadcast(room, 'rename', member.id)
+        }
         const message = this.response(request, room, member.id, {identity: {roomId: room.snapshot.id, code: room.snapshot.code, memberId: member.id, token: member.token}, catalog: copy(room.catalog)})
         this.entries.set(key, {roomId: room.snapshot.id, message})
         peer.send(copy(message))
@@ -127,6 +138,11 @@ export class RoomService {
         if (p.code !== room.snapshot.code || this.codes.get(String(p.code)) !== p.roomId) fail('ROOM_NOT_FOUND', '房间号和唯一ID不匹配')
         const member = room.members.get(String(p.memberId))
         if (!member || member.token !== p.token) fail('UNAUTHORIZED', '成员身份无效，请重新加入')
+        if (p.userId !== undefined) {
+            if (!isUserId(p.userId) || (member.userId && member.userId !== p.userId.toLowerCase())) fail('UNAUTHORIZED', '用户身份不匹配')
+            // 旧客户端创建的成员首次携带有效凭证恢复时，绑定本机UUID。
+            member.userId = p.userId.toLowerCase()
+        }
         if (peer.roomId && (peer.roomId !== room.snapshot.id || peer.memberId !== member.id)) fail('ALREADY_JOINED', '请先离开当前房间')
         this.attach(peer, room, member)
         peer.send(this.response(request, room, member.id, {catalog: copy(room.catalog)}))

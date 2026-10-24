@@ -17,13 +17,14 @@ import {productAppearance} from '@/presentation/dining/productAppearance'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {UniBuffetNavigation} from '@/ui/navigation/UniBuffetNavigation'
 import {ApplicationBootstrap} from './ApplicationBootstrap'
-import {RoomInput, SaveRoomResultInput, DiscardSessionInput, ChangeTicketPriceInput} from '@/contexts/dining/public'
+import {RoomInput, SaveRoomResultInput, SaveDiningReceiptInput, DiscardSessionInput, ChangeTicketPriceInput} from '@/contexts/dining/public'
 import {createRoom} from '@/contexts/dining/room/RoomConfiguration'
 import {useRoomStore} from '@/ui/stores/useRoomStore'
 import {useProfileStore} from '@/ui/stores/useProfileStore'
 import {ProfileSettings} from '@/ui/profile/ProfileSettings'
 import {UniProfileSettings} from '@/ui/profile/UniProfileSettings'
 import {MenuPreviewCache} from '@/ui/preview/MenuPreviewCache'
+import {UniUserIdentity} from '@/infrastructure/identity/UniUserIdentity'
 
 export function registerApplication(app: App, pinia: Pinia): void {
     app.provide<MenuPreviewCache>(MenuPreviewCache.Token, new MenuPreviewCache(uni))
@@ -45,6 +46,7 @@ export function registerApplication(app: App, pinia: Pinia): void {
     app.provide<LoadCollectionInput>(LoadCollectionInput.Token, dining.loadCollection)
     app.provide<DeleteReceiptInput>(DeleteReceiptInput.Token, dining.deleteReceipt)
     app.provide<CompleteDiningInput>(CompleteDiningInput.Token, dining.completeDining)
+    app.provide<SaveDiningReceiptInput>(SaveDiningReceiptInput.Token, dining.saveDiningReceipt)
     app.provide<SaveRoomResultInput>(SaveRoomResultInput.Token, dining.saveRoomResult)
     app.provide<DiscardSessionInput>(DiscardSessionInput.Token, dining.closeDining)
     app.provide<ChangeTicketPriceInput>(ChangeTicketPriceInput.Token, dining.changeTicketPrice)
@@ -52,7 +54,7 @@ export function registerApplication(app: App, pinia: Pinia): void {
     const profile = new UniProfileSettings(useProfileStore(pinia))
     app.provide<ProfileSettings>(ProfileSettings, profile)
     app.provide(ApplicationBootstrap.Token, new ApplicationBootstrap({
-        dining: dining.loadDining, history: dining.loadHistory, collection: dining.loadCollection, profile,
+        dining: dining.loadDining, history: dining.loadHistory, collection: dining.loadCollection, profile, identity:new UniUserIdentity(),
     }, database.transaction.bind(database), useApplicationStore(pinia)))
     app.provide<BuffetNavigation>(BuffetNavigation, new UniBuffetNavigation(uni, () => getCurrentPages().length))
 }

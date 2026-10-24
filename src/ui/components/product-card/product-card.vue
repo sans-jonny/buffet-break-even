@@ -1,7 +1,7 @@
 <template>
   <view class="product-card">
     <view class="food-picture flex-center" :style="{ background: product.gradient }">
-      <text>{{ product.emoji }}</text>
+      <text class="food-emoji">{{ product.emoji }}</text>
     </view>
     <view class="food-info">
       <text class="food-name">{{ product.name }}</text>
@@ -55,7 +55,7 @@ defineEmits<{ (event: 'add', id: string): void }>()
   overflow: hidden;
 }
 
-.food-picture text {
+.food-emoji {
   font-size: 76rpx;
 }
 

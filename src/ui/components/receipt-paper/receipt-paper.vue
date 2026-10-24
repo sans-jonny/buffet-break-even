@@ -1,10 +1,10 @@
 <template>
-  <view class="receipt" @touchstart="saveGesture.start" @longpress.stop="saveGesture.longPress" @touchend="saveGesture.end" @touchcancel="saveGesture.cancel">
+  <view class="receipt" @touchstart="saveGesture.start" @touchmove="saveGesture.move" @longpress.stop="saveGesture.longPress" @touchend="saveGesture.end" @touchcancel="saveGesture.cancel">
     <view v-if="detached" class="receipt-teeth receipt-teeth-top">
-      <view v-for="tooth in 28" :key="tooth"/>
+      <view v-for="tooth in 28" :key="tooth" class="receipt-tooth"/>
     </view>
     <text class="receipt-title">PAGER MESSAGE</text>
-    <text v-if="restaurant" class="receipt-restaurant">{{ restaurant }}{{ typeName ? ' · ' + typeName : '' }}</text>
+    <text v-if="restaurant" class="receipt-restaurant">{{ formatRestaurantTitle(restaurant, typeName) }}</text>
     <view class="receipt-dash"/>
     <view class="receipt-meta">
       <text>ID: {{ receiptId }}</text>
@@ -16,15 +16,15 @@
     <text class="verdict-copy">{{ resultCopy }}</text>
     <view class="receipt-dash"/>
     <view class="receipt-summary">
-      <view>
+      <view class="summary-item">
         <text>就餐价格</text>
         <text class="summary-value">¥{{ price }}</text>
       </view>
-      <view>
+      <view class="summary-item summary-center">
         <text>已吃价值</text>
         <text class="summary-value">¥{{ formatPrice(value) }}</text>
       </view>
-      <view>
+      <view class="summary-item summary-end">
         <text>差额</text>
         <text class="summary-value difference" :class="{ win: result.isBreakEven }">{{ differenceText }}</text>
       </view>
@@ -32,17 +32,17 @@
     <view class="receipt-dash"/>
     <view v-for="line in lines" :key="line.name" class="receipt-line">
       <text>{{ line.name }}</text>
-      <text>×{{ line.count }}</text>
-      <text>¥{{ formatPrice(line.price * line.count) }}</text>
+      <text class="receipt-line-number">×{{ line.count }}</text>
+      <text class="receipt-line-number">¥{{ formatPrice(line.price * line.count) }}</text>
     </view>
     <view class="receipt-dash"/>
     <view class="receipt-bottom">
       <text>||||||||||||||||||||</text>
       <text>Finished dining</text>
     </view>
-    <text class="save-hint">长按保存到相册</text>
+    <text class="save-hint">长按图片</text>
     <view class="receipt-teeth">
-      <view v-for="tooth in 28" :key="tooth"/>
+      <view v-for="tooth in 28" :key="tooth" class="receipt-tooth"/>
     </view>
   </view>
 </template>
@@ -50,6 +50,7 @@
 <script setup lang="ts">
 import {computed} from 'vue'
 import {useLongPressAction} from '@/ui/composables/useLongPressAction'
+import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 import type {ReceiptLineView} from '@/presentation/receipt/ReceiptLineView'
 import {formatPrice} from '@/utils/format'
 import type {BreakEvenView} from '@/presentation/shared/BreakEvenView'
@@ -135,7 +136,7 @@ const resultCopy = computed(() => result.value.isBreakEven
   justify-content: space-between;
 }
 
-.receipt-summary > view {
+.summary-item {
   display: flex;
   flex-direction: column;
   gap: 12rpx;
@@ -143,11 +144,11 @@ const resultCopy = computed(() => result.value.isBreakEven
   font-weight: 800;
 }
 
-.receipt-summary > view:nth-child(2) {
+.summary-center {
   align-items: center;
 }
 
-.receipt-summary > view:last-child {
+.summary-end {
   align-items: flex-end;
 }
 
@@ -173,7 +174,7 @@ const resultCopy = computed(() => result.value.isBreakEven
   font-weight: 800;
 }
 
-.receipt-line text:nth-child(2), .receipt-line text:nth-child(3) {
+.receipt-line-number {
   text-align: right;
 }
 
@@ -204,7 +205,7 @@ const resultCopy = computed(() => result.value.isBreakEven
   overflow: hidden;
 }
 
-.receipt-teeth > view {
+.receipt-tooth {
   width: 0;
   height: 0;
   border-left: 12rpx solid transparent;

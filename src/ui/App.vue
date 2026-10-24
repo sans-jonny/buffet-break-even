@@ -1,14 +1,24 @@
 <script setup lang="ts">
-import {onLaunch} from '@dcloudio/uni-app'
+import {onLaunch, onShow, onHide} from '@dcloudio/uni-app'
 import {ApplicationBootstrap} from '@/ui/composition/ApplicationBootstrap'
 import {useRequired} from '@/ui/composables/useRequired'
+import {useRoomResultNavigation} from '@/ui/composables/useRoomResultNavigation'
+import {useEmptySessionCleanup} from '@/ui/composables/useEmptySessionCleanup'
 
 const bootstrap = useRequired<ApplicationBootstrap>(ApplicationBootstrap.Token)
-onLaunch(() => { bootstrap.initialize() })
+const checkRoomResult = useRoomResultNavigation()
+const clearEmptySession = useEmptySessionCleanup()
+onLaunch(() => {
+  // 被系统强制终止时可能没有退出回调，下次启动补清理空会话。
+  if (bootstrap.initialize()) void clearEmptySession()
+})
+onShow(() => {void checkRoomResult()})
+onHide(() => {void clearEmptySession()})
 </script>
 <style>
 @import "./static/iconfont/iconfont.css";
 
+/* #ifdef H5 */
 @font-face {
   font-family: "SourceHanSansSC";
   src: url("./static/SourceHanSansSC-Regular-2.otf") format("opentype");
@@ -16,6 +26,7 @@ onLaunch(() => { bootstrap.initialize() })
   font-weight: 400;
   font-display: swap;
 }
+/* #endif */
 
 /* page 是 uni-app 的页面根元素。 */
 /*noinspection CssInvalidHtmlTagReference */

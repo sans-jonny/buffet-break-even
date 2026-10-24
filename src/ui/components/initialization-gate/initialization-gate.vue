@@ -6,6 +6,10 @@
   </view>
 </template>
 
+<script lang="ts">
+export default {options: {virtualHost: true}}
+</script>
+
 <script setup lang="ts">
 import {ApplicationBootstrap} from '@/ui/composition/ApplicationBootstrap'
 import {useRequired} from '@/ui/composables/useRequired'

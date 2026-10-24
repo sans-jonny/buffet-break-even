@@ -1,4 +1,5 @@
 import {ROOM_PROTOCOL_VERSION} from '@/utils/room-protocol'
+import {UniUserIdentity} from '@/infrastructure/identity/UniUserIdentity'
 import {validateCatalog, type DiningCatalog} from '@/utils/restaurant-catalog'
 import type {RoomGateway} from '../../application/port/out/RoomGateway'
 import type {RoomPresenter} from '../presentation/RoomPresenter'
@@ -58,7 +59,12 @@ export class UniRoomGateway implements RoomGateway {
                 this.resumable = Boolean(result.available)
                 if (!this.resumable) this.message = '上次房间已失效或编号不匹配，可创建或加入新房间'
             } catch (error) {if (this.status !== 'expired') throw error}
-            finally {this.publish()}
+            finally {
+                // 检查只用于决定是否显示继续入口，不让已退出成员持续在线。
+                this.stop()
+                if (this.status !== 'expired') this.status = 'idle'
+                this.publish()
+            }
             return
         }
         if (command === 'resume') {
@@ -71,6 +77,7 @@ export class UniRoomGateway implements RoomGateway {
             if (this.cache.identity || this.cache.pending) await this.connect()
             return
         }
+        const userId = command === 'create' || command === 'join' ? new UniUserIdentity().load() : undefined
         if (command === 'create' || command === 'join') {
             this.suspended = false
             this.load()
@@ -88,7 +95,7 @@ export class UniRoomGateway implements RoomGateway {
         this.busy = true; this.message = ''; this.publish()
         const {url: _url, ...payload} = params
         const request: RoomRequest = {protocolVersion: ROOM_PROTOCOL_VERSION, requestId: id(), command,
-            params: {...payload, ...(command === 'create' || command === 'join' ? {entryKey: this.cache.entryKey} : {})}}
+            params: {...payload, ...(command === 'create' || command === 'join' ? {entryKey: this.cache.entryKey, userId} : {})}}
         this.cache.pending = request
         try {this.persist()} catch (error) {
             this.cache.pending = undefined; this.busy = false; this.publish()
@@ -140,7 +147,7 @@ export class UniRoomGateway implements RoomGateway {
         if (message.type === 'error') throw new Error(message.message || '操作失败')
     }
     private async recover() {
-        if (this.cache.identity) await this.rpc('resume', this.cache.identity)
+        if (this.cache.identity) await this.rpc('resume', {...this.cache.identity,userId:new UniUserIdentity().load()})
         const pending = this.cache.pending
         if (!pending) return
         if (pending.command === 'create' || pending.command === 'join') {
@@ -235,7 +242,7 @@ export class UniRoomGateway implements RoomGateway {
         })
     }
     private expire(message: string) {
-        this.stop(new Error(message)); this.status = 'expired'; this.message = message; this.publish()
+        this.stop(new Error(message)); this.status = 'expired'; this.resumable = false; this.message = message; this.publish()
     }
     private stop(error = new Error('已取消房间连接')) {
         this.cancelOpening?.(error); this.cancelOpening = undefined

@@ -1,5 +1,6 @@
 import type {ReceiptLineView} from '@/presentation/receipt/ReceiptLineView'
 import type {BreakEvenView} from '@/presentation/shared/BreakEvenView'
+import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
 export interface ReceiptImageData {
     restaurant: string
@@ -7,6 +8,7 @@ export interface ReceiptImageData {
     participants?: readonly string[]
     receiptId: string
     dateTime: string
+    date?: string
     price: number
     value: number
     lines: readonly ReceiptLineView[]
@@ -45,7 +47,7 @@ export function layoutReceiptImage(data: ReceiptImageData) {
     function divider() {y += 14; dividers.push(y); y += 30}
     paragraph('PAGER MESSAGE', 30, true)
     y += 12
-    paragraph([data.restaurant, data.typeName].filter(Boolean).join(' · '), 24, true)
+    paragraph(formatRestaurantTitle(data.restaurant, data.typeName), 24, true)
     divider()
     paragraph('ID: ' + data.receiptId, 20)
     paragraph(data.dateTime, 20)

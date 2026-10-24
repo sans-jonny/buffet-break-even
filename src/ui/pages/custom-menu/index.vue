@@ -1,7 +1,7 @@
 <template>
   <view class="restaurant-page editor-page">
     <initialization-gate>
-      <result-navbar class="restaurant-navbar" inset title-color="#ff4f0a" subtitle-color="#a18765" title="创造者模式" :subtitle="restaurant?.name || '新建餐厅'" @back="goBack"/>
+      <app-navbar fallback class="restaurant-navbar" inset title-color="#ff4f0a" subtitle-color="#a18765" title="创造者模式" :subtitle="restaurant?.name || '新建餐厅'" @back="goBack" @fallback="goBack"/>
       <template v-if="restaurant">
         <view class="restaurant-card restaurant-main name-card">
           <view class="restaurant-badge">{{ restaurant.name.slice(0,1) || '店' }}</view>
@@ -56,7 +56,7 @@ import {useRequired} from '@/ui/composables/useRequired'
 import {runAction} from '@/ui/composables/runAction'
 import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import ResultNavbar from '@/ui/components/result-navbar/result-navbar.vue'
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
