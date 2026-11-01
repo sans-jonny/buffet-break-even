@@ -1,9 +1,8 @@
 <template>
   <view class="sub-page">
-    <app-navbar fallback centered title="小票夹" @back="goBack" @fallback="goBack"/>
-    <initialization-gate>
-    <view v-if="collectionStore.view.receipts.length" class="receipt-grid">
-      <view v-for="(item, index) in collectionStore.view.receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
+    <app-navbar centered fallback title="小票夹" @back="goBack" @fallback="goBack"/>
+    <view v-if="receipts.length" class="receipt-grid">
+      <view v-for="(item, index) in receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
         <view class="thumb-paper">
           <text class="paper-title">BUFFET-CALC</text>
           <text class="paper-price">¥{{ item.value }} / ¥{{ item.price }}</text>
@@ -23,25 +22,79 @@
       <text class="empty-title">小票夹还是空的</text>
       <text>完成一次用餐后，把战果收藏在这里吧</text>
     </view>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
+import {ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {formatDateTime} from '@/ui/format/time'
 import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
-const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const goBack = () => runAction(() => navigation.back('mine'))
-import {useCollectionStore} from '@/ui/stores/useCollectionStore'
+// 展示数据
+const receipts = ref([
+  {
+    "id": "ui-receipt-001",
+    "restaurant": "牛牛",
+    "typeName": "寿喜烧",
+    "date": "2026-11-01T12:30:00+08:00",
+    "price": 200,
+    "value": 248,
+    "lines": [
+      {
+        "name": "牛上脑",
+        "count": 20,
+        "price": 10
+      },
+      {
+        "name": "鲜虾",
+        "count": 2,
+        "price": 18
+      },
+      {
+        "name": "时蔬拼盘",
+        "count": 1,
+        "price": 12
+      }
+    ]
+  },
+  {
+    "id": "ui-receipt-002",
+    "restaurant": "一绪",
+    "typeName": "寿喜烧",
+    "date": "2026-11-01T12:30:00+08:00",
+    "price": 200,
+    "value": 248,
+    "lines": [
+      {
+        "name": "牛上脑",
+        "count": 20,
+        "price": 10
+      },
+      {
+        "name": "鲜虾",
+        "count": 2,
+        "price": 18
+      },
+      {
+        "name": "时蔬拼盘",
+        "count": 1,
+        "price": 12
+      }
+    ]
+  }
+])
 
-const collectionStore = useCollectionStore()
-const openReceipt = (id: string) => runAction(() => navigation.toResult(id))
+// 路由方法
+const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+
+const goBack = () => navigation.back('mine')
+
+const openReceipt = (id: string) => navigation.toResult(id)
+
+// 业务方法（仅保留事件接口）
+// 当前页面无此类方法。
 </script>
 
 <style scoped>

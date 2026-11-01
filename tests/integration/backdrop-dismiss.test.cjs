@@ -1,7 +1,7 @@
 const test=require('node:test')
 const assert=require('node:assert/strict')
 const {loadModule}=require('../helpers/runtime.cjs')
-const useBackdropDismiss=(...args)=>loadModule('ui/composables/useBackdropDismiss').useBackdropDismiss(...args)
+const useBackdropDismiss=(...args)=>loadModule('ui/components/app-dialog/useBackdropDismiss').useBackdropDismiss(...args)
 
 test('没有在遮罩按下时，单独松开不会关闭',()=>{
     let closed=0

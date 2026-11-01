@@ -1,12 +1,16 @@
-import { defineConfig, loadEnv } from "vite";
+import { defineConfig } from "vite";
 import uni from "@dcloudio/vite-plugin-uni";
 import { fileURLToPath } from "node:url";
+import AutoImport from "unplugin-auto-import/vite";
 
 // https://vitejs.dev/config/
-export default defineConfig(({mode}) => ({
-  define: {__ROOM_SERVER_URL__: JSON.stringify(loadEnv(mode, process.cwd()).VITE_ROOM_SERVER_URL || 'ws://localhost:3001/ws')},
+export default defineConfig({
   plugins: [
     uni(),
+    AutoImport({
+      imports: [{"@/ui/useRequired": ["useRequired"]}],
+      dts: false,
+    }),
     {
       name: "project-source-alias",
       enforce: "post",
@@ -18,4 +22,4 @@ export default defineConfig(({mode}) => ({
       }),
     },
   ],
-}));
+});

@@ -1,12 +1,12 @@
 <template>
-  <view class="app-navbar" :class="{'is-inset': inset, 'is-centered': centered}" :style="navbarStyle">
-    <view class="navbar-content" :style="contentStyle">
-      <button v-if="canGoBack" class="back-button flex-center" :hover-stay-time="0" aria-label="返回" @tap="handleBack">
+  <view :class="{'is-inset': inset, 'is-centered': centered}" :style="navbarStyle" class="app-navbar">
+    <view :style="contentStyle" class="navbar-content">
+      <button v-if="canGoBack" :hover-stay-time="0" aria-label="返回" class="back-button flex-center" @tap="handleBack">
         <text class="iconfont icon-fanhui"/>
       </button>
       <view class="title-copy">
-        <text class="navbar-title" :style="{color: titleColor}">{{ title }}</text>
-        <text v-if="subtitle" class="navbar-subtitle" :style="{color: subtitleColor}">{{ subtitle }}</text>
+        <text :style="{color: titleColor}" class="navbar-title">{{ title }}</text>
+        <text v-if="subtitle" :style="{color: subtitleColor}" class="navbar-subtitle">{{ subtitle }}</text>
       </view>
     </view>
   </view>
@@ -16,7 +16,7 @@
 export default {options: {virtualHost: true}}
 </script>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed, onMounted, ref} from 'vue'
 import {onShow} from '@dcloudio/uni-app'
 
@@ -46,9 +46,11 @@ const props = withDefaults(defineProps<{
 
 const hasPreviousPage = ref(false)
 const canGoBack = computed(() => props.showBack ?? (hasPreviousPage.value || props.fallback))
+
 function updateBackVisibility() {
   hasPreviousPage.value = typeof getCurrentPages === 'function' && getCurrentPages().length > 1
 }
+
 updateBackVisibility()
 onMounted(updateBackVisibility)
 onShow(updateBackVisibility)
@@ -68,6 +70,7 @@ const contentStyle = computed(() => ({
 }))
 
 const emit = defineEmits<{ (event: 'back'): void; (event: 'fallback'): void }>()
+
 function handleBack() {
   updateBackVisibility()
   if (!hasPreviousPage.value && props.fallback) emit('fallback')
@@ -106,8 +109,13 @@ function handleBack() {
   font-size: 50rpx;
 }
 
-.back-button::after {border: 0}
-.is-inset .navbar-content {padding-left: 0}
+.back-button::after {
+  border: 0
+}
+
+.is-inset .navbar-content {
+  padding-left: 0
+}
 
 .title-copy {
   flex: 1;

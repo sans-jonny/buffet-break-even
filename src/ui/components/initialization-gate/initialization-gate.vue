@@ -1,25 +1,20 @@
 <template>
-  <slot v-if="applicationStore.view.status === 'ready'"/>
+  <slot v-if="status === 'ready'"/>
   <view v-else class="initialization-state">
-    <text>{{ applicationStore.view.status === 'error' ? applicationStore.view.message : '正在读取用餐数据…' }}</text>
-    <button :hover-stay-time="0" v-if="applicationStore.view.status === 'error'" size="mini" @tap="retry">重新读取</button>
+    <text>{{ status === 'error' ? message : '正在读取用餐数据…' }}</text>
+    <button v-if="status === 'error'" :hover-stay-time="0" size="mini" @tap="$emit('retry')">重新读取</button>
   </view>
 </template>
-
 <script lang="ts">
 export default {options: {virtualHost: true}}
 </script>
-
-<script setup lang="ts">
-import {ApplicationBootstrap} from '@/ui/composition/ApplicationBootstrap'
-import {useRequired} from '@/ui/composables/useRequired'
-import {useApplicationStore} from '@/ui/stores/useApplicationStore'
-
-const applicationStore = useApplicationStore()
-const bootstrap = useRequired<ApplicationBootstrap>(ApplicationBootstrap.Token)
-const retry = () => bootstrap.initialize()
+<script lang="ts" setup>
+withDefaults(defineProps<{ status?: 'ready' | 'loading' | 'error'; message?: string }>(), {
+  status: 'ready',
+  message: ''
+})
+defineEmits<{ (event: 'retry'): void }>()
 </script>
-
 <style scoped>
 .initialization-state {
   padding: 80rpx 40rpx;

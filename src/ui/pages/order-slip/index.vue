@@ -1,8 +1,7 @@
 <template>
   <view class="order-page">
-    <app-navbar fallback centered title="本轮点单" @back="goBack" @fallback="goBack"/>
-    <initialization-gate>
-    <view v-if="!roomStore.view.snapshot || isHost" class="notebook">
+    <app-navbar centered fallback title="本轮点单" @back="goBack" @fallback="goBack"/>
+    <view v-if="!hasRoom || isHost" class="notebook">
       <view class="rings">
         <view v-for="number in 9" :key="number" class="ring"/>
       </view>
@@ -12,78 +11,60 @@
       </view>
       <text class="order-time">{{ date }} {{ time }}</text>
       <view class="paper-rule"/>
-      <view v-for="line in diningStore.view.selectedLines" :key="line.product.id" class="order-line">
+      <view v-for="line in selectedLines" :key="line.product.id" class="order-line">
         <text class="order-qty">{{ line.count }}x</text>
         <text>{{ line.product.name }}</text>
         <text class="order-check">✓</text>
       </view>
       <view class="paper-rule"/>
       <text class="order-note">辛苦了！希望菜品能尽快上齐，感激不尽！ 🌟</text>
-      <view v-if="!roomStore.view.snapshot || isHost" class="order-done flex-center" @tap="completeRound">点单完毕！</view>
+      <view v-if="!hasRoom || isHost" class="order-done flex-center" @tap="completeRound">点单完毕！</view>
       <text v-else class="order-note">只有房主可以给 Waiter 看菜单并提交本轮</text>
     </view>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed, ref, watch} from 'vue'
-import {useApplicationStore} from '@/ui/stores/useApplicationStore'
-import {onLoad, onShow} from '@dcloudio/uni-app'
-import {CommitRoundInput} from '@/contexts/dining/public'
-import {currentDate, currentTime} from '@/utils/format'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
+import {ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {RoomInput} from '@/contexts/dining/public'
-import {useRoomStore} from '@/ui/stores/useRoomStore'
-import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 
+// 展示数据
+const selectedLines = ref([
+  {
+    "product": {
+      "id": "beef",
+      "name": "牛上脑"
+    },
+    "count": 4
+  },
+  {
+    "product": {
+      "id": "shrimp",
+      "name": "鲜虾"
+    },
+    "count": 2
+  },
+  {
+    "product": {
+      "id": "vegetables",
+      "name": "时蔬拼盘"
+    },
+    "count": 1
+  }
+])
+
+const hasRoom = ref(false), isHost = ref(true)
+
+const date = ref('2026-11-01'), time = ref('12:30')
+
+// 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const goBack = () => runAction(() => navigation.back('menu'))
-const applicationStore = useApplicationStore()
-const diningStore = useActiveDining()
-const roomStore = useRoomStore(), restoreRoom = useRoomConnection()
-const roomInput = useRequired<RoomInput>(RoomInput.Token)
-const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view.memberId)
-const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
-const date = ref(currentDate())
-const time = ref(currentTime())
-const submitting = ref(false)
-function checkSelection() {
-  if (!applicationStore.ready) return
-  return runAction(async () => {
-    try {await restoreRoom()} catch (error) {if (!roomStore.view.snapshot) throw error}
-    if (roomStore.view.snapshot?.status === 'ended') return
-    if ((roomStore.view.snapshot && !isHost.value) || !diningStore.view.selectedLines.length) await navigation.open('menu', 'replace')
-  })
-}
-onLoad(() => { void checkSelection() })
-onShow(() => {void checkSelection()})
-watch(() => applicationStore.ready, initialized => { if (initialized) void checkSelection() })
 
+const goBack = () => navigation.back('menu')
+
+// 业务方法（仅保留事件接口）
 function completeRound() {
-  if (submitting.value) return
-  void runAction(async () => {
-    submitting.value = true
-    try {
-      if (roomStore.view.snapshot) {
-        if (!isHost.value) throw new Error('只有房主可以提交本轮')
-        if (!diningStore.view.selectedLines.length) {await navigation.back('menu'); return}
-        await roomInput.execute({command: 'commitRound', params: {restaurantId: diningStore.view.session.restaurantId, expectedRevision: roomStore.view.snapshot.revision}})
-        uni.showToast({title: '本轮已记录', icon: 'none'})
-        await navigation.back('menu')
-        return
-      }
-      const response = commit.execute({})
-      if (response.committed) uni.showToast({title: '第 ' + response.roundCount + ' 轮已记录', icon: 'none'})
-      await navigation.back('menu')
-    } finally {
-      submitting.value = false
-    }
-  })
 }
 </script>
 

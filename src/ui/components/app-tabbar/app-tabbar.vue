@@ -1,12 +1,12 @@
 <template>
   <view class="app-tabbar">
-    <view class="tab-item flex-center" :class="{ active: active === 'review' }" @tap="reviewSoon">测评</view>
-    <view class="tab-item flex-center" :class="{ active: active === 'menu' }" @tap="emit('select', 'menu')">菜单</view>
-    <view class="tab-item flex-center" :class="{ active: active === 'mine' }" @tap="emit('select', 'mine')">我的</view>
+    <view :class="{ active: active === 'review' }" class="tab-item flex-center" @tap="reviewSoon">测评</view>
+    <view :class="{ active: active === 'menu' }" class="tab-item flex-center" @tap="emit('select', 'menu')">菜单</view>
+    <view :class="{ active: active === 'mine' }" class="tab-item flex-center" @tap="emit('select', 'mine')">我的</view>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 withDefaults(defineProps<{ active?: 'review' | 'menu' | 'mine' }>(), {active: 'menu'})
 
 const emit = defineEmits<{ (event: 'select', tab: 'menu' | 'mine'): void }>()

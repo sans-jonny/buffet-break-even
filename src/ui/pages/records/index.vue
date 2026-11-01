@@ -1,15 +1,14 @@
 <template>
   <view class="sub-page">
-    <app-navbar fallback centered title="点餐明细" @back="goBack" @fallback="goBack"/>
-    <initialization-gate>
+    <app-navbar centered fallback title="点餐明细" @back="goBack" @fallback="goBack"/>
     <view class="records-body">
-      <records-overview :meals="historyStore.view.records.length" :rounds="historyStore.view.totalRoundsSaved" :dishes="historyStore.view.totalDishesSaved"/>
-      <view v-for="(item, index) in historyStore.view.records" :key="item.id" class="record-card"
-            :class="{ expanded: expandedRecordId === item.id }">
+      <records-overview :dishes="totalDishesSaved" :meals="records.length" :rounds="totalRoundsSaved"/>
+      <view v-for="(item, index) in records" :key="item.id" :class="{ expanded: expandedRecordId === item.id }"
+            class="record-card">
         <view class="record-summary" @tap="toggleRecord(item.id)">
           <view class="record-copy">
             <view>
-              <text class="label-chip inline-flex-center">第 {{ historyStore.view.records.length - index }} 餐</text>
+              <text class="label-chip inline-flex-center">第 {{ records.length - index }} 餐</text>
               <text class="restaurant">{{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
             </view>
             <text class="record-date">{{ formatDateTime(item.date) }}</text>
@@ -44,38 +43,137 @@
           </view>
         </view>
       </view>
-      <view v-if="!historyStore.view.records.length" class="empty-state flex-center">
+      <view v-if="!records.length" class="empty-state flex-center">
         <text class="empty-icon">📋</text>
         <text class="empty-title">还没有点餐记录</text>
         <text>开始第一顿自助餐吧</text>
       </view>
     </view>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import {ref} from 'vue'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {formatDateTime, formatRoundTime} from '@/ui/format/time'
 import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
-const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const goBack = () => runAction(() => navigation.back('mine'))
-import {useHistoryStore} from '@/ui/stores/useHistoryStore'
+// 展示数据
+const records = ref([
+  {
+    "id": "ui-receipt-001",
+    "restaurant": "牛牛",
+    "typeName": "寿喜烧",
+    "date": "2026-11-01T12:30:00+08:00",
+    "price": 200,
+    "value": 248,
+    "participants": [
+      "小羊",
+      "饭搭子"
+    ],
+    "rounds": [
+      {
+        "time": "2026-11-01T12:00:00+08:00",
+        "value": 88,
+        "lines": [
+          {
+            "name": "牛上脑",
+            "count": 4,
+            "price": 10
+          },
+          {
+            "name": "鲜虾",
+            "count": 2,
+            "price": 18
+          },
+          {
+            "name": "时蔬拼盘",
+            "count": 1,
+            "price": 12
+          }
+        ]
+      },
+      {
+        "time": "2026-11-01T12:25:00+08:00",
+        "value": 160,
+        "lines": [
+          {
+            "name": "牛上脑",
+            "count": 16,
+            "price": 10
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "ui-receipt-002",
+    "restaurant": "一绪",
+    "typeName": "寿喜烧",
+    "date": "2026-11-01T12:30:00+08:00",
+    "price": 200,
+    "value": 248,
+    "participants": [
+      "小羊",
+      "饭搭子"
+    ],
+    "rounds": [
+      {
+        "time": "2026-11-01T12:00:00+08:00",
+        "value": 88,
+        "lines": [
+          {
+            "name": "牛上脑",
+            "count": 4,
+            "price": 10
+          },
+          {
+            "name": "鲜虾",
+            "count": 2,
+            "price": 18
+          },
+          {
+            "name": "时蔬拼盘",
+            "count": 1,
+            "price": 12
+          }
+        ]
+      },
+      {
+        "time": "2026-11-01T12:25:00+08:00",
+        "value": 160,
+        "lines": [
+          {
+            "name": "牛上脑",
+            "count": 16,
+            "price": 10
+          }
+        ]
+      }
+    ]
+  }
+])
 
-const historyStore = useHistoryStore()
+const totalRoundsSaved = ref(4), totalDishesSaved = ref(46)
+
+// UI 交互状态
 const expandedRecordId = ref<string | null>(null)
 
+// 路由方法
+const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+
+const goBack = () => navigation.back('mine')
+
+const openDetail = (id: string) => navigation.toRecord(id)
+
+// UI 交互方法
 function toggleRecord(id: string) {
   expandedRecordId.value = expandedRecordId.value === id ? null : id
 }
 
-const openDetail = (id: string) => runAction(() => navigation.toRecord(id))
+// 业务方法（仅保留事件接口）
+// 当前页面无此类方法。
 </script>
 
 <style scoped>

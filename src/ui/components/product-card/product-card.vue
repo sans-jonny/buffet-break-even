@@ -1,6 +1,6 @@
 <template>
   <view class="product-card">
-    <view class="food-picture flex-center" :style="{ background: product.gradient }">
+    <view :style="{ background: product.gradient }" class="food-picture flex-center">
       <text class="food-emoji">{{ product.emoji }}</text>
     </view>
     <view class="food-info">
@@ -11,10 +11,11 @@
       </view>
     </view>
     <view v-if="!readonly" class="add-control">
-      <view class="add-button flex-center" :class="'button-' + phase" :style="{'animation-duration': PRESS_ANIMATION_MS + 'ms'}" hover-class="none"
-            @touchstart="press" @touchend="release" @touchcancel="release"
-            @mousedown="press" @mouseup="release" @mouseleave="release"
-            @animationend="animationEnd" @tap="$emit('add', product.id)">
+      <view :class="'button-' + phase" :style="{'animation-duration': PRESS_ANIMATION_MS + 'ms'}"
+            class="add-button flex-center" hover-class="none"
+            @animationend="animationEnd" @mousedown="press" @mouseleave="release"
+            @mouseup="release" @tap="$emit('add', product.id)" @touchcancel="release"
+            @touchend="release" @touchstart="press">
         <text>+</text>
       </view>
       <view v-if="count" class="count-badge flex-center">{{ count }}</view>
@@ -22,14 +23,17 @@
   </view>
 </template>
 
-<script setup lang="ts">
-import type {ProductView} from '@/presentation/dining/ProductView'
-import {formatPrice} from '@/utils/format'
-import {PRESS_ANIMATION_MS, usePressFeedback} from '@/ui/composables/usePressFeedback'
+<script lang="ts" setup>
+import {formatPrice} from '@/ui/format/price'
+import {PRESS_ANIMATION_MS, usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
 
 const {phase, press, release, animationEnd} = usePressFeedback()
 
-defineProps<{ product: ProductView; count?: number; readonly?: boolean }>()
+defineProps<{
+  product: { id: string; name: string; price: number; emoji: string; gradient: string }
+  count?: number
+  readonly?: boolean
+}>()
 defineEmits<{ (event: 'add', id: string): void }>()
 </script>
 
@@ -131,13 +135,25 @@ defineEmits<{ (event: 'add', id: string): void }>()
 }
 
 @keyframes press-in {
-  from {transform: scale(1);opacity: 1}
-  to {transform: scale(.94);opacity: .9}
+  from {
+    transform: scale(1);
+    opacity: 1
+  }
+  to {
+    transform: scale(.94);
+    opacity: .9
+  }
 }
 
 @keyframes press-out {
-  from {transform: scale(.94);opacity: .9}
-  to {transform: scale(1);opacity: 1}
+  from {
+    transform: scale(.94);
+    opacity: .9
+  }
+  to {
+    transform: scale(1);
+    opacity: 1
+  }
 }
 
 .count-badge {

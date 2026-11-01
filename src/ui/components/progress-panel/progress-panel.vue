@@ -3,22 +3,25 @@
     <view class="progress-row">
       <view>
         <text class="current-money">¥{{ formattedValue }}</text>
-        <text class="target-money" :class="{editable: editable}" @tap="editable && $emit('edit-price')"> / ¥{{ target }}{{ editable ? ' ✎' : '' }}</text>
+        <text :class="{editable: editable}" class="target-money" @tap="editable && $emit('edit-price')"> / ¥{{
+            target
+          }}{{ editable ? ' ✎' : '' }}
+        </text>
       </view>
       <text class="percent">{{ percent }}%</text>
     </view>
     <view class="progress-track">
-      <view class="progress-fill" :style="{ width: `${fillPercent}%` }"/>
+      <view :style="{ width: `${fillPercent}%` }" class="progress-fill"/>
       <view class="break-even-marker"/>
     </view>
     <slot name="before-tip"/>
-    <text v-if="activeTip" class="progress-tip" :style="{ color: activeTip.color }">{{ activeTip.text }}</text>
+    <text v-if="activeTip" :style="{ color: activeTip.color }" class="progress-tip">{{ activeTip.text }}</text>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
-import {formatPrice} from '@/utils/format'
+import {formatPrice} from '@/ui/format/price'
 
 interface ProgressTip {
   progress: number
@@ -35,24 +38,25 @@ const props = withDefaults(defineProps<{
 }>(), {
   tips: () => []
 })
-defineEmits<{(event: 'edit-price'): void}>()
+defineEmits<{ (event: 'edit-price'): void }>()
 
 const formattedValue = computed(() => formatPrice(props.value))
-const percent = computed(() => props.percent)
-const fillPercent = computed(() => Math.min(Math.max(percent.value, 0) * 0.7, 100))
+const fillPercent = computed(() => Math.min(Math.max(props.percent, 0) * 0.7, 100))
 const activeTip = computed(() => {
-  const sortedTips = [...props.tips].sort((a, b) => a.progress - b.progress)
   let matchedTip: ProgressTip | undefined
-  for (const tip of sortedTips) {
-    if (percent.value < tip.progress) break
-    matchedTip = tip
+  for (const tip of props.tips) {
+    if (tip.progress <= props.percent && (!matchedTip || tip.progress >= matchedTip.progress)) matchedTip = tip
   }
   return matchedTip
 })
 </script>
 
 <style scoped>
-.target-money.editable {color:#a47857;cursor:pointer}
+.target-money.editable {
+  color: #a47857;
+  cursor: pointer
+}
+
 .progress-panel {
   display: flex;
   flex-direction: column;

@@ -19,7 +19,7 @@ export function formatRoundTime(value: string): string {
     return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
-/** 小票和导出文件名共用同一个原始时间；旧记录缺失秒时补零。 */
+/** 小票展示秒级时间；没有秒的展示值补零。 */
 export function formatReceiptTimestamp(value: string): string {
     const date = isoDate(value)
     if (date) return `${formatDateTime(value)}:${pad(date.getSeconds())}`

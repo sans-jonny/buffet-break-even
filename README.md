@@ -1,30 +1,22 @@
-# 自助餐回本计算器
+# 自助餐回本计算器 · Vue UI
 
-uni-app、Vue 3、TypeScript、Pinia 项目。按 Catalog 和 Dining 两个限界上下文组织；Dining 内部包含当前用餐、历史记录、小票收藏和完成流程。
+基于 uni-app、Vue 3 和 TypeScript 的纯界面项目，保留全部 10 个页面、UI 组件、样式、字体、图标和路由。
 
-应用层统一使用 `application/port/in`、`application/port/out` 和 `application/interactor`。每个 Input 的 Request / Response 保留为命名空间内部类，通过 Symbol Token 注入。
-
-```text
+```sh
+npm ci
 npm run dev:h5
 npm test
 npm run type-check
-npm run check:architecture
 npm run build:h5
-npm run build:mp-weixin -- --minify esbuild
+npm run build:mp-weixin
 ```
 
-测试自动发现 tests 下按业务和集成职责分组的用例。微信构建使用 esbuild；当前本地默认 Terser 存在依赖缺失，具体限制见文档。
+页面入口配置在 `src/ui/pages.json`；导航接口与 uni-app 实现在 `src/ui/navigation`。可通过页面路径直接打开任意页面，不需要业务初始化或已有会话。
 
-多人模式需要额外安装后端依赖：`npm ci --prefix server`，随后通过 `npm run server:dev` 启动服务。前端通过 `VITE_ROOM_SERVER_URL` 配置 WebSocket 地址，本机默认 `ws://localhost:3001/ws`。运行 `npm test` 前会自动构建服务端。
+所有展示值直接声明在各页面的响应式变量中。菜单、列表、小票和个人信息使用页面内示例值；输入、弹窗、轮播、选择、展开收起和打印动画保留。全部 10 个页面的业务操作只保留空事件函数作为接入点，不提供业务实现或额外接口注入。新增、删除、提交、点餐、修改票价与昵称、结算和收藏均不修改展示数据，也不模拟成功反馈；票价、数量与回本统计为独立展示值。
 
-- [多人模式、协议与部署](docs/multiplayer.md)
-- [餐厅配置、自定义菜单与估值](docs/restaurant-catalog.md)
-- [版本4存储与版本2协议迁移](docs/migration-v4.md)
-- [更新记录](CHANGELOG.md)
+页面间仅传递路由参数，不传递业务数据。`receiptId`、`recordId`、`restaurantId` 用于展示标识，`previewId` 用于切换菜单预览模式。没有服务端、数据服务、Pinia、网络连接或本地持久化；纯导航继续使用现有路由接口。小票通过相机按钮或长按在页面内预览，不执行文件下载或相册写入。
 
-- [业务边界与上下文图](docs/context-map.md)
-- [领域模型与规则](docs/domain-model.md)
-- [核心流程、事务、展示与存储](docs/core-logic.md)
-- [重构结构、迁移和验证记录](docs/refactoring.md)
-- [DDD 重设计提案：领域模型、事件与迁移路线（尚未实施）](docs/ddd-redesign.md)
-- [Catalog 设计决策：简单 CRUD、职责与目录结构（尚未实施）](docs/catalog-design.md)
+组件和页面中的非预期异常由 `main.ts` 的 Vue `app.config.errorHandler` 统一记录并提示。事件处理函数直接返回或等待异步操作，确认弹窗也会返回回调的 Promise。页面不执行名称、价格、分类占用或数量上限等业务校验。全局入口处理 Vue 管理的执行链，不负责独立定时器或外部回调中的任意异步任务。
+
+自动导入的工具放在 UI 根目录。`useRequired` 的实现和全局类型声明合并在 `src/ui/useRequired.ts`，通过 Vite 自动导入，页面无需手写 import，也不再生成单独的声明文件。它仍依赖 Vue 的注入上下文，应在 setup 中同步调用，不可在普通模块顶层调用。

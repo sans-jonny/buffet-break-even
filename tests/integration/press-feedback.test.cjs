@@ -1,7 +1,7 @@
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {loadModule} = require('../helpers/runtime.cjs')
-const create = () => loadModule('ui/composables/usePressFeedback').usePressFeedback()
+const create = () => loadModule('ui/components/interaction/usePressFeedback').usePressFeedback()
 
 test('短按松手后先完成缩小，再开始还原', () => {
   const feedback = create()

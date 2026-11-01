@@ -7,7 +7,7 @@ function create() {
   const selected = ref('sukiyaki')
   const width = ref(375)
   let time = 1000
-  const drum = loadModule('ui/composables/useCuisineDrum').useCuisineDrum(ids, selected, width, () => time)
+  const drum = loadModule('ui/components/cuisine-drum/useCuisineDrum').useCuisineDrum(ids, selected, width, () => time)
   const swipe = (dx, dy=0) => {
     drum.begin({type:'touchstart',touches:[{clientX:200,clientY:200}]})
     drum.move({type:'touchmove',touches:[{clientX:200+dx,clientY:200+dy}]})

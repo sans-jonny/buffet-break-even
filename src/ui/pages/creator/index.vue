@@ -1,46 +1,69 @@
 <template>
   <view class="restaurant-page">
-    <initialization-gate>
-      <app-navbar fallback class="restaurant-navbar" inset title-color="#ff4f0a" subtitle-color="#a18765" title="创造者模式" :subtitle="library.restaurants.value.length + ' 个本地餐厅'" @back="goBack" @fallback="goBack"/>
-      <view v-for="restaurant in library.restaurants.value" :key="restaurant.id" class="restaurant-card">
-        <view class="restaurant-main">
-          <view class="restaurant-badge">{{ restaurant.name.slice(0,1) }}</view>
-          <view class="restaurant-copy"><text class="restaurant-name">{{ restaurant.name }}</text><text class="restaurant-meta">{{ restaurant.products.length }} 道菜 · 已保存</text></view>
-        </view>
-        <view class="restaurant-actions">
-          <button :hover-stay-time="0" @tap="previewRestaurant(restaurant)">预览</button>
-          <button :hover-stay-time="0" @tap="editRestaurant(restaurant.id)">编辑</button>
-          <button :hover-stay-time="0" class="danger" @tap="remove(restaurant.id)">删除</button>
+    <app-navbar :subtitle="restaurants.length + ' 个本地餐厅'" class="restaurant-navbar" fallback inset subtitle-color="#a18765"
+                title="创造者模式" title-color="#ff4f0a" @back="goBack" @fallback="goBack"/>
+    <view v-for="restaurant in restaurants" :key="restaurant.id" class="restaurant-card">
+      <view class="restaurant-main">
+        <view class="restaurant-badge">{{ restaurant.name.slice(0, 1) }}</view>
+        <view class="restaurant-copy">
+          <text class="restaurant-name">{{ restaurant.name }}</text>
+          <text class="restaurant-meta">{{ restaurant.productCount }} 道菜 · 已保存</text>
         </view>
       </view>
-      <view v-if="!library.restaurants.value.length" class="restaurant-empty"><text>创建你的第一家餐厅</text><text>保存后即可在「我的餐厅」中使用</text></view>
-      <button :hover-stay-time="0" class="restaurant-add" :disabled="library.restaurants.value.length >= 10" @tap="editRestaurant()">＋ 新建餐厅</button>
-      <app-confirm-dialog :controller="confirmation"/>
-  </initialization-gate>
+      <view class="restaurant-actions">
+        <button :hover-stay-time="0" @tap="previewRestaurant(restaurant)">预览</button>
+        <button :hover-stay-time="0" @tap="editRestaurant(restaurant.id)">编辑</button>
+        <button :hover-stay-time="0" class="danger" @tap="remove(restaurant.id)">删除</button>
+      </view>
+    </view>
+    <view v-if="!restaurants.length" class="restaurant-empty">
+      <text>创建你的第一家餐厅</text>
+      <text>保存后即可在「我的餐厅」中使用</text>
+    </view>
+    <button :hover-stay-time="0" class="restaurant-add" @tap="editRestaurant()">＋ 新建餐厅</button>
+    <app-confirm-dialog :controller="confirmation"/>
   </view>
 </template>
-<script setup lang="ts">
+<script lang="ts" setup>
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
-import {useAppDialog} from '@/ui/composables/useAppDialog'
-const confirmation = useAppDialog()
-import {onShow} from '@dcloudio/uni-app'
-import {useCustomRestaurants} from '@/ui/composables/useCustomRestaurants'
-import {useRestaurantPreview} from '@/ui/composables/useRestaurantPreview'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
-import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
+import {ref} from 'vue'
+import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
+import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
+
+// 展示数据
+const restaurants = ref([
+  {
+    "id": "custom-demo",
+    "name": "我的自助餐厅",
+    "productCount": 2
+  }
+])
+
+// UI 交互状态
+const confirmation = useAppDialog()
+
+// 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const library = useCustomRestaurants()
-const previewRestaurant = useRestaurantPreview()
-onShow(() => {void runAction(library.reload)})
-const goBack = () => runAction(() => navigation.back('setup'))
-const editRestaurant = (id?: string) => runAction(() => navigation.toCustomMenu(id))
+
+const goBack = () => navigation.back('setup')
+
+const editRestaurant = (id?: string) => navigation.toCustomMenu(id)
+
+const previewRestaurant = (restaurant: { id: string }) => navigation.toMenuPreview(restaurant.id)
+
+// UI 交互方法
 function remove(id: string) {
-  confirmation.open({title:'删除餐厅',content:'删除此本地餐厅及其菜品？正在进行的用餐不受影响。',success:result=>{
-    if (result.confirm) void runAction(()=>library.deleteRestaurant(id))
-  }})
+  confirmation.open({
+    title: '删除餐厅', content: '删除此餐厅及其菜品？', success: result => {
+      if (result.confirm) return deleteRestaurant(id)
+    }
+  })
+}
+
+// 业务方法（仅保留事件接口）
+function deleteRestaurant(_id: string) {
 }
 </script>
+
 <style scoped src="@/ui/styles/restaurants.css"></style>

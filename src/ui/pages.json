@@ -10,8 +10,20 @@
         "disableScroll": true
       }
     },
-    {"path": "pages/creator/index", "style": {"navigationStyle": "custom", "navigationBarTitleText": "创造者模式"}},
-    {"path": "pages/custom-menu/index", "style": {"navigationStyle": "custom", "navigationBarTitleText": "创造者模式"}},
+    {
+      "path": "pages/creator/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "创造者模式"
+      }
+    },
+    {
+      "path": "pages/custom-menu/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "创造者模式"
+      }
+    },
     {
       "path": "pages/menu/index",
       "style": {

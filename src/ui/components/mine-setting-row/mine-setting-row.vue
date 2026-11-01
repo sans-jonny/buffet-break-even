@@ -1,15 +1,14 @@
 <template>
-  <view class="setting-row" :class="rowClasses" @tap="$emit('click')">
-    <view class="setting-icon flex-center" :class="`setting-icon--${iconTheme}`">{{ icon }}</view>
+  <view :class="{'setting-row--compact': compact, 'setting-row--no-divider': !divider}" class="setting-row"
+        @tap="$emit('click')">
+    <view :class="`setting-icon--${iconTheme}`" class="setting-icon flex-center">{{ icon }}</view>
     <text class="setting-label">{{ label }}</text>
     <text v-if="badge !== undefined" class="setting-badge flex-center">{{ badge }}</text>
   </view>
 </template>
 
-<script setup lang="ts">
-import {computed} from 'vue'
-
-const props = withDefaults(defineProps<{
+<script lang="ts" setup>
+withDefaults(defineProps<{
   icon: string
   label: string
   iconTheme?: 'orange' | 'green' | 'white' | 'peach' | 'yellow' | 'teal'
@@ -24,10 +23,6 @@ const props = withDefaults(defineProps<{
 
 defineEmits<{ (event: 'click'): void }>()
 
-const rowClasses = computed(() => ({
-  'setting-row--compact': props.compact,
-  'setting-row--no-divider': !props.divider
-}))
 </script>
 
 <style scoped>
