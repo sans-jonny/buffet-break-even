@@ -1,0 +1,196 @@
+import {test} from 'node:test'
+import assert from 'node:assert/strict'
+import {pageHarness} from '../helpers/pages.cjs'
+
+/** Exercise real SFC actions against the production domain and isolated Storage. */
+export namespace UiFlowSpec {
+    export function verify(): void {
+        test('setup 先提示继续旧单人活动，跨分类及旧版活动都恢复原记录，不解析新票价', async t => {
+            const app = pageHarness(), setup = app.setup('setup');
+            t.after(setup.dispose);
+            await setup.ready;
+            // Simulate a legacy activity with no restaurantCategoryId.
+            await app.client.dining.startSingle(18000);
+            await app.client.dining.edit('niuniu', 'add', 'beef', 2);
+            const previous = app.client.dining.session();
+            await app.client.dining.selectSession({scopeId: 'other', activityId: 'other', roomId: null});
+            setup.state.ticketInput.value = 'invalid';
+            await setup.state.startSingle();
+            assert.equal(setup.state.confirmation.dialog.value.confirmText, '继续用餐');
+            assert.equal(app.calls.length, 0);
+            assert.equal(app.client.dining.session().activityId, 'other');
+            await setup.state.startSingle();
+            await setup.state.confirmation.confirm();
+            await setup.state.confirmation.confirm();
+            assert.deepEqual(app.client.dining.session(), previous);
+            assert.equal(app.client.dining.activity().ticketPriceMinor, 18000);
+            assert.equal(app.client.dining.consumption('niuniu').rounds[0].items.beef, 2);
+            assert.deepEqual(app.calls, [['open', 'menu']]);
+        });
+
+        test('setup 显式选择新建后放弃旧活动，使用新票价和当前分类', async t => {
+            const app = pageHarness(), setup = app.setup('setup');
+            t.after(setup.dispose);
+            await setup.ready;
+            await app.client.startSingle('180', 'sukiyaki');
+            const previous = app.client.dining.session();
+            await app.client.dining.publishLocal({
+                id: 'mine', name: '自定义餐厅', type: 'PRIVATE', version: 1, deleted: false,
+                restaurantCategory: {id: 'My', name: '我的餐厅'}, categories: [], products: []
+            });
+            setup.state.typeId.value = 'My';
+            setup.state.ticketInput.value = '250.50';
+            await setup.state.startSingle();
+            assert.equal(app.client.dining.activity().status, 'ACTIVE');
+            assert.equal(app.client.dining.session().activityId, previous.activityId);
+            await setup.state.confirmation.cancel();
+            const current = app.client.dining.session();
+            assert.notEqual(current.activityId, previous.activityId);
+            assert.equal(app.client.dining.activity().ticketPriceMinor, 25050);
+            assert.equal(app.client.dining.activity().restaurantCategoryId, 'My');
+            assert.deepEqual(Array.from(app.client.dining.restaurants(), (r: {id: string}) => r.id), ['mine']);
+            assert.equal(app.client.dining.history().length, 0);
+            await app.client.dining.selectSession(previous);
+            assert.equal(app.client.dining.activity().status, 'ABANDONED');
+            await app.client.dining.selectSession(current);
+            assert.deepEqual(app.calls, [['open', 'menu']]);
+        });
+
+        test('关闭继续提示或新票价无效时保留原活动，不进入菜单', async t => {
+            const app = pageHarness(), setup = app.setup('setup');
+            t.after(setup.dispose);
+            await setup.ready;
+            await app.client.startSingle('180', 'sukiyaki');
+            const previous = app.client.dining.session();
+            await setup.state.startSingle();
+            setup.state.confirmation.close();
+            assert.deepEqual(app.client.dining.session(), previous);
+            setup.state.ticketInput.value = 'invalid';
+            await setup.state.startSingle();
+            await assert.rejects(setup.state.confirmation.cancel(), /请输入最多两位小数的金额/);
+            assert.equal(app.client.dining.activity().status, 'ACTIVE');
+            assert.deepEqual(app.client.dining.session(), previous);
+            assert.equal(setup.state.startingSingle.value, false);
+            assert.equal(app.calls.length, 0);
+        });
+
+        test('准备 → 加菜 → 提交本轮 → 确认最终餐厅 → 本地历史和小票', async t => {
+            const app = pageHarness()
+            const setup = app.setup('setup');
+            t.after(setup.dispose);
+            await setup.ready
+            setup.state.ticketInput.value = '200.25';
+            await setup.state.startSingle()
+            assert.equal(app.client.dining.activity().ticketPriceMinor, 20025)
+            const menu = app.setup('menu');
+            t.after(menu.dispose);
+            await menu.ready
+            assert.equal(menu.state.totalSelectedCount.value, 0)
+            await menu.state.addItem('beef');
+            await menu.state.addItem('beef')
+            assert.equal(menu.state.displayValue.value, 20)
+            menu.state.editPrice();
+            menu.state.priceInput.value = '180.12';
+            await menu.state.savePrice()
+            assert.equal(menu.state.ticketPrice.value, 180.12)
+            const order = app.setup('order-slip');
+            t.after(order.dispose);
+            await order.ready
+            await order.state.completeRound()
+            assert.equal(app.client.dining.consumption('niuniu').rounds.length, 2)
+            const result = app.setup('result');
+            t.after(result.dispose);
+            await result.ready
+            await result.state.save();
+            assert.equal(app.client.dining.receipt().foodValueMinor, 2000)
+            assert.throws(() => result.state.endDining(), /请先选择最终餐厅/)
+            result.state.chooseFinalRestaurant({detail: {value: 0}})
+            result.state.endDining();
+            assert.ok(result.state.confirmation.dialog.value.content.includes('牛牛'))
+            await result.state.confirmation.confirm()
+            assert.equal(app.client.dining.history().length, 1);
+            assert.equal(app.client.dining.activity().status, 'ENDED')
+            assert.deepEqual(app.calls[app.calls.length - 1], ['open', 'setup', 'reset'])
+        })
+        test('私人目录创建与级联删除保存真实版本；离开提示保留', async t => {
+            const app = pageHarness(), editor = app.setup('custom-menu');
+            t.after(editor.dispose);
+            await editor.ready
+            const s = editor.state
+            s.restaurant.value.name = '我的餐厅';
+            s.editCategory();
+            s.form.value.name = '海鲜';
+            s.applyForm()
+            const categoryId = s.restaurant.value.categories[0].id
+            s.editProduct();
+            s.form.value.name = '龙虾';
+            s.form.value.price = '35.18';
+            s.applyForm()
+            assert.equal(s.restaurant.value.products[0].price, 35.18)
+            await s.saveAll();
+            assert.equal(app.client.dining.localRestaurant(s.restaurant.value.id).version, 1)
+            s.removeCategory(categoryId);
+            await s.saveAll()
+            assert.equal(app.client.dining.localRestaurant(s.restaurant.value.id).products.length, 0)
+            s.isDirty.value = true;
+            s.goBack();
+            assert.equal(s.showLeaveDialog.value, true)
+            await s.discardAndLeave();
+            assert.deepEqual(app.calls[app.calls.length - 1], ['back', 'creator'])
+        })
+        test('真实昵称、统计、历史删除和每人一张小票', async t => {
+            const app = pageHarness();
+            await app.client.ready;
+            await app.client.startSingle('100', 'sukiyaki')
+            await app.client.dining.edit('niuniu', 'add', 'beef', 12)
+            await app.client.dining.saveReceipt('niuniu');
+            await app.client.dining.finish('niuniu')
+            const mine = app.setup('mine');
+            t.after(mine.dispose);
+            await mine.ready
+            mine.state.editNickname();
+            mine.state.nicknameInput.value = '小羊';
+            await mine.state.saveNickname()
+            assert.equal(mine.state.nickname.value, '小羊');
+            assert.equal(mine.state.lifetimeDifference.value, 20)
+            const records = app.setup('records');
+            t.after(records.dispose);
+            await records.ready
+            assert.equal(records.state.records.value.length, 1)
+            const detail = app.setup('record-detail', {recordId: records.state.records.value[0].id});
+            t.after(detail.dispose);
+            await detail.ready
+            detail.state.confirmDelete();
+            await detail.state.confirmation.confirm();
+            assert.equal(records.state.records.value.length, 0)
+            const receipts = app.setup('receipts');
+            t.after(receipts.dispose);
+            await receipts.ready;
+            assert.equal(receipts.state.receipts.value.length, 1)
+        })
+        test('打印动画与收藏预览读取不可变结果', async t => {
+            const app = pageHarness();
+            await app.client.ready;
+            await app.client.startSingle('100', 'sukiyaki');
+            await app.client.dining.saveReceipt('niuniu')
+            const result = app.setup('result');
+            t.after(result.dispose);
+            await result.ready
+            result.state.openReceiptPreview();
+            assert.equal(result.state.showReceiptPreview.value, false)
+            result.state.onPrintEnd({animationName: 'receipt-feed'});
+            result.state.openReceiptPreview();
+            assert.equal(result.state.showReceiptPreview.value, true)
+            const saved = app.setup('result', {receiptId: app.client.dining.receipt().activityId});
+            t.after(saved.dispose);
+            await saved.ready
+            assert.equal(saved.state.isSavedView.value, true);
+            assert.equal(saved.state.isPrinting.value, false)
+        })
+        for (const name of ['setup', 'menu', 'mine', 'creator', 'custom-menu', 'order-slip', 'result', 'receipts', 'records', 'record-detail']) {
+            test(`${name} 在空个人数据或默认目录下可渲染`, async () => {
+                assert.ok((await pageHarness().render(name)).length > 20)
+            })
+        }
+    }
+}

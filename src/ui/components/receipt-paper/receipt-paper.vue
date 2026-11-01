@@ -5,7 +5,10 @@
       <view v-for="tooth in 28" :key="tooth" class="receipt-tooth"/>
     </view>
     <text class="receipt-title">PAGER MESSAGE</text>
-    <text v-if="restaurant" class="receipt-restaurant">{{ formatRestaurantTitle(restaurant, typeName) }}</text>
+    <text v-if="restaurant" class="receipt-restaurant">{{
+        restaurantTitle.formatRestaurantTitle(restaurant, typeName)
+      }}
+    </text>
     <view class="receipt-dash"/>
     <view class="receipt-meta">
       <text>ID: {{ receiptId }}</text>
@@ -23,7 +26,7 @@
       </view>
       <view class="summary-item summary-center">
         <text>已吃价值</text>
-        <text class="summary-value">¥{{ formatPrice(value) }}</text>
+        <text class="summary-value">¥{{ Price.formatPrice(value) }}</text>
       </view>
       <view class="summary-item summary-end">
         <text>差额</text>
@@ -34,7 +37,7 @@
     <view v-for="line in lines" :key="line.name" class="receipt-line">
       <text>{{ line.name }}</text>
       <text class="receipt-line-number">×{{ line.count }}</text>
-      <text class="receipt-line-number">¥{{ formatPrice(line.price * line.count) }}</text>
+      <text class="receipt-line-number">¥{{ Price.formatPrice(line.price * line.count) }}</text>
     </view>
     <view class="receipt-dash"/>
     <view class="receipt-bottom">
@@ -51,8 +54,8 @@
 <script lang="ts" setup>
 import {computed} from 'vue'
 import {useLongPressAction} from './useLongPressAction'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
-import {formatPrice} from '@/ui/format/price'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import {price as Price} from '@/ui/format/price'
 
 const props = defineProps<{
   restaurant?: string

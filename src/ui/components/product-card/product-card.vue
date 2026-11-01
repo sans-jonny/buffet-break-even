@@ -7,11 +7,11 @@
       <text class="food-name">{{ product.name }}</text>
       <view class="food-value">
         <text class="value-label">价值</text>
-        <text class="food-price">¥{{ formatPrice(product.price) }}</text>
+        <text class="food-price">¥{{ Price.formatPrice(product.price) }}</text>
       </view>
     </view>
     <view v-if="!readonly" class="add-control">
-      <view :class="'button-' + phase" :style="{'animation-duration': PRESS_ANIMATION_MS + 'ms'}"
+      <view :class="'button-' + phase" :style="{'animation-duration': usePressFeedback.PRESS_ANIMATION_MS + 'ms'}"
             class="add-button flex-center" hover-class="none"
             @animationend="animationEnd" @mousedown="press" @mouseleave="release"
             @mouseup="release" @tap="$emit('add', product.id)" @touchcancel="release"
@@ -24,8 +24,8 @@
 </template>
 
 <script lang="ts" setup>
-import {formatPrice} from '@/ui/format/price'
-import {PRESS_ANIMATION_MS, usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
+import {price as Price} from '@/ui/format/price'
+import {usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
 
 const {phase, press, release, animationEnd} = usePressFeedback()
 

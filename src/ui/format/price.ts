@@ -1,3 +1,6 @@
-export function formatPrice(value: number) {
-    return Number.isInteger(value) ? value.toFixed(0) : value.toFixed(1)
+export namespace price {
+    export function formatPrice(value: number) {
+        return value.toFixed(2).replace(/\.?0+$/, '')
+    }
+
 }

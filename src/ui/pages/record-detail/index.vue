@@ -7,9 +7,12 @@
         <view class="detail-head">
           <view>
             <text class="label-chip inline-flex-center">本餐</text>
-            <text class="restaurant">{{ formatRestaurantTitle(receipt.restaurant, receipt.typeName) }}</text>
+            <text class="restaurant">{{
+                restaurantTitle.formatRestaurantTitle(receipt.restaurant, receipt.typeName)
+              }}
+            </text>
           </view>
-          <text class="record-date">{{ formatDateTime(receipt.date) }}</text>
+          <text class="record-date">{{ time.formatDateTime(receipt.date) }}</text>
           <text v-if="receipt.participants?.length" class="record-date">用餐人：{{
               receipt.participants.join('、')
             }}
@@ -18,7 +21,7 @@
         <view v-for="(round, roundIndex) in receipt.rounds" :key="roundIndex" class="round-box">
           <view class="round-head">
             <text class="round-chip inline-flex-center">第 {{ roundIndex + 1 }} 轮</text>
-            <text class="round-time">{{ formatRoundTime(round.time) }}</text>
+            <text class="round-time">{{ time.formatRoundTime(round.time) }}</text>
             <text class="round-value">¥{{ round.value.toFixed(2) }}</text>
           </view>
           <view v-for="line in round.lines" :key="line.name" class="detail-line">
@@ -41,70 +44,27 @@
 <script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
-import {formatDateTime, formatRoundTime} from '@/ui/format/time'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-interface RecordDetail {
-  id: string
-  restaurant: string
-  typeName: string
-  date: string
-  participants: string[]
-  rounds: { time: string; value: number; lines: { name: string; count: number; price: number }[] }[]
-}
-
-const receipt = ref<RecordDetail | null>({
-  "id": "ui-receipt-001",
-  "restaurant": "牛牛",
-  "typeName": "寿喜烧",
-  "date": "2026-11-01T12:30:00+08:00",
-  "participants": [
-    "小羊",
-    "饭搭子"
-  ],
-  "rounds": [
-    {
-      "time": "2026-11-01T12:00:00+08:00",
-      "value": 88,
-      "lines": [
-        {
-          "name": "牛上脑",
-          "count": 4,
-          "price": 10
-        },
-        {
-          "name": "鲜虾",
-          "count": 2,
-          "price": 18
-        },
-        {
-          "name": "时蔬拼盘",
-          "count": 1,
-          "price": 12
-        }
-      ]
-    },
-    {
-      "time": "2026-11-01T12:25:00+08:00",
-      "value": 160,
-      "lines": [
-        {
-          "name": "牛上脑",
-          "count": 16,
-          "price": 10
-        }
-      ]
-    }
-  ]
+const recordId = ref('')
+const receipt = computed(() => {
+  client.revision.value;
+  const record = dining.history().find(r => r.activityId === recordId.value);
+  return record ? DiningClient.receipt(record) : null
 })
-
-const meals = ref(2), dishCount = ref(23)
-
+const meals = computed(() => receipt.value?.rounds.length || 0)
+const dishCount = computed(() => receipt.value?.lines.reduce((sum, l) => sum + l.count, 0) || 0)
 // UI 交互状态
 const confirmation = useAppDialog()
 
@@ -125,13 +85,15 @@ function confirmDelete() {
   })
 }
 
-// 业务方法（仅保留事件接口）
-function deleteRecord() {
+// 业务操作
+async function deleteRecord() {
+  await dining.deleteHistory(recordId.value)
+  await navigation.back('records')
 }
 
 // 生命周期与动画监听
 onLoad(query => {
-  if (query?.recordId && receipt.value) receipt.value.id = query.recordId
+  recordId.value = query?.recordId || ''
 })
 </script>
 

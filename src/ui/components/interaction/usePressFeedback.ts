@@ -1,17 +1,13 @@
 import {getCurrentScope, nextTick, onScopeDispose, ref} from 'vue'
 
-export const PRESS_ANIMATION_MS = 120
-
-type PressEvent = { type?: string; button?: number }
-type AnimationEvent = {
-    animationName?: string;
-    detail?: { animationName?: string };
-    target?: unknown;
-    currentTarget?: unknown
-}
-
-/** A short tap still completes the inward animation before returning to full size. */
 export function usePressFeedback() {
+    type PressEvent = { type?: string; button?: number }
+    type AnimationEvent = {
+        animationName?: string;
+        detail?: { animationName?: string };
+        target?: unknown;
+        currentTarget?: unknown
+    }
     const phase = ref<'idle' | 'pressing' | 'held' | 'releasing'>('idle')
     let down = false
     let ignoreMouseUntil = 0
@@ -40,7 +36,7 @@ export function usePressFeedback() {
             if (generation !== current) return
             timer = setTimeout(() => {
                 if (generation === current) finish(next)
-            }, PRESS_ANIMATION_MS + 32)
+            }, usePressFeedback.PRESS_ANIMATION_MS + 32)
         })
     }
 
@@ -77,4 +73,8 @@ export function usePressFeedback() {
     }
 
     return {phase, press, release, animationEnd}
+}
+
+export namespace usePressFeedback {
+    export const PRESS_ANIMATION_MS = 120
 }

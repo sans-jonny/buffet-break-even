@@ -16,9 +16,9 @@
 <script lang="ts" setup>
 import {computed} from 'vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import type {AppDialogController} from './useAppDialog'
+import type {useAppDialog} from './useAppDialog'
 
-const props = defineProps<{ controller: AppDialogController }>()
+const props = defineProps<{ controller: useAppDialog.Controller }>()
 const dialog = computed(() => props.controller.dialog.value)
 </script>
 

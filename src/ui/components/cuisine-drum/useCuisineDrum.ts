@@ -1,19 +1,17 @@
 import {computed, type MaybeRefOrGetter, ref, type Ref, toValue, watch} from 'vue'
 
-type GestureEvent = {
-    type?: string;
-    button?: number;
-    clientX?: number;
-    clientY?: number;
-    touches?: { clientX: number; clientY: number }[];
-    changedTouches?: { clientX: number; clientY: number }[]
-}
-
-/** Keep the rotation unbounded so the last and first faces join without a jump. */
 export function useCuisineDrum(ids: readonly string[],
                                selected: Ref<string>,
                                viewportWidth: MaybeRefOrGetter<number>,
                                now = () => Date.now()) {
+    type GestureEvent = {
+        type?: string;
+        button?: number;
+        clientX?: number;
+        clientY?: number;
+        touches?: ArrayLike<{ clientX: number; clientY: number }>;
+        changedTouches?: ArrayLike<{ clientX: number; clientY: number }>
+    }
     const count = ids.length
     const activeIndex = computed(() => Math.max(0, ids.indexOf(selected.value)))
     const position = ref(activeIndex.value)

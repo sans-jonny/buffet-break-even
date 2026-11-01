@@ -7,7 +7,8 @@
             class="dot" @tap.stop="drum.choose(index)"/>
     </view>
     <view :style="{transform: drum.rotation.value}" class="mode-drum">
-      <view v-for="(kind, index) in items" :key="kind.id" :class="'tone-' + kind.id" :style="{transform: 'rotateY(' + index * 360 / items.length + 'deg) translateZ(var(--drum-radius)) rotateY(' + (drum.position.value - index) * 360 / items.length + 'deg)'}"
+      <view v-for="(kind, index) in items" :key="kind.id" :class="'tone-' + kind.id"
+            :style="{transform: 'rotateY(' + index * 360 / items.length + 'deg) translateZ(var(--drum-radius)) rotateY(' + (drum.position.value - index) * 360 / items.length + 'deg)'}"
             class="mode-card flex-center"
             @tap="drum.choose(index)">
         <text :class="{'is-floating': drum.highlightedIndex.value === index}" class="mode-emoji">{{ kind.emoji }}</text>

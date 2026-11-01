@@ -9,7 +9,7 @@
         <view v-for="line in lines" :key="line.product.id" class="cart-line">
           <view class="cart-copy">
             <text class="cart-name">{{ line.product.name }}</text>
-            <text class="cart-price">¥{{ formatPrice(line.product.price * line.count) }}</text>
+            <text class="cart-price">¥{{ Price.formatPrice(line.product.price * line.count) }}</text>
           </view>
           <view class="stepper">
             <view class="step-button flex-center" @tap="$emit('remove', line.product.id)">−</view>
@@ -21,7 +21,7 @@
       <view class="sheet-footer">
         <view class="sheet-total">
           <text>本轮合计</text>
-          <text class="sheet-total-value">¥{{ formatPrice(total) }}</text>
+          <text class="sheet-total-value">¥{{ Price.formatPrice(total) }}</text>
         </view>
         <view v-if="canConfirm && lines.length" class="waiter-button flex-center" @tap="$emit('confirm')">给 Waiter
           看菜单
@@ -36,7 +36,7 @@
 </template>
 
 <script lang="ts" setup>
-import {formatPrice} from '@/ui/format/price'
+import {price as Price} from '@/ui/format/price'
 
 withDefaults(defineProps<{
   lines: { product: { id: string; name: string; price: number }; count: number }[]

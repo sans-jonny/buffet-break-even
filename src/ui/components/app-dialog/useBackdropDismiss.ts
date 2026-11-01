@@ -1,15 +1,13 @@
-import {isCompatibilityMouse, recordTouch} from '../interaction/compatibilityMouse'
+import {compatibilityMouse} from '../interaction/compatibilityMouse'
 
-type GestureEvent = {
-    type: string
-    button?: number
-    sourceCapabilities?: { firesTouchEvents?: boolean }
-    touches?: { clientX: number; clientY: number }[]
-    changedTouches?: { clientX: number; clientY: number }[]
-}
-
-/** Bind only to the separate backdrop node, never the dialog or its controls. */
 export function useBackdropDismiss(close: () => void, now = () => Date.now()) {
+    type GestureEvent = {
+        type: string
+        button?: number
+        sourceCapabilities?: { firesTouchEvents?: boolean }
+        touches?: ArrayLike<{ clientX: number; clientY: number }>
+        changedTouches?: ArrayLike<{ clientX: number; clientY: number }>
+    }
     let pressed: 'touch' | 'mouse' | null = null
     let origin: { clientX: number; clientY: number } | undefined
 
@@ -21,11 +19,11 @@ export function useBackdropDismiss(close: () => void, now = () => Date.now()) {
     function start(event: GestureEvent) {
         cancel()
         if (event.type.startsWith('touch')) {
-            recordTouch(now())
+            compatibilityMouse.recordTouch(now())
             if (event.touches && event.touches.length !== 1) return
             pressed = 'touch'
             origin = event.touches?.[0]
-        } else if (event.type === 'mousedown' && (event.button === undefined || event.button === 0) && !isCompatibilityMouse(event, now())) {
+        } else if (event.type === 'mousedown' && (event.button === undefined || event.button === 0) && !compatibilityMouse.isCompatibilityMouse(event, now())) {
             pressed = 'mouse'
         }
     }
@@ -38,7 +36,7 @@ export function useBackdropDismiss(close: () => void, now = () => Date.now()) {
 
     function end(event: GestureEvent) {
         const touch = event.type.startsWith('touch')
-        if (touch) recordTouch(now())
+        if (touch) compatibilityMouse.recordTouch(now())
         const shouldClose = (touch && pressed === 'touch') ||
             (event.type === 'mouseup' && pressed === 'mouse' && (event.button === undefined || event.button === 0))
         cancel()

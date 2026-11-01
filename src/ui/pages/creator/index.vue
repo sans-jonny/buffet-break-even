@@ -1,6 +1,7 @@
 <template>
   <view class="restaurant-page">
-    <app-navbar :subtitle="restaurants.length + ' 个本地餐厅'" class="restaurant-navbar" fallback inset subtitle-color="#a18765"
+    <app-navbar :subtitle="restaurants.length + ' 个本地餐厅'" class="restaurant-navbar" fallback inset
+                subtitle-color="#a18765"
                 title="创造者模式" title-color="#ff4f0a" @back="goBack" @fallback="goBack"/>
     <view v-for="restaurant in restaurants" :key="restaurant.id" class="restaurant-card">
       <view class="restaurant-main">
@@ -27,18 +28,23 @@
 <script lang="ts" setup>
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {ref} from 'vue'
+import {computed} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
+import {useDining} from '@/ui/useDining'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-const restaurants = ref([
-  {
-    "id": "custom-demo",
-    "name": "我的自助餐厅",
-    "productCount": 2
-  }
-])
+const restaurants = computed(() => {
+  client.revision.value;
+  return dining.localRestaurants().filter(r => r.type === 'PRIVATE').map(r => ({
+    id: r.id,
+    name: r.name,
+    productCount: r.products.length
+  }))
+})
 
 // UI 交互状态
 const confirmation = useAppDialog()
@@ -61,8 +67,9 @@ function remove(id: string) {
   })
 }
 
-// 业务方法（仅保留事件接口）
-function deleteRestaurant(_id: string) {
+// 业务操作
+async function deleteRestaurant(id: string) {
+  await dining.deleteRestaurant(id)
 }
 </script>
 

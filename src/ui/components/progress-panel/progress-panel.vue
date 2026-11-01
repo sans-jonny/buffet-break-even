@@ -21,7 +21,7 @@
 
 <script lang="ts" setup>
 import {computed} from 'vue'
-import {formatPrice} from '@/ui/format/price'
+import {price as Price} from '@/ui/format/price'
 
 interface ProgressTip {
   progress: number
@@ -40,7 +40,7 @@ const props = withDefaults(defineProps<{
 })
 defineEmits<{ (event: 'edit-price'): void }>()
 
-const formattedValue = computed(() => formatPrice(props.value))
+const formattedValue = computed(() => Price.formatPrice(props.value))
 const fillPercent = computed(() => Math.min(Math.max(props.percent, 0) * 0.7, 100))
 const activeTip = computed(() => {
   let matchedTip: ProgressTip | undefined

@@ -1,0 +1,28 @@
+import {UseCase} from '../../../../../kernel/application/UseCase';
+import {Catalog} from './Catalog';
+
+export interface PublishRestaurantUseCase extends UseCase<PublishRestaurantUseCase.Request, PublishRestaurantUseCase.Response> {
+    execute(request: PublishRestaurantUseCase.Request): Promise<PublishRestaurantUseCase.Response>;
+}
+
+export namespace PublishRestaurantUseCase {
+    export const token = Symbol('PublishRestaurantUseCase') as UseCase.Token<PublishRestaurantUseCase>;
+
+    export class Request extends UseCase.TransactionRequest {
+        constructor(scope: UseCase.Scope, readonly catalogScope: string, readonly restaurant: Catalog.RestaurantView) {
+            super(scope);
+            UseCase.id(catalogScope);
+            UseCase.id(restaurant.id);
+            this.restaurant = UseCase.dto(restaurant);
+        }
+    }
+
+    export class Response extends UseCase.Response {
+        readonly value: Catalog.RestaurantView;
+
+        constructor(value: Catalog.RestaurantView) {
+            super();
+            this.value = UseCase.dto(value);
+        }
+    }
+}

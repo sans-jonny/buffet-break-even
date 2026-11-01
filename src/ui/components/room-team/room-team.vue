@@ -22,7 +22,10 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
 type Member = { id: string; nickname: string; online: boolean }
 const props = withDefaults(defineProps<{
-  room?: { code: string; hostId: string; members: Member[] }; memberId?: string; status?: string; message?: string
+  room?: { code: string; hostId: string | null; members: Member[] };
+  memberId?: string;
+  status?: string;
+  message?: string
 }>(), {memberId: '', status: 'online', message: ''})
 const emit = defineEmits<{ (event: 'select-member', member: Member): void }>()
 const confirmation = useAppDialog()

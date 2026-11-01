@@ -50,14 +50,30 @@
 <script lang="ts" setup>
 import MineSettingRow from '@/ui/components/mine-setting-row/mine-setting-row.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
+import {useDining} from '@/ui/useDining'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-const nickname = ref('小羊同学'), lifetimeDifference = ref(48), meals = ref(3)
-
-const receiptsCount = ref(2), totalRoundsSaved = ref(6), achievement = ref('4/7')
-
+const history = computed(() => {
+  client.revision.value;
+  return dining.history()
+})
+const nickname = computed(() => {
+  client.revision.value;
+  return dining.identity()?.nickname || ''
+})
+const lifetimeDifference = computed(() => history.value.reduce((sum, r) => sum + r.netMinor, 0) / 100)
+const meals = computed(() => history.value.length)
+const receiptsCount = computed(() => {
+  client.revision.value;
+  return dining.receipt() ? 1 : 0
+})
+const totalRoundsSaved = computed(() => history.value.reduce((sum, r) => sum + r.rounds.length, 0))
+const achievement = computed(() => history.value.filter(r => r.netMinor >= 0).length + '/' + history.value.length)
 const statusBarHeight = (typeof uni.getWindowInfo === 'function' ? uni.getWindowInfo() : uni.getSystemInfoSync()).statusBarHeight || 0
 
 const pageStyle = {paddingTop: (statusBarHeight + uni.upx2px(24)) + 'px'}
@@ -80,8 +96,10 @@ function editNickname() {
   editingNickname.value = true
 }
 
-// 业务方法（仅保留事件接口）
-function saveNickname() {
+// 业务操作
+async function saveNickname() {
+  await dining.nickname(nicknameInput.value)
+  editingNickname.value = false
 }
 </script>
 

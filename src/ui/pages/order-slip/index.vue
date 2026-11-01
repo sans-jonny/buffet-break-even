@@ -26,45 +26,42 @@
 
 <script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
+import {useDining} from '@/ui/useDining'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-const selectedLines = ref([
-  {
-    "product": {
-      "id": "beef",
-      "name": "牛上脑"
-    },
-    "count": 4
-  },
-  {
-    "product": {
-      "id": "shrimp",
-      "name": "鲜虾"
-    },
-    "count": 2
-  },
-  {
-    "product": {
-      "id": "vegetables",
-      "name": "时蔬拼盘"
-    },
-    "count": 1
-  }
-])
-
-const hasRoom = ref(false), isHost = ref(true)
-
-const date = ref('2026-11-01'), time = ref('12:30')
+const selectedLines = computed(() => {
+  client.revision.value
+  const id = client.selectedRestaurant(), restaurant = dining.restaurants().find(r => r.id === id)
+  const items = dining.consumption(id)?.rounds.find(r => r.status === 'ACTIVE')?.items || {}
+  return (restaurant?.products || []).filter(p => items[p.id]).map(p => ({
+    product: {id: p.id, name: p.name},
+    count: items[p.id]
+  }))
+})
+const hasRoom = computed(() => {
+  client.revision.value;
+  return !!dining.room()
+})
+const isHost = computed(() => {
+  client.revision.value;
+  return !dining.room() || dining.room()?.hostId === dining.identity()?.id
+})
+const date = ref(new Date().toLocaleDateString()), time = ref(new Date().toLocaleTimeString())
 
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 
 const goBack = () => navigation.back('menu')
 
-// 业务方法（仅保留事件接口）
-function completeRound() {
+// 业务操作
+async function completeRound() {
+  await dining.submit(client.selectedRestaurant())
+  await navigation.back('menu')
 }
 </script>
 

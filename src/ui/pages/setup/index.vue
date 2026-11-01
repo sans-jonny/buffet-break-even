@@ -3,7 +3,7 @@
     <app-navbar centered class="setup-navbar" inset subtitle="准备吃垮老板！" subtitle-color="#a18765"
                 title="自助餐回本神器" title-color="#ff4f16" @back="goBack"/>
 
-    <cuisine-drum v-model="typeId" :items="cuisineTypes" @preview="panelTypeId = $event"/>
+    <cuisine-drum v-model="typeId" :items="drumItems" @preview="panelTypeId = $event"/>
     <text class="drum-hint">‹　左右滑动，选择餐厅种类　›</text>
 
     <view v-if="panelTypeId === 'creator'" class="setup-panel entry-panel">
@@ -21,7 +21,7 @@
         <input v-model="ticketInput" placeholder="输入总价" placeholder-style="color: #8f8d8a;" type="digit"/>
       </view>
       <view class="mode-actions">
-        <depth-button class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
+        <depth-button :disabled="startingSingle" class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
         <depth-button class="mode-button" @click="openRoom">👥 多人模式</depth-button>
       </view>
     </view>
@@ -39,6 +39,7 @@
         <button :hover-stay-time="0" class="room-dialog-secondary" @tap="joining = false">返回</button>
       </template>
     </app-dialog>
+    <app-confirm-dialog :controller="confirmation"/>
   </view>
 </template>
 
@@ -47,21 +48,32 @@ import DepthButton from '@/ui/components/depth-button/depth-button.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import CuisineDrum from '@/ui/components/cuisine-drum/cuisine-drum.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import {ref} from 'vue'
+import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
+import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
+import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-// 展示数据
-const cuisineTypes = ref([
-  {id: 'creator', name: '创造者模式', emoji: '✏️'}, {id: 'sukiyaki', name: '寿喜烧', emoji: '🍲'},
-  {id: 'barbecue', name: '烤肉', emoji: '🥩'}, {id: 'hotpot', name: '火锅', emoji: '🥘'},
-  {id: 'pizza', name: '披萨', emoji: '🍕'}, {id: 'my-restaurants', name: '我的餐厅', emoji: '👨‍🍳'}
-])
+import {useDining} from '@/ui/useDining'
 
-// UI 交互状态
-const ticketInput = ref('200'), typeId = ref('sukiyaki')
-
-const panelTypeId = ref('sukiyaki')
+const client = useDining()
+const dining = client.dining
+const confirmation = useAppDialog(), startingSingle = ref(false)
+// 分类名称来自 Catalog；图标属于页面展示配置。
+const cuisineEmoji: Record<string, string> = {
+  sukiyaki: '🍲', barbecue: '🥩', hotpot: '🥘', pizza: '🍕', My: '👨‍🍳'
+}
+const cuisineTypes = computed(() => {
+  client.revision.value
+  return dining.restaurantCategories().map(category => ({...category, emoji: cuisineEmoji[category.id] || '🍽️'}))
+})
+const drumItems = computed(() => [{id: 'creator', name: '创造者模式', emoji: '✏️'}, ...cuisineTypes.value])
+const ticketInput = ref('200'), typeId = ref(''), panelTypeId = ref('')
+watch(typeId, id => { panelTypeId.value = id })
+watch(cuisineTypes, categories => {
+  if (typeId.value && typeId.value !== 'creator' && !categories.some(category => category.id === typeId.value))
+    typeId.value = categories[0]?.id || 'creator'
+})
 
 const showRoomModal = ref(false), joining = ref(false), roomCode = ref('')
 
@@ -87,22 +99,69 @@ function openJoinRoom() {
   joining.value = true
 }
 
-// 业务方法（仅保留事件接口）
-function startSingle() {
+// 业务操作
+async function startSingle() {
+  if (startingSingle.value || confirmation.dialog.value) return
+  startingSingle.value = true
+  try {
+    await client.ready
+    const existing = dining.unfinishedSingle()
+    const total = ticketInput.value, categoryId = typeId.value
+    if (existing) {
+      confirmation.open({
+        title: '继续上次用餐？',
+        content: '存在尚未结束的单人用餐。继续将保留原票价和记录；新建会放弃旧用餐，不生成正式历史。',
+        confirmText: '继续用餐',
+        cancelText: '放弃旧用餐并新建',
+        success: result => enterSingle(() => result.confirm
+          ? client.resumeSingle(existing)
+          : client.startSingle(total, categoryId, existing.activityId))
+      })
+      return
+    }
+    await client.startSingle(total, categoryId)
+    await navigation.open('menu')
+  } finally {
+    startingSingle.value = false
+  }
 }
 
-function createRoom() {
+async function enterSingle(action: () => Promise<void>) {
+  if (startingSingle.value) return
+  startingSingle.value = true
+  try {
+    await action()
+    await navigation.open('menu')
+  } finally {
+    startingSingle.value = false
+  }
 }
 
-function joinRoom() {
+async function createRoom() {
+  await client.createRoom(ticketInput.value, typeId.value)
+  closeRoomModal()
+  await navigation.open('menu')
 }
 
-function resumeRoom() {
+async function joinRoom() {
+  await client.joinRoom(roomCode.value)
+  closeRoomModal()
+  await navigation.open('menu')
+}
+
+async function resumeRoom() {
+  await client.joinRoom()
+  closeRoomModal()
+  await navigation.open('menu')
 }
 
 // 生命周期与动画监听
-onLoad(query => {
-  if (query?.typeId === 'custom') typeId.value = 'my-restaurants'
+onLoad(async query => {
+  await client.ready
+  const requested = query?.typeId === 'custom' ? 'My' : query?.typeId
+  typeId.value = cuisineTypes.value.some(category => category.id === requested)
+    ? requested! : cuisineTypes.value[0]?.id || 'creator'
+  panelTypeId.value = typeId.value
 })
 </script>
 

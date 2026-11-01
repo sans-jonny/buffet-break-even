@@ -12,8 +12,8 @@
           </view>
         </view>
         <view class="thumb-caption">
-          <text>{{ index + 1 }}. {{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
-          <text>{{ formatDateTime(item.date) }}</text>
+          <text>{{ index + 1 }}. {{ restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
+          <text>{{ time.formatDateTime(item.date) }}</text>
         </view>
       </view>
     </view>
@@ -27,65 +27,21 @@
 
 <script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {ref} from 'vue'
+import {computed} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {formatDateTime} from '@/ui/format/time'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-const receipts = ref([
-  {
-    "id": "ui-receipt-001",
-    "restaurant": "牛牛",
-    "typeName": "寿喜烧",
-    "date": "2026-11-01T12:30:00+08:00",
-    "price": 200,
-    "value": 248,
-    "lines": [
-      {
-        "name": "牛上脑",
-        "count": 20,
-        "price": 10
-      },
-      {
-        "name": "鲜虾",
-        "count": 2,
-        "price": 18
-      },
-      {
-        "name": "时蔬拼盘",
-        "count": 1,
-        "price": 12
-      }
-    ]
-  },
-  {
-    "id": "ui-receipt-002",
-    "restaurant": "一绪",
-    "typeName": "寿喜烧",
-    "date": "2026-11-01T12:30:00+08:00",
-    "price": 200,
-    "value": 248,
-    "lines": [
-      {
-        "name": "牛上脑",
-        "count": 20,
-        "price": 10
-      },
-      {
-        "name": "鲜虾",
-        "count": 2,
-        "price": 18
-      },
-      {
-        "name": "时蔬拼盘",
-        "count": 1,
-        "price": 12
-      }
-    ]
-  }
-])
-
+const receipts = computed(() => {
+  client.revision.value;
+  return dining.receipt() ? [DiningClient.receipt(dining.receipt()!)] : []
+})
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 
@@ -93,7 +49,7 @@ const goBack = () => navigation.back('mine')
 
 const openReceipt = (id: string) => navigation.toResult(id)
 
-// 业务方法（仅保留事件接口）
+// 业务操作
 // 当前页面无此类方法。
 </script>
 

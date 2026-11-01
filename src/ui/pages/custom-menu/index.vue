@@ -1,13 +1,15 @@
 <template>
   <view class="restaurant-page editor-page">
-    <app-navbar :subtitle="restaurant.name || '新建餐厅'" class="restaurant-navbar" fallback inset subtitle-color="#a18765"
+    <app-navbar :subtitle="restaurant.name || '新建餐厅'" class="restaurant-navbar" fallback inset
+                subtitle-color="#a18765"
                 title="创造者模式" title-color="#ff4f0a" @back="goBack" @fallback="goBack"/>
 
     <view class="restaurant-card restaurant-main name-card">
       <view class="restaurant-badge">{{ restaurant.name.slice(0, 1) || '店' }}</view>
       <view class="restaurant-copy">
         <text class="editor-label">餐厅名</text>
-        <input v-model="restaurant.name" class="restaurant-name-input" maxlength="60" placeholder="给餐厅起个名字"/>
+        <input v-model="restaurant.name" class="restaurant-name-input" maxlength="60" placeholder="给餐厅起个名字"
+               @input="isDirty = true"/>
       </view>
     </view>
     <view class="dishes-heading">
@@ -70,40 +72,19 @@ import {onBackPress, onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
 const restaurant = ref({
-  "id": "custom-demo",
-  "name": "我的自助餐厅",
-  "categories": [
-    {
-      "id": "meat",
-      "name": "肉类海鲜"
-    },
-    {
-      "id": "dessert",
-      "name": "饮品甜点"
-    }
-  ],
-  "products": [
-    {
-      "id": "beef",
-      "name": "牛上脑",
-      "price": 10,
-      "category": "meat",
-      "emoji": "🍲",
-      "unit": "份"
-    },
-    {
-      "id": "ice",
-      "name": "冰淇淋",
-      "price": 15,
-      "category": "dessert",
-      "emoji": "🍨",
-      "unit": "份"
-    }
-  ]
+  id: DiningClient.id(),
+  name: '',
+  categories: [] as { id: string; name: string }[],
+  products: [] as { id: string; name: string; price: number; category: string; emoji: string; unit: string }[]
 })
-
+let catalogVersion = 0
 // UI 交互状态
 const confirmation = useAppDialog()
 
@@ -168,28 +149,96 @@ function deleteEntry() {
   })
 }
 
-// 业务方法（仅保留事件接口）
+// 业务操作
 function applyForm() {
+  const input = form.value
+  if (!input) return
+  if (!input.name.trim()) throw new Error('名称不能为空')
+  const id = input.id || DiningClient.id()
+  if (input.kind === 'category') {
+    const value = {id, name: input.name.trim()}
+    const index = restaurant.value.categories.findIndex(c => c.id === id)
+    if (index < 0) restaurant.value.categories.push(value); else restaurant.value.categories[index] = value
+  } else {
+    const category = restaurant.value.categories[input.categoryIndex]
+    if (!category) throw new Error('请先选择分类')
+    const value = {
+      id,
+      name: input.name.trim(),
+      price: DiningClient.minor(input.price) / 100,
+      category: category.id,
+      emoji: '🍽️',
+      unit: '份'
+    }
+    const index = restaurant.value.products.findIndex(p => p.id === id)
+    if (index < 0) restaurant.value.products.push(value); else restaurant.value.products[index] = value
+  }
+  isDirty.value = true;
+  form.value = null
 }
 
-function removeCategory(_id: string) {
+function removeCategory(id: string) {
+  restaurant.value.categories = restaurant.value.categories.filter(c => c.id !== id)
+  restaurant.value.products = restaurant.value.products.filter(p => p.category !== id)
+  isDirty.value = true;
+  form.value = null
 }
 
-function removeProduct(_id: string) {
+function removeProduct(id: string) {
+  restaurant.value.products = restaurant.value.products.filter(p => p.id !== id)
+  isDirty.value = true;
+  form.value = null
 }
 
-function saveAll() {
+async function saveAll() {
+  const r = restaurant.value
+  await dining.publishLocal({
+    id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
+    restaurantCategory: {id: 'My', name: '我的餐厅'},
+    products: r.products.map(p => ({
+      id: p.id,
+      name: p.name,
+      categoryId: p.category,
+      priceMinor: DiningClient.minor(String(p.price))
+    }))
+  })
+  catalogVersion++;
+  isDirty.value = false
 }
 
-function saveAndLeave() {
+async function saveAndLeave() {
+  await saveAll();
+  showLeaveDialog.value = false;
+  await leave()
 }
 
-function discardAndLeave() {
+async function discardAndLeave() {
+  isDirty.value = false;
+  showLeaveDialog.value = false;
+  await leave()
 }
 
 // 生命周期与动画监听
-onLoad(query => {
-  if (query?.restaurantId) restaurant.value.id = query.restaurantId
+onLoad(async query => {
+  await client.ready
+  if (query?.restaurantId) {
+    const r = dining.localRestaurant(query.restaurantId)
+    if (r.type !== 'PRIVATE' || r.deleted) throw new Error('餐厅不存在')
+    catalogVersion = r.version
+    restaurant.value = {
+      id: r.id,
+      name: r.name,
+      categories: r.categories.map(c => ({...c})),
+      products: r.products.map(p => ({
+        id: p.id,
+        name: p.name,
+        price: p.priceMinor / 100,
+        category: p.categoryId,
+        emoji: '🍽️',
+        unit: '份'
+      }))
+    }
+  }
 })
 
 onBackPress(() => {

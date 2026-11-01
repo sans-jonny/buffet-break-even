@@ -1,11 +1,8 @@
-import {recordTouch} from '../interaction/compatibilityMouse'
+import {compatibilityMouse} from '../interaction/compatibilityMouse'
 import {getCurrentScope, onScopeDispose} from 'vue'
 
-export const RECEIPT_LONG_PRESS_MS = 500
-type TouchEvent = { touches?: { clientX: number; clientY: number }[] }
-
-/** 用独立计时器统一各平台长按阈值，不依赖系统默认的350ms。 */
 export function useLongPressAction(action: () => void, now = () => Date.now()) {
+    type TouchEvent = { touches?: ArrayLike<{ clientX: number; clientY: number }> }
     let active = false, triggered = false
     let startedAt = 0
     let origin: { clientX: number; clientY: number } | undefined
@@ -21,7 +18,7 @@ export function useLongPressAction(action: () => void, now = () => Date.now()) {
         active = false;
         triggered = false;
         origin = undefined;
-        recordTouch(now())
+        compatibilityMouse.recordTouch(now())
     }
 
     function start(event?: TouchEvent) {
@@ -30,19 +27,19 @@ export function useLongPressAction(action: () => void, now = () => Date.now()) {
         active = true;
         startedAt = now();
         origin = event?.touches?.[0]
-        timer = setTimeout(trigger, RECEIPT_LONG_PRESS_MS)
+        timer = setTimeout(trigger, useLongPressAction.RECEIPT_LONG_PRESS_MS)
     }
 
     function trigger() {
         if (!active || triggered) return
         clearTimer()
         triggered = true
-        recordTouch(now())
+        compatibilityMouse.recordTouch(now())
         action()
     }
 
     function longPress() {
-        if (now() - startedAt >= RECEIPT_LONG_PRESS_MS) trigger()
+        if (now() - startedAt >= useLongPressAction.RECEIPT_LONG_PRESS_MS) trigger()
     }
 
     function move(event: TouchEvent) {
@@ -57,4 +54,8 @@ export function useLongPressAction(action: () => void, now = () => Date.now()) {
 
     if (getCurrentScope()) onScopeDispose(cancel)
     return {start, longPress, move, end, cancel}
+}
+
+export namespace useLongPressAction {
+    export const RECEIPT_LONG_PRESS_MS = 500
 }

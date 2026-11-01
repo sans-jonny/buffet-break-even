@@ -9,9 +9,12 @@
           <view class="record-copy">
             <view>
               <text class="label-chip inline-flex-center">第 {{ records.length - index }} 餐</text>
-              <text class="restaurant">{{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
+              <text class="restaurant">{{
+                  restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName)
+                }}
+              </text>
             </view>
-            <text class="record-date">{{ formatDateTime(item.date) }}</text>
+            <text class="record-date">{{ time.formatDateTime(item.date) }}</text>
           </view>
           <view class="round-count">
             <text>{{ item.rounds.length }} 轮</text>
@@ -32,7 +35,7 @@
           <view v-for="(round, roundIndex) in item.rounds" :key="roundIndex" class="round-box">
             <view class="round-head">
               <text>第 {{ roundIndex + 1 }} 轮</text>
-              <text>{{ formatRoundTime(round.time) }}</text>
+              <text>{{ time.formatRoundTime(round.time) }}</text>
               <text>¥{{ round.value.toFixed(2) }}</text>
             </view>
             <view v-for="line in round.lines" :key="line.name" class="detail-line">
@@ -54,109 +57,24 @@
 
 <script lang="ts" setup>
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {formatDateTime, formatRoundTime} from '@/ui/format/time'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
 // 展示数据
-const records = ref([
-  {
-    "id": "ui-receipt-001",
-    "restaurant": "牛牛",
-    "typeName": "寿喜烧",
-    "date": "2026-11-01T12:30:00+08:00",
-    "price": 200,
-    "value": 248,
-    "participants": [
-      "小羊",
-      "饭搭子"
-    ],
-    "rounds": [
-      {
-        "time": "2026-11-01T12:00:00+08:00",
-        "value": 88,
-        "lines": [
-          {
-            "name": "牛上脑",
-            "count": 4,
-            "price": 10
-          },
-          {
-            "name": "鲜虾",
-            "count": 2,
-            "price": 18
-          },
-          {
-            "name": "时蔬拼盘",
-            "count": 1,
-            "price": 12
-          }
-        ]
-      },
-      {
-        "time": "2026-11-01T12:25:00+08:00",
-        "value": 160,
-        "lines": [
-          {
-            "name": "牛上脑",
-            "count": 16,
-            "price": 10
-          }
-        ]
-      }
-    ]
-  },
-  {
-    "id": "ui-receipt-002",
-    "restaurant": "一绪",
-    "typeName": "寿喜烧",
-    "date": "2026-11-01T12:30:00+08:00",
-    "price": 200,
-    "value": 248,
-    "participants": [
-      "小羊",
-      "饭搭子"
-    ],
-    "rounds": [
-      {
-        "time": "2026-11-01T12:00:00+08:00",
-        "value": 88,
-        "lines": [
-          {
-            "name": "牛上脑",
-            "count": 4,
-            "price": 10
-          },
-          {
-            "name": "鲜虾",
-            "count": 2,
-            "price": 18
-          },
-          {
-            "name": "时蔬拼盘",
-            "count": 1,
-            "price": 12
-          }
-        ]
-      },
-      {
-        "time": "2026-11-01T12:25:00+08:00",
-        "value": 160,
-        "lines": [
-          {
-            "name": "牛上脑",
-            "count": 16,
-            "price": 10
-          }
-        ]
-      }
-    ]
-  }
-])
-
-const totalRoundsSaved = ref(4), totalDishesSaved = ref(46)
-
+const records = computed(() => {
+  client.revision.value;
+  return dining.history().map(DiningClient.receipt)
+})
+const totalRoundsSaved = computed(() => records.value.reduce((sum, r) => sum + r.rounds.length, 0))
+const totalDishesSaved = computed(() => records.value.reduce((sum, r) => sum + r.lines.reduce((a,
+                                                                                               l) => a + l.count, 0), 0))
 // UI 交互状态
 const expandedRecordId = ref<string | null>(null)
 
@@ -172,7 +90,7 @@ function toggleRecord(id: string) {
   expandedRecordId.value = expandedRecordId.value === id ? null : id
 }
 
-// 业务方法（仅保留事件接口）
+// 业务操作
 // 当前页面无此类方法。
 </script>
 

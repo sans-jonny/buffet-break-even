@@ -3,11 +3,12 @@
     <app-navbar :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" :title="isPreview ? '菜单预览' : '菜单'" centered
                 fallback @back="goBack" @fallback="returnToSetup"/>
     <view v-if="!isPreview" class="progress-area">
-      <progress-panel :editable="!isPreview" :percent="percent" :target="ticketPrice"
+      <progress-panel :editable="!isPreview && (!hasRoom || room.hostId === dining.identity()?.id)" :percent="percent"
+                      :target="ticketPrice"
                       :tips="progressTips" :value="displayValue" @edit-price="editPrice">
         <template #before-tip>
           <view v-if="hasRoom">
-            <room-team :room="room" member-id="member-1" @select-member="transferHost"/>
+            <room-team :member-id="dining.identity()?.id || ''" :room="room" @select-member="transferHost"/>
           </view>
         </template>
       </progress-panel>
@@ -24,6 +25,15 @@
       </view>
     </scroll-view>
 
+    <view v-if="!isPreview && dining.activity()?.status === 'ACTIVE'" class="session-actions">
+      <button size="mini" @tap="clearRound">清空本轮</button>
+      <button v-if="!hasRoom || room.hostId === dining.identity()?.id" size="mini" @tap="abandonDining">放弃用餐
+      </button>
+      <button v-if="hasRoom" size="mini" @tap="leaveRoom">退出房间</button>
+      <button v-if="hasRoom" size="mini" @tap="reviewSubmission">核对提交</button>
+    </view>
+    <app-confirm-dialog :controller="confirmation"/>
+
     <view :class="{'room-readonly': !isPreview && hasRoom && !canEditRoom}" class="menu-content">
       <scroll-view :scroll-y="true" :show-scrollbar="false" class="category-list">
         <view v-for="category in categories" :key="category" :class="{ active: activeCategory === category }"
@@ -33,7 +43,8 @@
       </scroll-view>
 
       <scroll-view :scroll-y="true" :show-scrollbar="false" class="product-list">
-        <product-card v-for="product in filteredProducts" :key="product.id" :count="isPreview ? undefined : selected[product.id]"
+        <product-card v-for="product in filteredProducts" :key="product.id"
+                      :count="isPreview ? undefined : selected[product.id]"
                       :product="product" :readonly="isPreview" @add="addItem"/>
         <view v-if="!filteredProducts.length" class="empty-products flex-center">
           <text>🍽️</text>
@@ -69,98 +80,74 @@ import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import ProgressPanel from '@/ui/components/progress-panel/progress-panel.vue'
 import RoomTeam from '@/ui/components/room-team/room-team.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import {computed, ref} from 'vue'
+import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
+import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
+import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
+const confirmation = useAppDialog()
+const isPreview = ref(false)
 // 展示数据
-const restaurants = ref([{id: 'niuniu', name: '牛牛'}, {id: 'daniu', name: '大牛'}, {id: 'yixu', name: '一绪'}])
-
-const restaurantId = ref('niuniu')
-
-const currentRestaurant = computed(() => restaurants.value.find(r => r.id === restaurantId.value))
-
-const categories = ref(['肉类海鲜', '蔬菜豆制品', '主食小食', '饮品甜点'])
-
-const activeCategory = ref('肉类海鲜')
-
-const products = ref([
-  {
-    "id": "beef",
-    "name": "牛上脑",
-    "category": "肉类海鲜",
-    "level": "牛牛",
-    "price": 10,
-    "emoji": "🍲",
-    "gradient": "linear-gradient(145deg,#fff0d5,#ffdfbd)",
-    "unit": "份"
-  },
-  {
-    "id": "shrimp",
-    "name": "鲜虾",
-    "category": "肉类海鲜",
-    "level": "牛牛",
-    "price": 18,
-    "emoji": "🦐",
-    "gradient": "linear-gradient(145deg,#fff0d5,#ffdfbd)",
-    "unit": "份"
-  },
-  {
-    "id": "vegetables",
-    "name": "时蔬拼盘",
-    "category": "蔬菜豆制品",
-    "level": "牛牛",
-    "price": 12,
-    "emoji": "🥬",
-    "gradient": "linear-gradient(145deg,#fff0d5,#ffdfbd)",
-    "unit": "份"
-  },
-  {
-    "id": "rice",
-    "name": "日式拌饭",
-    "category": "主食小食",
-    "level": "牛牛",
-    "price": 16,
-    "emoji": "🍚",
-    "gradient": "linear-gradient(145deg,#fff0d5,#ffdfbd)",
-    "unit": "份"
-  },
-  {
-    "id": "dessert",
-    "name": "冰淇淋",
-    "category": "饮品甜点",
-    "level": "牛牛",
-    "price": 15,
-    "emoji": "🍨",
-    "gradient": "linear-gradient(145deg,#fff0d5,#ffdfbd)",
-    "unit": "份"
-  }
-])
-
-const filteredProducts = computed(() => products.value.filter(p => p.category === activeCategory.value))
-
-const selected = ref<Record<string, number>>({beef: 4, shrimp: 2, vegetables: 1})
-
-const selectedLines = ref([
-  {product: {id: 'beef', name: '牛上脑', price: 10}, count: 4},
-  {product: {id: 'shrimp', name: '鲜虾', price: 18}, count: 2},
-  {product: {id: 'vegetables', name: '时蔬拼盘', price: 12}, count: 1}
-])
-
-const totalSelectedCount = ref(7)
-
-const displayValue = ref(248), ticketPrice = ref(200), percent = ref(124), currentRoundValue = ref(88)
-
-const rounds = ref([1]), hasRoom = ref(false), canEditRoom = ref(true)
-
-const room = ref({
-  code: '123456', hostId: 'member-1', members: [
-    {id: 'member-1', nickname: '小羊', online: true},
-    {id: 'member-2', nickname: '饭搭子', online: true},
-    {id: 'member-3', nickname: '朋友', online: false}
-  ]
+const restaurants = computed(() => {
+  client.revision.value;
+  return isPreview.value ? dining.localRestaurants() : dining.restaurants()
 })
-
+const restaurantId = ref(client.selectedRestaurant())
+const currentRestaurant = computed(() => restaurants.value.find(r => r.id === restaurantId.value))
+const categories = computed(() => currentRestaurant.value?.categories.map(c => c.name) || [])
+const activeCategory = ref('')
+const products = computed(() => (currentRestaurant.value?.products || []).map(p => ({
+  id: p.id,
+  name: p.name,
+  price: p.priceMinor / 100,
+  category: currentRestaurant.value?.categories.find(c => c.id === p.categoryId)?.name || '',
+  level: currentRestaurant.value?.name || '',
+  emoji: '🍽️',
+  gradient: 'linear-gradient(145deg,#fff0d5,#ffdfbd)',
+  unit: '份'
+})))
+const filteredProducts = computed(() => products.value.filter(p => !activeCategory.value || p.category === activeCategory.value))
+const consumption = computed(() => {
+  client.revision.value;
+  return dining.consumption(restaurantId.value)
+})
+const selected = computed(() => consumption.value?.rounds.find(r => r.status === 'ACTIVE')?.items || {})
+const selectedLines = computed(() => products.value.filter(p => selected.value[p.id]).map(product => ({
+  product,
+  count: selected.value[product.id]
+})))
+const totalSelectedCount = computed(() => Object.values(selected.value).reduce((a, b) => a + b, 0))
+const displayValue = computed(() => {
+  client.revision.value
+  if (!dining.session() || !currentRestaurant.value) return 0
+  return dining.preview(restaurantId.value).foodValueMinor / 100
+})
+const ticketPrice = computed(() => {
+  client.revision.value;
+  return (dining.activity()?.ticketPriceMinor || 0) / 100
+})
+const percent = computed(() => ticketPrice.value ? displayValue.value / ticketPrice.value * 100 : 0)
+const currentRoundValue = computed(() => selectedLines.value.reduce((sum, l) => sum + l.product.price * l.count, 0))
+const rounds = computed(() => consumption.value?.rounds || [])
+const hasRoom = computed(() => {
+  client.revision.value;
+  return !!dining.room()
+})
+const room = computed(() => {
+  client.revision.value;
+  const r = dining.room();
+  return r ? {...r, members: r.members.filter(m => m.present)} : {code: '', hostId: null, members: []}
+})
+const canEditRoom = computed(() => !hasRoom.value || !!room.value.members.find(m => m.id === dining.identity()?.id && m.online))
+watch(restaurants, list => {
+  if (!list.some(r => r.id === restaurantId.value)) restaurantId.value = list[0]?.id || ''
+})
 const progressTips = ref([
   {progress: 0, text: '✈ 刚开始，大胆点！', color: '#9f9b97'},
   {progress: 1, text: 'ϟ 快了快了，再来一波！', color: '#f09c22'},
@@ -169,7 +156,6 @@ const progressTips = ref([
 ])
 
 // UI 交互状态
-const isPreview = ref(false)
 
 const editingPrice = ref(false), priceInput = ref('200'), showCart = ref(false)
 
@@ -194,7 +180,8 @@ function editPrice() {
 
 function selectRestaurant(id: string) {
   restaurantId.value = id;
-  activeCategory.value = categories.value[0];
+  void client.selectRestaurant(id).catch(DiningClient.report)
+  activeCategory.value = categories.value[0] || '';
   showCart.value = false
 }
 
@@ -202,26 +189,87 @@ function selectCategory(category: string) {
   activeCategory.value = category
 }
 
-// 业务方法（仅保留事件接口）
-function savePrice() {
+// 业务操作
+async function savePrice() {
+  await dining.paying(DiningClient.minor(priceInput.value))
+  editingPrice.value = false
 }
 
-function addItem(_id: string) {
+async function addItem(id: string) {
+  if (!isPreview.value) await dining.edit(restaurantId.value, 'add', id)
 }
 
-function removeItem(_id: string) {
+async function removeItem(id: string) {
+  await dining.edit(restaurantId.value, 'reduce', id)
 }
 
-function transferHost(_member: { id: string }) {
+async function transferHost(member: { id: string }) {
+  await dining.transfer(member.id)
+}
+
+function clearRound() {
+  confirmation.open({
+    title: '清空本轮', content: '移除本轮全部菜品，保留本轮？', success: r => {
+      if (r.confirm) return dining.edit(restaurantId.value, 'clear')
+    }
+  })
+}
+
+function abandonDining() {
+  confirmation.open({
+    title: '放弃用餐', content: '放弃本次活动，不生成正式历史？', success: async r => {
+      if (r.confirm) {
+        await dining.abandon();
+        await navigation.open('setup', 'reset')
+      }
+    }
+  })
+}
+
+function leaveRoom() {
+  confirmation.open({
+    title: '退出房间', content: '退出后可凭房间码重新加入；完成前退出将失去结果领取资格。', success: async r => {
+      if (r.confirm) {
+        await client.leaveRoom();
+        await navigation.open('setup', 'reset')
+      }
+    }
+  })
+}
+
+function reviewSubmission() {
+  confirmation.open({
+    title: '核对提交结果',
+    content: '先查看已同步的数量。确认已核对，后续点击将作为新的操作提交；上次结果不明的操作不会自动重发。',
+    success: async r => {
+      if (r.confirm) await client.acknowledgeSubmission()
+    }
+  })
 }
 
 // 生命周期与动画监听
-onLoad(query => {
+onLoad(async query => {
+  await client.ready
   isPreview.value = Boolean(query?.previewId)
+  restaurantId.value = query?.previewId || client.selectedRestaurant()
 })
 </script>
 
 <style scoped>
+.session-actions {
+  display: flex;
+  gap: 10rpx;
+  padding: 8rpx 24rpx;
+  flex-shrink: 0
+}
+
+.session-actions button {
+  font-size: 21rpx;
+  margin: 0;
+  background: #fff0dd;
+  color: #9a6937
+}
+
 .menu-page.preview-mode {
   padding-bottom: 0
 }

@@ -1,7 +1,8 @@
 <template>
   <view :aria-disabled="disabled" :aria-label="label"
         :class="[{'is-disabled': disabled}, 'depth-' + phase]"
-        :style="{'--press-depth': depth + 'rpx', '--depth-color': shadowColor, '--ambient-shadow': ambientShadow, '--press-duration': PRESS_ANIMATION_MS + 'ms'}" class="depth-button" hover-class="none"
+        :style="{'--press-depth': depth + 'rpx', '--depth-color': shadowColor, '--ambient-shadow': ambientShadow, '--press-duration': usePressFeedback.PRESS_ANIMATION_MS + 'ms'}"
+        class="depth-button" hover-class="none"
         role="button"
         @animationend="animationEnd" @mousedown="press" @mouseleave="release"
         @mouseup="release" @tap="activate" @touchcancel="release" @touchend="release"
@@ -16,7 +17,7 @@ export default {options: {virtualHost: true}}
 
 <script lang="ts" setup>
 import {nextTick, watch} from 'vue'
-import {PRESS_ANIMATION_MS, usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
+import {usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
 
 const {phase, press: beginPress, release, animationEnd} = usePressFeedback()
 let pendingActivation = false

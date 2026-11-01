@@ -1,5 +1,4 @@
 {
-  "extends": "@vue/tsconfig/tsconfig.json",
   "compilerOptions": {
     "sourceMap": true,
     "baseUrl": ".",
@@ -16,12 +15,21 @@
       "@dcloudio/types"
     ],
     "resolveJsonModule": true,
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "skipLibCheck": true,
+    "strict": true,
+    "jsx": "preserve"
   },
   "include": [
     "src/**/*.ts",
     "src/**/*.d.ts",
     "src/**/*.tsx",
     "src/**/*.vue"
-  ]
+  ],
+  "vueCompilerOptions": {
+    "target": 3.3
+  }
 }

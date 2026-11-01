@@ -40,9 +40,17 @@
     </app-dialog>
 
     <text v-if="isRoomView && roomMessage" class="room-result-note">{{ roomMessage }}</text>
+    <picker v-if="!isSavedView && (!isRoomView || viewMode === 'room-host') && dining.activity()?.status === 'ACTIVE'"
+            :range="finalRestaurants" range-key="name" @change="chooseFinalRestaurant">
+      <view class="final-restaurant">
+        最终餐厅：{{ finalRestaurants.find(r => r.id === finalRestaurantId)?.name || '请选择最终餐厅 ›' }}
+      </view>
+    </picker>
     <view class="result-actions">
       <view class="secondary-action flex-center" @tap="secondaryAction.run">{{ secondaryAction.label }}</view>
       <view v-if="!isSavedView" class="primary-action flex-center" @tap="save">存到小票夹</view>
+      <view v-if="viewMode === 'room-ended'" class="primary-action flex-center" @tap="dining.saveHistory()">补存历史
+      </view>
     </view>
     <app-confirm-dialog :controller="confirmation"/>
   </view>
@@ -57,50 +65,51 @@ import {computed, ref, watch} from 'vue'
 import {onLoad, onUnload} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
-import {formatReceiptTimestamp} from '@/ui/format/time'
+import {time} from '@/ui/format/time'
 
-// 展示数据
-const displayReceipt = ref({
-  "id": "ui-receipt-001",
-  "restaurant": "牛牛",
-  "typeName": "寿喜烧",
-  "date": "2026-11-01T12:30:00+08:00",
-  "price": 200,
-  "value": 248,
-  "participants": [
-    "小羊",
-    "饭搭子"
-  ],
-  "lines": [
-    {
-      "name": "牛上脑",
-      "count": 20,
-      "price": 10
-    },
-    {
-      "name": "鲜虾",
-      "count": 2,
-      "price": 18
-    },
-    {
-      "name": "时蔬拼盘",
-      "count": 1,
-      "price": 12
-    }
-  ],
-  "result": {
-    "difference": 48,
-    "percent": 124,
-    "isBreakEven": true,
-    "verdict": "break-even" as 'break-even' | 'close' | 'below'
-  }
+import {useDining} from '@/ui/useDining'
+import {DiningClient} from '@/ui/DiningClient'
+
+const client = useDining()
+const dining = client.dining
+const finalRestaurantId = ref('')
+const finalRestaurants = computed(() => {
+  client.revision.value;
+  return dining.restaurants()
 })
 
+function chooseFinalRestaurant(event: { detail: { value: string | number } }) {
+  finalRestaurantId.value = finalRestaurants.value[Number(event.detail.value)]?.id || ''
+}
+
+// 展示数据
+const savedView = ref(false)
+const displayReceipt = computed(() => {
+  client.revision.value
+  const selected = finalRestaurantId.value || client.selectedRestaurant()
+  const result = savedView.value ? dining.receipt() : dining.session() && selected ? dining.preview(selected) : undefined
+  return result ? DiningClient.receipt(result) : {
+    id: '',
+    restaurant: '尚无用餐结果',
+    typeName: '',
+    date: '',
+    price: 0,
+    value: 0,
+    participants: [],
+    lines: [],
+    rounds: [],
+    result: {difference: 0, percent: 0, isBreakEven: false, verdict: 'below' as const}
+  }
+})
 const roomMessage = ref('')
 
 const receiptProps = computed(() => {
   const {id, date, ...receipt} = displayReceipt.value
-  return {...receipt, receiptId: id.split('-').pop()?.toUpperCase() || 'DINING', dateTime: formatReceiptTimestamp(date)}
+  return {
+    ...receipt,
+    receiptId: id.split('-').pop()?.toUpperCase() || 'DINING',
+    dateTime: time.formatReceiptTimestamp(date)
+  }
 })
 
 // UI 交互状态
@@ -108,7 +117,11 @@ const confirmation = useAppDialog()
 
 type ResultMode = 'single' | 'room-host' | 'room-member' | 'room-ended' | 'saved'
 
-const viewMode = ref<ResultMode>('single')
+const viewMode = computed<ResultMode>(() => {
+  client.revision.value;
+  const room = dining.room();
+  return savedView.value ? 'saved' : !room ? 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identity()?.id ? 'room-host' : 'room-member'
+})
 
 const isSavedView = computed(() => viewMode.value === 'saved')
 
@@ -153,16 +166,22 @@ function openReceiptPreview() {
 }
 
 function endDining() {
+  if (!finalRestaurantId.value) throw new Error('请先选择最终餐厅')
   confirmation.open({
-    title: '结算当前餐厅', content: '结束当前餐厅的用餐？', success: r => {
+    title: '确认最终餐厅',
+    content: `选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
+    success: r => {
       if (r.confirm) return completeDining()
     }
   })
 }
 
 function endRoom() {
+  if (!finalRestaurantId.value) throw new Error('请先选择最终餐厅')
   confirmation.open({
-    title: '结束整桌用餐', content: '结束当前餐厅的用餐？', success: r => {
+    title: '确认最终餐厅',
+    content: `全桌选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
+    success: r => {
       if (r.confirm) return completeRoom()
     }
   })
@@ -176,24 +195,30 @@ function confirmDelete() {
   })
 }
 
-// 业务方法（仅保留事件接口）
-function save() {
+// 业务操作
+async function save() {
+  await dining.saveReceipt(finalRestaurantId.value || client.selectedRestaurant())
+  uni.showToast({title: '已存到小票夹', icon: 'none'})
 }
 
-function completeDining() {
+async function completeDining() {
+  await dining.finish(finalRestaurantId.value)
+  await finishShared()
 }
 
-function completeRoom() {
+async function completeRoom() {
+  await completeDining()
 }
 
-function deleteReceipt() {
+async function deleteReceipt() {
+  await dining.deleteReceipt()
+  await navigation.back('receipts')
 }
 
 // 生命周期与动画监听
 onLoad(query => {
   if (query?.receiptId) {
-    viewMode.value = 'saved'
-    displayReceipt.value.id = query.receiptId
+    savedView.value = true
   }
 })
 
@@ -209,6 +234,15 @@ onUnload(stopPrintTimer)
 </script>
 
 <style scoped>
+.final-restaurant {
+  margin: 20rpx 30rpx;
+  padding: 24rpx;
+  background: #fff0dd;
+  border-radius: 20rpx;
+  text-align: center;
+  color: #8c5727
+}
+
 .album-preview-note {
   display: block;
   margin-bottom: 24rpx;
