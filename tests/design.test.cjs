@@ -7,6 +7,6 @@ for (const [path, name] of [
     ['./architecture/ArchitectureSpec.ts', 'ArchitectureSpec'],
     ['./application/TransactionalInteractorSpec.ts', 'TransactionalInteractorSpec'],
     ['./application/RepositorySpec.ts', 'RepositorySpec'],
-    ['./application/DiningSessionWorkflowSpec.ts', 'DiningSessionWorkflowSpec'],
+    ['./application/DiningSessionInteractorSpec.ts', 'DiningSessionInteractorSpec'],
     ['./application/CategoryDiningSpec.ts', 'CategoryDiningSpec'],
 ]) require(path)[name].verify()

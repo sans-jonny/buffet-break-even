@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import type {Accounting} from '../in/Accounting';
 
 export interface DiningActivityQuery {
@@ -7,5 +8,5 @@ export interface DiningActivityQuery {
 }
 
 export namespace DiningActivityQuery {
-    export const token = Symbol('DiningActivityQuery');
+    export const token = Symbol('DiningActivityQuery') as InjectionToken<DiningActivityQuery>;
 }

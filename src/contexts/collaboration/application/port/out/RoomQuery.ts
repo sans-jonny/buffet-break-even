@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import type {Collaboration} from '../in/Collaboration';
 
 export interface RoomQuery {
@@ -7,5 +8,5 @@ export interface RoomQuery {
 }
 
 export namespace RoomQuery {
-    export const token = Symbol('RoomQuery');
+    export const token = Symbol('RoomQuery') as InjectionToken<RoomQuery>;
 }

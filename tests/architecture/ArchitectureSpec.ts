@@ -1,6 +1,6 @@
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
-import {readdirSync, readFileSync} from 'node:fs'
+import {readdirSync, readFileSync, existsSync} from 'node:fs'
 import {basename, dirname, relative, resolve} from 'node:path'
 import ts from 'typescript'
 
@@ -29,24 +29,25 @@ export namespace ArchitectureSpec {
 
     export function verify(): void {
         const sources = ['src', 'server/src', 'protocol', 'tests'].flatMap(directory => files(resolve(directory)))
-        test('DiningClient 通过应用入口访问会话，不依赖领域、存储键或同步实现', () => {
-            const file = resolve('src/ui/DiningClient.ts'), text = readFileSync(file, 'utf8');
-            for (const dependency of dependencies(file))
-                assert.ok(!/\/domain\/|\/infrastructure\//.test(dependency), dependency);
-            const source = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true);
-            const visit = (node: ts.Node) => {
-                if (ts.isStringLiteralLike(node))
-                    assert.ok(!/^(personal\/|collaboration\/|catalog\/|cursor\/|journal\/|outcome\/)/.test(node.text), 'UI 不访问持久化键');
-                if (ts.isPropertyAccessExpression(node))
-                    assert.ok(!['runtime', 'relay', 'members', 'eligibleIds', 'projectCommitted', 'synchronize'].includes(node.name.text), 'UI 不处理房间规则或同步机制');
-                ts.forEachChild(node, visit);
-            };
-            visit(source);
+        test('页面通过 useStore 访问业务，不保留客户端门面或等待初始化', () => {
+            assert.equal(existsSync(resolve('src/ui/DiningClient.ts')), false);
+            assert.equal(existsSync(resolve('src/ui/useDining.ts')), false);
+            for (const file of files(resolve('src/ui/pages'), true)) {
+                const text = readFileSync(file, 'utf8');
+                assert.ok(!/DiningClient|client\.ready|useDining\(\)/.test(text), file);
+            }
         });
         test('具体用例不再定义 TransactionPort 文件',()=>{
             assert.deepEqual(sources.filter(file=>file.startsWith(resolve('src'))&&file.endsWith('TransactionPort.ts')),[])
             assert.deepEqual(sources.filter(file=>file.startsWith(resolve('src'))&&(file.endsWith('Transactions.ts')||file.endsWith('InTransactionUseCase.ts'))),[])
         })
+        test('会话由独立输入端口与 Interactor 实现，不保留 Workflow、Service 或聚合门面', () => {
+            for (const file of ['workflow/DiningSessionWorkflow.ts', 'workflow/DiningSessionService.ts',
+                'port/in/DiningSessions.ts', 'port/in/DiningSessionActions.ts'])
+                assert.equal(existsSync(resolve('src/coordination/application', file)), false, file);
+            const store = readFileSync(resolve('src/stores/business/SessionStore.ts'), 'utf8');
+            assert.ok(!/DiningSessions|DiningSessionActions|Workflow|Service/.test(store));
+        });
         test('私人持久化对象上传不依赖 Domain 或业务事件编码', () => {
             const file = resolve('src/infrastructure/storage/RoomRestaurantPersistence.ts');
             for (const dependency of dependencies(file))
@@ -125,12 +126,12 @@ export namespace ArchitectureSpec {
                     const domain = name.match(/^src\/contexts\/([^/]+)\/domain\//)
                     if (domain) assert.ok(target.startsWith(`src/contexts/${domain[1]}/domain/`) || target.startsWith('src/kernel/domain/'), `${name} -> ${specifier}`)
                     if (name.startsWith('src/kernel/')) assert.ok(target.startsWith('src/kernel/'), `${name} -> ${specifier}`)
-                    if (name.startsWith('src/coordination/')) assert.ok(/^src\/contexts\/[^/]+\/application\/(port\/in|internal)\//.test(target) || target.startsWith('src/kernel/') || target.startsWith('src/coordination/application/'), `${name} -> ${specifier}`)
+                    if (name.startsWith('src/coordination/application/')) assert.ok(/^src\/contexts\/[^/]+\/application\/(port\/in|internal)\//.test(target) || target.startsWith('src/kernel/') || target.startsWith('src/coordination/application/'), `${name} -> ${specifier}`)
                     const application = name.match(/^src\/contexts\/([^/]+)\/application\//)
                     if (application) assert.ok(target.startsWith(`src/contexts/${application[1]}/`) && !target.includes('/adapter/') || target.startsWith('src/kernel/'), `${name} -> ${specifier}`)
                     if (name.startsWith('server/')) assert.ok(!target.startsWith('src/'), `${name} -> ${specifier}`)
                     if (name.startsWith('protocol/')) assert.equal(imports.length, 0)
-                    if (name.startsWith('src/ui/pages/')) assert.ok(!target.startsWith('src/') || target.startsWith('src/ui/'), `${name}: 页面只能通过 UI 应用适配器访问业务`)
+                    if (name.startsWith('src/ui/pages/')) assert.ok(!target.startsWith('src/') || target.startsWith('src/ui/') || /^src\/stores\/(business|page-state)\/use\w+Store(?:\.ts)?$/.test(target), `${name}: 页面通过 useStore 访问业务`)
                     assert.ok(!specifier.startsWith('@buffet/'), `${name}: 禁止旧的多 npm 包边界`)
                 }
             }

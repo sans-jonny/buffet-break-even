@@ -13,8 +13,8 @@ export namespace CollaborationSpec {
             await host.givenRoom()
             await host.whenEating(2, 'room:buffet', 'room:buffet:shrimp')
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room')
+            await guest.initialize();
+            await guest.joinRoom('room')
             guest.thenValueIs(3000, 'room:buffet')
             assert.equal(guest.dining.activity()!.ticketPriceMinor, 20000)
             await assert.rejects(guest.dining.submit('room:buffet'), /HOST_REQUIRED/)
@@ -30,8 +30,8 @@ export namespace CollaborationSpec {
             await host.givenRoom();
             await host.whenEating(1, 'room:buffet', 'room:buffet:shrimp')
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room')
+            await guest.initialize();
+            await guest.joinRoom('room')
             host.relay.beforeAppend = async () => {
                 await guest.dining.edit('room:buffet', 'reduce', 'room:buffet:shrimp')
             }
@@ -78,20 +78,20 @@ export namespace CollaborationSpec {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRoom()
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room');
-            await guest.dining.leave()
+            await guest.initialize();
+            await guest.joinRoom('room');
+            await guest.leave()
             await host.dining.finish('room:buffet')
             assert.deepEqual(host.dining.history()[0].diners.map(d => d.id), [host.dining.identity().id])
-            await assert.rejects(guest.dining.joinRoom('room'), /NOT_ELIGIBLE/)
+            await assert.rejects(guest.joinRoom('room'), /NOT_ELIGIBLE/)
             await assert.rejects(host.dining.finish('room:buffet'), /ALREADY_ENDED/)
         })
         test('私人身份集合固定，副本重新标识；只有原创建者可同步完整最新版本', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRoom()
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room')
+            await guest.initialize();
+            await guest.joinRoom('room')
             const original = DiningScenario.restaurant({version: 2, products: []})
             await assert.rejects(guest.dining.synchronizePrivate(original), /CREATOR_SOURCE_REQUIRED/)
             await host.whenEating(2, 'room:buffet', 'room:buffet:shrimp');
@@ -107,15 +107,15 @@ export namespace CollaborationSpec {
             const single = meal.dining.session()!
             await meal.givenRoom();
             await meal.whenEating(1, 'room:buffet', 'room:buffet:shrimp')
-            await meal.dining.selectSession(single);
+            await meal.selectSession(single);
             meal.thenQuantityIs(3)
         })
         test('在线成员自动领取冻结历史，删除后重建不重现；显式补存可以恢复', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRoom()
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room')
+            await guest.initialize();
+            await guest.joinRoom('room')
             await host.dining.finish('room:buffet');
             await guest.app.runtime.synchronize('room')
             assert.equal(guest.dining.history().length, 1)
@@ -140,8 +140,8 @@ export namespace CollaborationSpec {
             })
             host.thenValueIs(4000, 'public')
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room')
+            await guest.initialize();
+            await guest.joinRoom('room')
             guest.thenValueIs(4000, 'public')
         })
     }

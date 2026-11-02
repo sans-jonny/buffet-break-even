@@ -1,4 +1,4 @@
-import type {RoomRestaurantPublisher} from '../../coordination/application/port/out/RoomRestaurantPublisher';
+import type {RoomRestaurantPublisher} from '../../coordination/application/port/out/catalog/RoomRestaurantPublisher';
 import type {Transaction} from '../../kernel/application/Transaction';
 import {RestaurantRecord} from '../../../protocol/RestaurantRecord';
 

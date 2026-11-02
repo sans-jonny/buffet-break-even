@@ -15,7 +15,7 @@ export namespace RepositorySpec {
     export function verify(): void {
         test('Repository apply 无事务时自动提交，返回新聚合并按聚合版本拒绝旧事件', async t => {
             const meal = await new DiningScenario.Meal().givenRestaurant(); await meal.givenSingle();
-            const repository = meal.app.resolve<RestaurantConsumptionRepository>(RestaurantConsumptionRepository.token);
+            const repository = meal.app.resolve(RestaurantConsumptionRepository.token);
             const spy = t.mock.method(meal.app.runtime, 'run', meal.app.runtime.run.bind(meal.app.runtime));
             const activityId = meal.dining.session()!.activityId;
             const first = (await repository.apply(RestaurantConsumption.create(activityId, 'buffet', 'round')))!;
@@ -35,11 +35,11 @@ export namespace RepositorySpec {
         test('串行 apply 共享工作区并只提交一次，后续版本冲突回滚前面全部修改', async t => {
             const meal = await new DiningScenario.Meal().givenRestaurant(); await meal.givenSingle(); await meal.whenEating();
             const session = meal.dining.session()!, id = session.activityId + '/buffet';
-            const committed = meal.app.resolve<RestaurantConsumptionRepository>(RestaurantConsumptionRepository.token);
+            const committed = meal.app.resolve(RestaurantConsumptionRepository.token);
             const spy = t.mock.method(meal.app.runtime, 'run', meal.app.runtime.run.bind(meal.app.runtime));
             let retained!: RestaurantConsumptionRepository;
             await meal.app.runtime.run(session.scopeId, null, async tx => {
-                retained = meal.app.scope(tx).resolve<RestaurantConsumptionRepository>(RestaurantConsumptionRepository.token);
+                retained = meal.app.scope(tx).resolve(RestaurantConsumptionRepository.token);
                 const before = retained.findById(id)!, round = before.activeRoundId()!;
                 const first = (await retained.apply(before.increaseProduct(round, 'shrimp', 1)))!;
                 assert.equal(retained.findById(id)!.version, first.version);
@@ -50,14 +50,14 @@ export namespace RepositorySpec {
             assert.throws(() => retained.findById(id), /INVALID_TRANSACTION_CONTEXT/);
             const head = meal.storage.get('app:head');
             await assert.rejects(meal.app.runtime.run(session.scopeId, null, async tx => {
-                const repository = meal.app.scope(tx).resolve<RestaurantConsumptionRepository>(RestaurantConsumptionRepository.token);
+                const repository = meal.app.scope(tx).resolve(RestaurantConsumptionRepository.token);
                 const before = repository.findById(id)!, event = before.increaseProduct(before.activeRoundId()!, 'shrimp', 1);
                 await repository.apply(event);
                 await repository.apply(event);
             }), AggregateConflictError);
             assert.equal(meal.storage.get('app:head'), head); assert.equal(committed.findById(id)!.rounds[0].items.shrimp, 4);
             await assert.rejects(meal.app.runtime.run(session.scopeId, null, async tx => {
-                const repository = meal.app.scope(tx).resolve<RestaurantConsumptionRepository>(RestaurantConsumptionRepository.token);
+                const repository = meal.app.scope(tx).resolve(RestaurantConsumptionRepository.token);
                 const before = repository.findById(id)!, event = before.increaseProduct(before.activeRoundId()!, 'shrimp', 1);
                 await repository.apply(event);
                 try { await repository.apply(event); } catch { /* The unit remains failed even if a caller catches the conflict. */ }
@@ -70,8 +70,8 @@ export namespace RepositorySpec {
             const append = t.mock.method(host.relay, 'append', host.relay.append.bind(host.relay));
             await host.app.runtime.run('room', 'room', async tx => {
                 const scope = host.app.scope(tx);
-                const activities = scope.resolve<DiningActivityRepository>(DiningActivityRepository.token);
-                const rooms = scope.resolve<DiningRoomRepository>(DiningRoomRepository.token);
+                const activities = scope.resolve(DiningActivityRepository.token);
+                const rooms = scope.resolve(DiningRoomRepository.token);
                 await activities.apply(activities.findById(session.activityId)!.changeTicketPrice(Money.ofMinor(21000)));
                 await rooms.apply(rooms.findById('room')!.join('guest', 'Guest', '2026-11-01T00:00:00Z'));
                 assert.equal(host.relay.sent, sent);
@@ -87,13 +87,13 @@ export namespace RepositorySpec {
             await peer.app.runtime.synchronize('room');
             assert.equal(peer.app.runtime.get<{ticketPriceMinor: number}>(`accounting/activity/${session.activityId}`)!.ticketPriceMinor, 21000);
             assert.equal(host.relay.sent, sent + 1);
-            const rooms = host.app.resolve<DiningRoomRepository>(DiningRoomRepository.token);
+            const rooms = host.app.resolve(DiningRoomRepository.token);
             await rooms.apply(rooms.findById('room')!.transferHost(host.dining.identity().id, 'guest'));
             assert.equal(host.relay.sent, sent + 2);
         });
         test('冲突响应携带的缺失批次先应用，丢弃旧候选事实并重新计算命令', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant(); await meal.givenRoom(); await meal.whenEating(1, 'room:buffet', 'room:buffet:shrimp');
-            const peer = new DiningScenario.Meal(meal.relay, 'peer'); await peer.dining.initialize(); await peer.dining.joinRoom('room');
+            const peer = new DiningScenario.Meal(meal.relay, 'peer'); await peer.initialize(); await peer.joinRoom('room');
             const append = meal.relay.append.bind(meal.relay);
             meal.relay.append = async candidate => {
                 try { return await append(candidate); }

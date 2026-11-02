@@ -45,7 +45,7 @@ export namespace CatalogSpec {
             assert.equal(host.dining.restaurants().some(r => r.id === 'buffet'), false);
             assert.equal(host.dining.consumption('buffet'), undefined);
             const peer = new DiningScenario.Meal(host.relay, 'peer');
-            await peer.dining.initialize(); await peer.dining.joinRoom('room');
+            await peer.initialize(); await peer.joinRoom('room');
             assert.equal(peer.dining.restaurants().some(r => r.id === 'buffet'), false);
             await assert.rejects(peer.whenEating(), /RESTAURANT_UNAVAILABLE/);
         });

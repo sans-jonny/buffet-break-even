@@ -36,15 +36,7 @@ function application(action) {
         require: name => {
             if (name === 'vue') return {...vue, createSSRApp: () => renderer.createApp(Root)}
             if (name === './App.vue') return {default: {}}
-            if (name === './DiningClient') return {
-                DiningClient: class {
-                    static token = Symbol();
-                    ready = Promise.resolve()
-
-                    static report() {
-                    };
-                }
-            }
+            if (name === '../composition/Bootstrap') return {Bootstrap: {device: async () => ({}), start: () => Promise.resolve()}}
             return loadModule('ui/' + name.slice(2), platform)
         }
     })
@@ -76,6 +68,7 @@ test('页面直接返回导航 Promise，拒绝只由全局入口提示一次', 
     const harness = pageHarness({navigation: {back: () => Promise.reject(new Error('页面打开失败，请重试'))}})
     const page = harness.setup('setup');
     t.after(page.dispose)
+    await page.ready
     const app = application(page.state.goBack);
     t.after(app.dispose)
     app.fire();

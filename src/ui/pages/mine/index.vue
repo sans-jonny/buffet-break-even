@@ -48,29 +48,24 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
 import MineSettingRow from '@/ui/components/mine-setting-row/mine-setting-row.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-import {useDining} from '@/ui/useDining'
-
-const client = useDining()
-const dining = client.dining
+const dining = useDiningStore()
 // 展示数据
 const history = computed(() => {
-  client.revision.value;
-  return dining.history()
+  return dining.historyData
 })
 const nickname = computed(() => {
-  client.revision.value;
-  return dining.identity()?.nickname || ''
+  return dining.identityData?.nickname || ''
 })
 const lifetimeDifference = computed(() => history.value.reduce((sum, r) => sum + r.netMinor, 0) / 100)
 const meals = computed(() => history.value.length)
 const receiptsCount = computed(() => {
-  client.revision.value;
-  return dining.receipt() ? 1 : 0
+  return dining.receiptData ? 1 : 0
 })
 const totalRoundsSaved = computed(() => history.value.reduce((sum, r) => sum + r.rounds.length, 0))
 const achievement = computed(() => history.value.filter(r => r.netMinor >= 0).length + '/' + history.value.length)

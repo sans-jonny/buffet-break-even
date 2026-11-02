@@ -1,4 +1,4 @@
-import type {DiningPreferences} from '../../coordination/application/port/out/DiningPreferences';
+import type {DiningPreferences} from '../../coordination/application/port/out/session/DiningPreferences';
 import type {Transaction} from '../../kernel/application/Transaction';
 
 export class StorageDiningPreferences implements DiningPreferences {
@@ -12,11 +12,4 @@ export class StorageDiningPreferences implements DiningPreferences {
         return this.storage.local(state => { state['personal/last-room'] = roomId; });
     }
 
-    selectedRestaurant(): string | undefined {
-        return this.storage.get<string>('personal/restaurant');
-    }
-
-    selectRestaurant(restaurantId: string): Promise<void> {
-        return this.storage.local(state => { state['personal/restaurant'] = restaurantId; });
-    }
 }

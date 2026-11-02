@@ -1,6 +1,6 @@
 import {LocalDataTransactionRunner} from './LocalDataTransactionRunner';
-import {LocalDiningData} from '../../coordination/application/port/out/LocalDiningData';
-import {Dining} from '../../coordination/application/port/in/Dining';
+import {LocalDiningData} from '../../coordination/application/port/out/device/LocalDiningData';
+import {Dining} from '../../coordination/application/dto/Dining';
 import {Transaction} from '../../kernel/application/Transaction';
 import {UseCase} from '../../kernel/application/UseCase';
 

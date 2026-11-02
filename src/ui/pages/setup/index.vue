@@ -44,6 +44,10 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
+import {useCatalogStore} from '@/stores/business/useCatalogStore'
+import {useSessionStore} from '@/stores/business/useSessionStore'
+import {PageAmount} from '@/ui/presentation/PageAmount'
 import DepthButton from '@/ui/components/depth-button/depth-button.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import CuisineDrum from '@/ui/components/cuisine-drum/cuisine-drum.vue'
@@ -54,18 +58,18 @@ import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-import {useDining} from '@/ui/useDining'
+const sessions = useSessionStore()
 
-const client = useDining()
-const dining = client.dining
+
+const dining = useDiningStore()
+const catalog = useCatalogStore()
 const confirmation = useAppDialog(), startingSingle = ref(false)
 // 分类名称来自 Catalog；图标属于页面展示配置。
 const cuisineEmoji: Record<string, string> = {
   sukiyaki: '🍲', barbecue: '🥩', hotpot: '🥘', pizza: '🍕', My: '👨‍🍳'
 }
 const cuisineTypes = computed(() => {
-  client.revision.value
-  return dining.restaurantCategories().map(category => ({...category, emoji: cuisineEmoji[category.id] || '🍽️'}))
+  return catalog.categories.map(category => ({...category, emoji: cuisineEmoji[category.id] || '🍽️'}))
 })
 const drumItems = computed(() => [{id: 'creator', name: '创造者模式', emoji: '✏️'}, ...cuisineTypes.value])
 const ticketInput = ref('200'), typeId = ref(''), panelTypeId = ref('')
@@ -104,7 +108,6 @@ async function startSingle() {
   if (startingSingle.value || confirmation.dialog.value) return
   startingSingle.value = true
   try {
-    await client.ready
     const existing = dining.unfinishedSingle()
     const total = ticketInput.value, categoryId = typeId.value
     if (existing) {
@@ -114,19 +117,19 @@ async function startSingle() {
         confirmText: '继续用餐',
         cancelText: '放弃旧用餐并新建',
         success: result => enterSingle(() => result.confirm
-          ? client.resumeSingle(existing)
-          : client.startSingle(total, categoryId, existing.activityId))
+          ? sessions.resumeSingle(existing)
+          : sessions.startSingle(PageAmount.minor(total), categoryId, existing.activityId))
       })
       return
     }
-    await client.startSingle(total, categoryId)
+    await sessions.startSingle(PageAmount.minor(total), categoryId)
     await navigation.open('menu')
   } finally {
     startingSingle.value = false
   }
 }
 
-async function enterSingle(action: () => Promise<void>) {
+async function enterSingle(action: () => Promise<unknown>) {
   if (startingSingle.value) return
   startingSingle.value = true
   try {
@@ -138,26 +141,25 @@ async function enterSingle(action: () => Promise<void>) {
 }
 
 async function createRoom() {
-  await client.createRoom(ticketInput.value, typeId.value)
+  await sessions.createRoom(PageAmount.minor(ticketInput.value), typeId.value)
   closeRoomModal()
   await navigation.open('menu')
 }
 
 async function joinRoom() {
-  await client.joinRoom(roomCode.value)
+  await sessions.joinRoom(roomCode.value)
   closeRoomModal()
   await navigation.open('menu')
 }
 
 async function resumeRoom() {
-  await client.joinRoom()
+  await sessions.joinRoom()
   closeRoomModal()
   await navigation.open('menu')
 }
 
 // 生命周期与动画监听
 onLoad(async query => {
-  await client.ready
   const requested = query?.typeId === 'custom' ? 'My' : query?.typeId
   typeId.value = cuisineTypes.value.some(category => category.id === requested)
     ? requested! : cuisineTypes.value[0]?.id || 'creator'

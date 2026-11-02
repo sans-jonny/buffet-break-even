@@ -25,18 +25,21 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
+import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
+import {PageSelection} from '@/ui/presentation/PageSelection'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-import {useDining} from '@/ui/useDining'
+const menuPageState = useMenuPageStateStore()
 
-const client = useDining()
-const dining = client.dining
+
+const dining = useDiningStore()
+const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
 // 展示数据
 const selectedLines = computed(() => {
-  client.revision.value
-  const id = client.selectedRestaurant(), restaurant = dining.restaurants().find(r => r.id === id)
+  const id = selectedRestaurant.value, restaurant = dining.restaurants().find(r => r.id === id)
   const items = dining.consumption(id)?.rounds.find(r => r.status === 'ACTIVE')?.items || {}
   return (restaurant?.products || []).filter(p => items[p.id]).map(p => ({
     product: {id: p.id, name: p.name},
@@ -44,12 +47,10 @@ const selectedLines = computed(() => {
   }))
 })
 const hasRoom = computed(() => {
-  client.revision.value;
-  return !!dining.room()
+  return !!dining.roomData
 })
 const isHost = computed(() => {
-  client.revision.value;
-  return !dining.room() || dining.room()?.hostId === dining.identity()?.id
+  return !dining.roomData || dining.roomData?.hostId === dining.identityData?.id
 })
 const date = ref(new Date().toLocaleDateString()), time = ref(new Date().toLocaleTimeString())
 
@@ -60,7 +61,7 @@ const goBack = () => navigation.back('menu')
 
 // 业务操作
 async function completeRound() {
-  await dining.submit(client.selectedRestaurant())
+  await dining.submit(selectedRestaurant.value)
   await navigation.back('menu')
 }
 </script>

@@ -9,7 +9,8 @@ const {parse, compileScript, compileTemplate} = require('@vue/compiler-sfc')
 function pageHarness(options = {}) {
     const cache = new Map(), calls = [], hooks = {}, toasts = []
     const stored = new Map()
-    let client
+    let services, initialization
+    const application = vue.createSSRApp({})
     const navigation = Object.fromEntries(['open', 'back', 'toResult', 'toRecord', 'toCustomMenu', 'toMenuPreview', 'toOrderSlip']
         .map(method => [method, async (...args) => {
             calls.push([method, ...args])
@@ -54,9 +55,9 @@ function pageHarness(options = {}) {
         function requireModule(name) {
             if (name === 'vue') return {
                 ...vue,
-                inject: token => token.description === 'DiningClient' ? getClient() : token.description === 'BuffetNavigation' ? navigation : vue.inject(token)
+                inject: (token, ...args) => token.description === 'BuffetNavigation' ? navigation : vue.inject(token, ...args)
             }
-            if (name === '@dcloudio/uni-app') return Object.fromEntries(['onLoad', 'onShow', 'onUnload', 'onBackPress']
+            if (name === '@dcloudio/uni-app') return Object.fromEntries(['onLoad', 'onShow', 'onHide', 'onUnload', 'onBackPress']
                 .map(name => [name, callback => {
                     (hooks[name] ||= []).push(callback)
                 }]))
@@ -89,24 +90,33 @@ function pageHarness(options = {}) {
         return module.exports
     }
 
-    function getClient() {
-        if (!client) client = options.client || new (load(path.join(sourceRoot, 'ui/DiningClient.ts')).DiningClient)('http://relay.test')
-        return client
+    function initialize() {
+        if (!initialization) {
+            const {Bootstrap} = load(path.join(sourceRoot, 'composition/Bootstrap.ts'))
+            initialization = Bootstrap.device('http://relay.test', Bootstrap.id, error => { throw error }, application).then(result => {
+                services = result
+                services.queries.client.setDefaultOptions({queries: {...services.queries.client.getDefaultOptions().queries, gcTime: Infinity}})
+                return result
+            })
+        }
+        return initialization
     }
 
     function setup(name, query = {}) {
-        const component = load(path.join(sourceRoot, `ui/pages/${name}/index.vue`)).default
         const scope = vue.effectScope()
-        const state = scope.run(() => component.setup({}, {
-            expose: () => {
-            }
-        }))
-        const ready = getClient().ready.then(async () => {
-            for (const callback of hooks.onLoad || []) await callback(query)
+        let state, unloaded = [], disposed = false
+        const ready = initialize().then(async () => {
+            if (disposed) return
+            const loadStart = (hooks.onLoad || []).length, unloadStart = (hooks.onUnload || []).length
+            const component = load(path.join(sourceRoot, `ui/pages/${name}/index.vue`)).default
+            state = application.runWithContext(() => scope.run(() => component.setup({}, {expose: () => {}})))
+            unloaded = (hooks.onUnload || []).slice(unloadStart)
+            for (const callback of (hooks.onLoad || []).slice(loadStart)) await callback(query)
         })
         return {
-            state, ready, dispose: () => {
-                for (const callback of hooks.onUnload || []) callback();
+            get state() { return state }, ready, dispose: () => {
+                disposed = true
+                for (const callback of unloaded) callback()
                 scope.stop()
             }
         }
@@ -124,7 +134,7 @@ function pageHarness(options = {}) {
     }
 
     async function render(name, configure) {
-        await getClient().ready
+        await initialize()
         const {renderToString} = require('vue/server-renderer')
         const source = load(path.join(sourceRoot, `ui/pages/${name}/index.vue`), true).default
         const component = {
@@ -135,6 +145,7 @@ function pageHarness(options = {}) {
             }
         }
         const app = vue.createSSRApp(component)
+        for (const key of Reflect.ownKeys(application._context.provides)) app.provide(key, application._context.provides[key])
         // uni-app normally auto-registers these components through easycom.
         for (const folder of fs.readdirSync(path.join(sourceRoot, 'ui/components'))) {
             const filename = path.join(sourceRoot, `ui/components/${folder}/${folder}.vue`)
@@ -146,14 +157,13 @@ function pageHarness(options = {}) {
         }
         const html = await renderToString(app)
         for (const callback of hooks.onUnload || []) callback()
+        services.dispose()
         if (warnings.length) throw new Error(warnings.join('\n'))
         return html
     }
 
     return {
-        setup, component, render, calls, hooks, toasts, get client() {
-            return getClient()
-        }
+        setup, component, render, calls, hooks, toasts, get ready() { return initialize() }, get services() { return services }
     }
 }
 

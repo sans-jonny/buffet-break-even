@@ -40,7 +40,7 @@
     </app-dialog>
 
     <text v-if="isRoomView && roomMessage" class="room-result-note">{{ roomMessage }}</text>
-    <picker v-if="!isSavedView && (!isRoomView || viewMode === 'room-host') && dining.activity()?.status === 'ACTIVE'"
+    <picker v-if="!isSavedView && (!isRoomView || viewMode === 'room-host') && dining.activityData?.status === 'ACTIVE'"
             :range="finalRestaurants" range-key="name" @change="chooseFinalRestaurant">
       <view class="final-restaurant">
         最终餐厅：{{ finalRestaurants.find(r => r.id === finalRestaurantId)?.name || '请选择最终餐厅 ›' }}
@@ -57,6 +57,10 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
+import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
+import {ReceiptView} from '@/ui/presentation/ReceiptView'
+import {PageSelection} from '@/ui/presentation/PageSelection'
 import DepthButton from '@/ui/components/depth-button/depth-button.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
@@ -67,14 +71,13 @@ import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {time} from '@/ui/format/time'
 
-import {useDining} from '@/ui/useDining'
-import {DiningClient} from '@/ui/DiningClient'
+const menuPageState = useMenuPageStateStore()
 
-const client = useDining()
-const dining = client.dining
+
+const dining = useDiningStore()
+const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
 const finalRestaurantId = ref('')
 const finalRestaurants = computed(() => {
-  client.revision.value;
   return dining.restaurants()
 })
 
@@ -85,10 +88,9 @@ function chooseFinalRestaurant(event: { detail: { value: string | number } }) {
 // 展示数据
 const savedView = ref(false)
 const displayReceipt = computed(() => {
-  client.revision.value
-  const selected = finalRestaurantId.value || client.selectedRestaurant()
-  const result = savedView.value ? dining.receipt() : dining.session() && selected ? dining.preview(selected) : undefined
-  return result ? DiningClient.receipt(result) : {
+  const selected = finalRestaurantId.value || selectedRestaurant.value
+  const result = savedView.value ? dining.receiptData : dining.sessionData && selected ? dining.preview(selected) : undefined
+  return result ? ReceiptView.fromResult(result) : {
     id: '',
     restaurant: '尚无用餐结果',
     typeName: '',
@@ -118,9 +120,8 @@ const confirmation = useAppDialog()
 type ResultMode = 'single' | 'room-host' | 'room-member' | 'room-ended' | 'saved'
 
 const viewMode = computed<ResultMode>(() => {
-  client.revision.value;
-  const room = dining.room();
-  return savedView.value ? 'saved' : !room ? 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identity()?.id ? 'room-host' : 'room-member'
+  const room = dining.roomData;
+  return savedView.value ? 'saved' : !room ? 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identityData?.id ? 'room-host' : 'room-member'
 })
 
 const isSavedView = computed(() => viewMode.value === 'saved')
@@ -197,7 +198,7 @@ function confirmDelete() {
 
 // 业务操作
 async function save() {
-  await dining.saveReceipt(finalRestaurantId.value || client.selectedRestaurant())
+  await dining.saveReceipt(finalRestaurantId.value || selectedRestaurant.value)
   uni.showToast({title: '已存到小票夹', icon: 'none'})
 }
 

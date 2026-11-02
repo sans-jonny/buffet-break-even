@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import type {DiningActivity} from '../../../domain/aggregate/DiningActivity';
 import type {DomainRejection} from '../../../../../kernel/domain/DomainRejection';
 
@@ -10,5 +11,5 @@ export interface DiningActivityRepository {
 }
 
 export namespace DiningActivityRepository {
-    export const token = Symbol('DiningActivityRepository');
+    export const token = Symbol('DiningActivityRepository') as InjectionToken<DiningActivityRepository>;
 }

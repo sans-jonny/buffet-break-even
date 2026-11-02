@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import type {Catalog} from '../in/Catalog';
 
 export interface RestaurantQuery {
@@ -7,5 +8,5 @@ export interface RestaurantQuery {
 }
 
 export namespace RestaurantQuery {
-    export const token = Symbol('RestaurantQuery');
+    export const token = Symbol('RestaurantQuery') as InjectionToken<RestaurantQuery>;
 }

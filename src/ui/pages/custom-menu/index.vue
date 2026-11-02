@@ -64,6 +64,9 @@
   </view>
 </template>
 <script lang="ts" setup>
+import {useCatalogStore} from '@/stores/business/useCatalogStore'
+import {PageAmount} from '@/ui/presentation/PageAmount'
+import {PageIds} from '@/ui/presentation/PageIds'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
@@ -72,14 +75,10 @@ import {onBackPress, onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
-import {useDining} from '@/ui/useDining'
-import {DiningClient} from '@/ui/DiningClient'
-
-const client = useDining()
-const dining = client.dining
+const catalog = useCatalogStore()
 // 展示数据
 const restaurant = ref({
-  id: DiningClient.id(),
+  id: PageIds.create(),
   name: '',
   categories: [] as { id: string; name: string }[],
   products: [] as { id: string; name: string; price: number; category: string; emoji: string; unit: string }[]
@@ -154,7 +153,7 @@ function applyForm() {
   const input = form.value
   if (!input) return
   if (!input.name.trim()) throw new Error('名称不能为空')
-  const id = input.id || DiningClient.id()
+  const id = input.id || PageIds.create()
   if (input.kind === 'category') {
     const value = {id, name: input.name.trim()}
     const index = restaurant.value.categories.findIndex(c => c.id === id)
@@ -165,7 +164,7 @@ function applyForm() {
     const value = {
       id,
       name: input.name.trim(),
-      price: DiningClient.minor(input.price) / 100,
+      price: PageAmount.minor(input.price) / 100,
       category: category.id,
       emoji: '🍽️',
       unit: '份'
@@ -192,14 +191,14 @@ function removeProduct(id: string) {
 
 async function saveAll() {
   const r = restaurant.value
-  await dining.publishLocal({
+  await catalog.publish({
     id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
     restaurantCategory: {id: 'My', name: '我的餐厅'},
     products: r.products.map(p => ({
       id: p.id,
       name: p.name,
       categoryId: p.category,
-      priceMinor: DiningClient.minor(String(p.price))
+      priceMinor: PageAmount.minor(String(p.price))
     }))
   })
   catalogVersion++;
@@ -220,9 +219,8 @@ async function discardAndLeave() {
 
 // 生命周期与动画监听
 onLoad(async query => {
-  await client.ready
   if (query?.restaurantId) {
-    const r = dining.localRestaurant(query.restaurantId)
+    const r = catalog.restaurant(query.restaurantId)
     if (r.type !== 'PRIVATE' || r.deleted) throw new Error('餐厅不存在')
     catalogVersion = r.version
     restaurant.value = {

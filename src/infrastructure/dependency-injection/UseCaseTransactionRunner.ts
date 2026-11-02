@@ -1,10 +1,11 @@
 import {TransactionRunner} from '../../kernel/application/TransactionRunner';
 import {Transaction} from '../../kernel/application/Transaction';
+import type {InjectionToken} from '../../kernel/application/InjectionToken';
 
 /** Root runner resolves the concrete Interactor in a fresh native DI scope after PREPARE begins. */
 export class UseCaseTransactionRunner implements TransactionRunner {
     constructor(private readonly owner: TransactionRunner, private readonly scope: (tx: Transaction.Context) => {
-        resolve<T>(token: symbol): T;
+        resolve<T>(token: InjectionToken<T>): T;
     }) {
     }
 
@@ -16,8 +17,8 @@ export class UseCaseTransactionRunner implements TransactionRunner {
         this.owner.assertActive(tx, scopeId, roomId);
     }
 
-    resolve<T>(token: symbol, tx: Transaction.Context): T {
+    resolve<T>(token: InjectionToken<T>, tx: Transaction.Context): T {
         this.assertActive(tx, tx.scopeId, tx.roomId);
-        return this.scope(tx).resolve<T>(token);
+        return this.scope(tx).resolve(token);
     }
 }

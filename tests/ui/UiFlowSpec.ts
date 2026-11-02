@@ -10,21 +10,21 @@ export namespace UiFlowSpec {
             t.after(setup.dispose);
             await setup.ready;
             // Simulate a legacy activity with no restaurantCategoryId.
-            await app.client.dining.startSingle(18000);
-            await app.client.dining.edit('niuniu', 'add', 'beef', 2);
-            const previous = app.client.dining.session();
-            await app.client.dining.selectSession({scopeId: 'other', activityId: 'other', roomId: null});
+            await app.services.sessionStore.startSingle(18000);
+            await app.services.dining.edit('niuniu', 'add', 'beef', 2);
+            const previous = app.services.dining.session();
+            await app.services.sessionStore.resumeSingle({scopeId: 'other', activityId: 'other', roomId: null});
             setup.state.ticketInput.value = 'invalid';
             await setup.state.startSingle();
             assert.equal(setup.state.confirmation.dialog.value.confirmText, '继续用餐');
             assert.equal(app.calls.length, 0);
-            assert.equal(app.client.dining.session().activityId, 'other');
+            assert.equal(app.services.dining.session().activityId, 'other');
             await setup.state.startSingle();
             await setup.state.confirmation.confirm();
             await setup.state.confirmation.confirm();
-            assert.deepEqual(app.client.dining.session(), previous);
-            assert.equal(app.client.dining.activity().ticketPriceMinor, 18000);
-            assert.equal(app.client.dining.consumption('niuniu').rounds[0].items.beef, 2);
+            assert.deepEqual(app.services.dining.session(), previous);
+            assert.equal(app.services.dining.activity().ticketPriceMinor, 18000);
+            assert.equal(app.services.dining.consumption('niuniu').rounds[0].items.beef, 2);
             assert.deepEqual(app.calls, [['open', 'menu']]);
         });
 
@@ -32,27 +32,27 @@ export namespace UiFlowSpec {
             const app = pageHarness(), setup = app.setup('setup');
             t.after(setup.dispose);
             await setup.ready;
-            await app.client.startSingle('180', 'sukiyaki');
-            const previous = app.client.dining.session();
-            await app.client.dining.publishLocal({
+            await app.services.sessionStore.startSingle(18000, 'sukiyaki');
+            const previous = app.services.dining.session();
+            await app.services.dining.publishLocal({
                 id: 'mine', name: '自定义餐厅', type: 'PRIVATE', version: 1, deleted: false,
                 restaurantCategory: {id: 'My', name: '我的餐厅'}, categories: [], products: []
             });
             setup.state.typeId.value = 'My';
             setup.state.ticketInput.value = '250.50';
             await setup.state.startSingle();
-            assert.equal(app.client.dining.activity().status, 'ACTIVE');
-            assert.equal(app.client.dining.session().activityId, previous.activityId);
+            assert.equal(app.services.dining.activity().status, 'ACTIVE');
+            assert.equal(app.services.dining.session().activityId, previous.activityId);
             await setup.state.confirmation.cancel();
-            const current = app.client.dining.session();
+            const current = app.services.dining.session();
             assert.notEqual(current.activityId, previous.activityId);
-            assert.equal(app.client.dining.activity().ticketPriceMinor, 25050);
-            assert.equal(app.client.dining.activity().restaurantCategoryId, 'My');
-            assert.deepEqual(Array.from(app.client.dining.restaurants(), (r: {id: string}) => r.id), ['mine']);
-            assert.equal(app.client.dining.history().length, 0);
-            await app.client.dining.selectSession(previous);
-            assert.equal(app.client.dining.activity().status, 'ABANDONED');
-            await app.client.dining.selectSession(current);
+            assert.equal(app.services.dining.activity().ticketPriceMinor, 25050);
+            assert.equal(app.services.dining.activity().restaurantCategoryId, 'My');
+            assert.deepEqual(Array.from(app.services.dining.restaurants(), (r: {id: string}) => r.id), ['mine']);
+            assert.equal(app.services.dining.history().length, 0);
+            await app.services.sessionStore.resumeSingle(previous);
+            assert.equal(app.services.dining.activity().status, 'ABANDONED');
+            await app.services.sessionStore.resumeSingle(current);
             assert.deepEqual(app.calls, [['open', 'menu']]);
         });
 
@@ -60,16 +60,16 @@ export namespace UiFlowSpec {
             const app = pageHarness(), setup = app.setup('setup');
             t.after(setup.dispose);
             await setup.ready;
-            await app.client.startSingle('180', 'sukiyaki');
-            const previous = app.client.dining.session();
+            await app.services.sessionStore.startSingle(18000, 'sukiyaki');
+            const previous = app.services.dining.session();
             await setup.state.startSingle();
             setup.state.confirmation.close();
-            assert.deepEqual(app.client.dining.session(), previous);
+            assert.deepEqual(app.services.dining.session(), previous);
             setup.state.ticketInput.value = 'invalid';
             await setup.state.startSingle();
             await assert.rejects(setup.state.confirmation.cancel(), /请输入最多两位小数的金额/);
-            assert.equal(app.client.dining.activity().status, 'ACTIVE');
-            assert.deepEqual(app.client.dining.session(), previous);
+            assert.equal(app.services.dining.activity().status, 'ACTIVE');
+            assert.deepEqual(app.services.dining.session(), previous);
             assert.equal(setup.state.startingSingle.value, false);
             assert.equal(app.calls.length, 0);
         });
@@ -81,7 +81,7 @@ export namespace UiFlowSpec {
             await setup.ready
             setup.state.ticketInput.value = '200.25';
             await setup.state.startSingle()
-            assert.equal(app.client.dining.activity().ticketPriceMinor, 20025)
+            assert.equal(app.services.dining.activity().ticketPriceMinor, 20025)
             const menu = app.setup('menu');
             t.after(menu.dispose);
             await menu.ready
@@ -97,19 +97,19 @@ export namespace UiFlowSpec {
             t.after(order.dispose);
             await order.ready
             await order.state.completeRound()
-            assert.equal(app.client.dining.consumption('niuniu').rounds.length, 2)
+            assert.equal(app.services.dining.consumption('niuniu').rounds.length, 2)
             const result = app.setup('result');
             t.after(result.dispose);
             await result.ready
             await result.state.save();
-            assert.equal(app.client.dining.receipt().foodValueMinor, 2000)
+            assert.equal(app.services.dining.receipt().foodValueMinor, 2000)
             assert.throws(() => result.state.endDining(), /请先选择最终餐厅/)
             result.state.chooseFinalRestaurant({detail: {value: 0}})
             result.state.endDining();
             assert.ok(result.state.confirmation.dialog.value.content.includes('牛牛'))
             await result.state.confirmation.confirm()
-            assert.equal(app.client.dining.history().length, 1);
-            assert.equal(app.client.dining.activity().status, 'ENDED')
+            assert.equal(app.services.dining.history().length, 1);
+            assert.equal(app.services.dining.activity().status, 'ENDED')
             assert.deepEqual(app.calls[app.calls.length - 1], ['open', 'setup', 'reset'])
         })
         test('私人目录创建与级联删除保存真实版本；离开提示保留', async t => {
@@ -128,10 +128,10 @@ export namespace UiFlowSpec {
             s.applyForm()
             assert.equal(s.restaurant.value.products[0].price, 35.18)
             await s.saveAll();
-            assert.equal(app.client.dining.localRestaurant(s.restaurant.value.id).version, 1)
+            assert.equal(app.services.dining.localRestaurant(s.restaurant.value.id).version, 1)
             s.removeCategory(categoryId);
             await s.saveAll()
-            assert.equal(app.client.dining.localRestaurant(s.restaurant.value.id).products.length, 0)
+            assert.equal(app.services.dining.localRestaurant(s.restaurant.value.id).products.length, 0)
             s.isDirty.value = true;
             s.goBack();
             assert.equal(s.showLeaveDialog.value, true)
@@ -140,11 +140,11 @@ export namespace UiFlowSpec {
         })
         test('真实昵称、统计、历史删除和每人一张小票', async t => {
             const app = pageHarness();
-            await app.client.ready;
-            await app.client.startSingle('100', 'sukiyaki')
-            await app.client.dining.edit('niuniu', 'add', 'beef', 12)
-            await app.client.dining.saveReceipt('niuniu');
-            await app.client.dining.finish('niuniu')
+            await app.ready;
+            await app.services.sessionStore.startSingle(10000, 'sukiyaki')
+            await app.services.dining.edit('niuniu', 'add', 'beef', 12)
+            await app.services.dining.saveReceipt('niuniu');
+            await app.services.dining.finish('niuniu')
             const mine = app.setup('mine');
             t.after(mine.dispose);
             await mine.ready
@@ -170,9 +170,9 @@ export namespace UiFlowSpec {
         })
         test('打印动画与收藏预览读取不可变结果', async t => {
             const app = pageHarness();
-            await app.client.ready;
-            await app.client.startSingle('100', 'sukiyaki');
-            await app.client.dining.saveReceipt('niuniu')
+            await app.ready;
+            await app.services.sessionStore.startSingle(10000, 'sukiyaki');
+            await app.services.dining.saveReceipt('niuniu')
             const result = app.setup('result');
             t.after(result.dispose);
             await result.ready
@@ -181,7 +181,7 @@ export namespace UiFlowSpec {
             result.state.onPrintEnd({animationName: 'receipt-feed'});
             result.state.openReceiptPreview();
             assert.equal(result.state.showReceiptPreview.value, true)
-            const saved = app.setup('result', {receiptId: app.client.dining.receipt().activityId});
+            const saved = app.setup('result', {receiptId: app.services.dining.receipt().activityId});
             t.after(saved.dispose);
             await saved.ready
             assert.equal(saved.state.isSavedView.value, true);

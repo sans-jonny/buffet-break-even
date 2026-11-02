@@ -1,13 +1,31 @@
 import type {RestaurantRecord} from '../../protocol/RestaurantRecord';
 import assert from 'node:assert/strict'
 import {Buffet} from '../../src/composition/Buffet'
-import {Dining} from '../../src/coordination/application/port/in/Dining'
+import {Dining} from '../../src/coordination/application/dto/Dining'
 import {EventBatch} from '../../protocol/EventBatch'
 import {ManifestStorage} from '../../src/infrastructure/storage/ManifestStorage'
 import {BatchRuntime} from '../../src/infrastructure/projection/BatchRuntime'
+import {InitializeDiningUseCase} from '../../src/coordination/application/port/in/initialization/InitializeDiningUseCase'
+import {StartSingleDiningUseCase} from '../../src/coordination/application/port/in/session/StartSingleDiningUseCase'
+import {JoinDiningRoomUseCase} from '../../src/coordination/application/port/in/session/JoinDiningRoomUseCase'
+import {LeaveDiningSessionUseCase} from '../../src/coordination/application/port/in/session/LeaveDiningSessionUseCase'
+import {CreateMultiplayerDiningUseCase} from '../../src/coordination/application/port/in/dining/CreateMultiplayerDiningUseCase'
+import {SelectDiningSessionUseCase} from '../../src/coordination/application/port/in/device/SelectDiningSessionUseCase'
+import {RoomConnection} from '../../src/coordination/application/port/out/session/RoomConnection'
+import {RoomGateway} from '../../src/coordination/application/port/out/session/RoomGateway'
+import {DiningPreferences} from '../../src/coordination/application/port/out/session/DiningPreferences'
+import {StorageDiningPreferences} from '../../src/infrastructure/storage/StorageDiningPreferences'
+import {CoordinationComposition} from '../../src/coordination/composition/CoordinationComposition'
 
 /** Reusable business vocabulary for specifications, never imported by production. */
 export namespace DiningScenario {
+    export function configureSessions(app: ReturnType<typeof Buffet.create>, id: () => string): void {
+        app.provide(RoomConnection.token, {watch: roomId => app.runtime.synchronize(roomId), stop: () => {},
+            acknowledge: roomId => app.runtime.acknowledgeUnknown(roomId)});
+        app.provide(RoomGateway.token, {create: async () => ({roomId: 'room', code: '123456'}), locate: async code => ({roomId: code})});
+        app.provide(DiningPreferences.token, new StorageDiningPreferences(app.runtime));
+        CoordinationComposition.registerSessions(app, id);
+    }
     export class Storage implements ManifestStorage.Adapter {
         readonly values = new Map<string, string>()
         fail?: (key: string) => boolean
@@ -85,37 +103,67 @@ export namespace DiningScenario {
         readonly app: ReturnType<typeof Buffet.create>
         readonly dining: ReturnType<typeof Buffet.create>['dining']
         private sequence = 0
+        readonly id = () => `${this.device}-${++this.sequence}`
 
-        constructor(readonly relay = new Relay(), readonly device = 'one') {
+        constructor(readonly relay = new Relay(), readonly device = 'one', withSessionPorts = true) {
             this.app = Buffet.create({
                 storage: this.storage,
-                id: () => `${device}-${++this.sequence}`,
+                id: this.id,
                 now: () => '2026-11-01T04:00:00.000Z',
                 remote: relay
             })
             this.dining = this.app.dining
+            if (withSessionPorts) configureSessions(this.app, this.id)
         }
 
         async givenRestaurant(changes: Partial<Dining.Restaurant> = {}): Promise<this> {
+            await this.initialize();
             await this.dining.publishLocal(restaurant(changes));
             return this
         }
 
         async givenSingle(total = 20000): Promise<this> {
-            await this.dining.initialize();
-            await this.dining.startSingle(total);
+            await this.initialize();
+            await this.startSingle(total);
             return this
         }
 
         async givenRoom(roomId = 'room'): Promise<this> {
-            await this.dining.initialize();
-            await this.dining.createRoom(roomId, '123456', 20000);
+            await this.initialize();
+            await this.createRoom(roomId, '123456', 20000);
             return this
         }
 
         async whenEating(quantity = 1, restaurantId = 'buffet', productId = 'shrimp'): Promise<this> {
             await this.dining.edit(restaurantId, 'add', productId, quantity);
             return this
+        }
+
+        async initialize(): Promise<void> {
+            await this.app.resolve(InitializeDiningUseCase.token).execute(new InitializeDiningUseCase.Request());
+        }
+
+        startSingle(total: number, categoryId?: string, replaceActivityId?: string) {
+            return this.app.resolve(StartSingleDiningUseCase.token).execute(new StartSingleDiningUseCase.Request(total, categoryId, replaceActivityId));
+        }
+
+        selectSession(session: Dining.Session) {
+            return this.app.resolve(SelectDiningSessionUseCase.token).execute(new SelectDiningSessionUseCase.Request(session));
+        }
+
+        async createRoom(roomId: string, code: string, total: number, categoryId?: string) {
+            const response = await this.app.resolve(CreateMultiplayerDiningUseCase.token).execute(
+                new CreateMultiplayerDiningUseCase.Request(roomId, code, this.id(), this.dining.identity(), total, categoryId));
+            await this.selectSession(response.value);
+            return response;
+        }
+
+        joinRoom(roomId: string) {
+            return this.app.resolve(JoinDiningRoomUseCase.token).execute(new JoinDiningRoomUseCase.Request(roomId));
+        }
+
+        leave() {
+            return this.app.resolve(LeaveDiningSessionUseCase.token).execute(new LeaveDiningSessionUseCase.Request());
         }
 
         async whenSubmitting(restaurantId = 'buffet'): Promise<this> {

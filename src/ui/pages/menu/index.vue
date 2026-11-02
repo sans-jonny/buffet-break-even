@@ -3,12 +3,12 @@
     <app-navbar :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" :title="isPreview ? '菜单预览' : '菜单'" centered
                 fallback @back="goBack" @fallback="returnToSetup"/>
     <view v-if="!isPreview" class="progress-area">
-      <progress-panel :editable="!isPreview && (!hasRoom || room.hostId === dining.identity()?.id)" :percent="percent"
+      <progress-panel :editable="!isPreview && (!hasRoom || room.hostId === dining.identityData?.id)" :percent="percent"
                       :target="ticketPrice"
                       :tips="progressTips" :value="displayValue" @edit-price="editPrice">
         <template #before-tip>
           <view v-if="hasRoom">
-            <room-team :member-id="dining.identity()?.id || ''" :room="room" @select-member="transferHost"/>
+            <room-team :member-id="dining.identityData?.id || ''" :room="room" @select-member="transferHost"/>
           </view>
         </template>
       </progress-panel>
@@ -25,9 +25,9 @@
       </view>
     </scroll-view>
 
-    <view v-if="!isPreview && dining.activity()?.status === 'ACTIVE'" class="session-actions">
+    <view v-if="!isPreview && dining.activityData?.status === 'ACTIVE'" class="session-actions">
       <button size="mini" @tap="clearRound">清空本轮</button>
-      <button v-if="!hasRoom || room.hostId === dining.identity()?.id" size="mini" @tap="abandonDining">放弃用餐
+      <button v-if="!hasRoom || room.hostId === dining.identityData?.id" size="mini" @tap="abandonDining">放弃用餐
       </button>
       <button v-if="hasRoom" size="mini" @tap="leaveRoom">退出房间</button>
       <button v-if="hasRoom" size="mini" @tap="reviewSubmission">核对提交</button>
@@ -76,6 +76,13 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
+import {useCatalogStore} from '@/stores/business/useCatalogStore'
+import {useAccountingStore} from '@/stores/business/useAccountingStore'
+import {useSessionStore} from '@/stores/business/useSessionStore'
+import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
+import {PageAmount} from '@/ui/presentation/PageAmount'
+import {PageSelection} from '@/ui/presentation/PageSelection'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import ProgressPanel from '@/ui/components/progress-panel/progress-panel.vue'
 import RoomTeam from '@/ui/components/room-team/room-team.vue'
@@ -86,22 +93,27 @@ import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-import {useDining} from '@/ui/useDining'
-import {DiningClient} from '@/ui/DiningClient'
+const sessions = useSessionStore()
+const menuPageState = useMenuPageStateStore()
 
-const client = useDining()
-const dining = client.dining
+
+const dining = useDiningStore()
+const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
+const catalog = useCatalogStore()
+const accounting = useAccountingStore()
 const confirmation = useAppDialog()
 const isPreview = ref(false)
 // 展示数据
 const restaurants = computed(() => {
-  client.revision.value;
-  return isPreview.value ? dining.localRestaurants() : dining.restaurants()
+  return isPreview.value ? catalog.restaurants : dining.restaurantsData
 })
-const restaurantId = ref(client.selectedRestaurant())
+const restaurantId = ref(selectedRestaurant.value)
+const pageState = computed(() => menuPageState.state(JSON.stringify([
+  isPreview.value ? 'preview' : dining.sessionData?.activityId || 'no-session', restaurantId.value
+])))
 const currentRestaurant = computed(() => restaurants.value.find(r => r.id === restaurantId.value))
 const categories = computed(() => currentRestaurant.value?.categories.map(c => c.name) || [])
-const activeCategory = ref('')
+const activeCategory = computed({get: () => pageState.value.activeCategory, set: value => { pageState.value.activeCategory = value }})
 const products = computed(() => (currentRestaurant.value?.products || []).map(p => ({
   id: p.id,
   name: p.name,
@@ -114,8 +126,8 @@ const products = computed(() => (currentRestaurant.value?.products || []).map(p 
 })))
 const filteredProducts = computed(() => products.value.filter(p => !activeCategory.value || p.category === activeCategory.value))
 const consumption = computed(() => {
-  client.revision.value;
-  return dining.consumption(restaurantId.value)
+  const activityId = dining.sessionData?.activityId
+  return activityId ? accounting.consumption(activityId, restaurantId.value) : undefined
 })
 const selected = computed(() => consumption.value?.rounds.find(r => r.status === 'ACTIVE')?.items || {})
 const selectedLines = computed(() => products.value.filter(p => selected.value[p.id]).map(product => ({
@@ -124,27 +136,23 @@ const selectedLines = computed(() => products.value.filter(p => selected.value[p
 })))
 const totalSelectedCount = computed(() => Object.values(selected.value).reduce((a, b) => a + b, 0))
 const displayValue = computed(() => {
-  client.revision.value
-  if (!dining.session() || !currentRestaurant.value) return 0
+  if (!dining.sessionData || !currentRestaurant.value) return 0
   return dining.preview(restaurantId.value).foodValueMinor / 100
 })
 const ticketPrice = computed(() => {
-  client.revision.value;
-  return (dining.activity()?.ticketPriceMinor || 0) / 100
+  return (dining.activityData?.ticketPriceMinor || 0) / 100
 })
 const percent = computed(() => ticketPrice.value ? displayValue.value / ticketPrice.value * 100 : 0)
 const currentRoundValue = computed(() => selectedLines.value.reduce((sum, l) => sum + l.product.price * l.count, 0))
 const rounds = computed(() => consumption.value?.rounds || [])
 const hasRoom = computed(() => {
-  client.revision.value;
-  return !!dining.room()
+  return !!dining.roomData
 })
 const room = computed(() => {
-  client.revision.value;
-  const r = dining.room();
+  const r = dining.roomData;
   return r ? {...r, members: r.members.filter(m => m.present)} : {code: '', hostId: null, members: []}
 })
-const canEditRoom = computed(() => !hasRoom.value || !!room.value.members.find(m => m.id === dining.identity()?.id && m.online))
+const canEditRoom = computed(() => !hasRoom.value || !!room.value.members.find(m => m.id === dining.identityData?.id && m.online))
 watch(restaurants, list => {
   if (!list.some(r => r.id === restaurantId.value)) restaurantId.value = list[0]?.id || ''
 })
@@ -157,7 +165,9 @@ const progressTips = ref([
 
 // UI 交互状态
 
-const editingPrice = ref(false), priceInput = ref('200'), showCart = ref(false)
+const editingPrice = computed({get: () => pageState.value.editingPrice, set: value => { pageState.value.editingPrice = value }})
+const priceInput = computed({get: () => pageState.value.priceInput, set: value => { pageState.value.priceInput = value }})
+const showCart = computed({get: () => pageState.value.showCart, set: value => { pageState.value.showCart = value }})
 
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
@@ -180,7 +190,7 @@ function editPrice() {
 
 function selectRestaurant(id: string) {
   restaurantId.value = id;
-  void client.selectRestaurant(id).catch(DiningClient.report)
+  if (!isPreview.value) menuPageState.selectedRestaurants[dining.sessionData?.activityId || ''] = id
   activeCategory.value = categories.value[0] || '';
   showCart.value = false
 }
@@ -191,7 +201,7 @@ function selectCategory(category: string) {
 
 // 业务操作
 async function savePrice() {
-  await dining.paying(DiningClient.minor(priceInput.value))
+  await dining.paying(PageAmount.minor(priceInput.value))
   editingPrice.value = false
 }
 
@@ -209,8 +219,8 @@ async function transferHost(member: { id: string }) {
 
 function clearRound() {
   confirmation.open({
-    title: '清空本轮', content: '移除本轮全部菜品，保留本轮？', success: r => {
-      if (r.confirm) return dining.edit(restaurantId.value, 'clear')
+    title: '清空本轮', content: '移除本轮全部菜品，保留本轮？', success: async r => {
+      if (r.confirm) await dining.edit(restaurantId.value, 'clear')
     }
   })
 }
@@ -230,7 +240,7 @@ function leaveRoom() {
   confirmation.open({
     title: '退出房间', content: '退出后可凭房间码重新加入；完成前退出将失去结果领取资格。', success: async r => {
       if (r.confirm) {
-        await client.leaveRoom();
+        await sessions.leaveRoom();
         await navigation.open('setup', 'reset')
       }
     }
@@ -242,16 +252,15 @@ function reviewSubmission() {
     title: '核对提交结果',
     content: '先查看已同步的数量。确认已核对，后续点击将作为新的操作提交；上次结果不明的操作不会自动重发。',
     success: async r => {
-      if (r.confirm) await client.acknowledgeSubmission()
+      if (r.confirm) await sessions.acknowledgeSubmission()
     }
   })
 }
 
 // 生命周期与动画监听
 onLoad(async query => {
-  await client.ready
   isPreview.value = Boolean(query?.previewId)
-  restaurantId.value = query?.previewId || client.selectedRestaurant()
+  restaurantId.value = query?.previewId || selectedRestaurant.value
 })
 </script>
 

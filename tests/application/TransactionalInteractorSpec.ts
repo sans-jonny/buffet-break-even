@@ -45,7 +45,7 @@ export namespace TransactionalInteractorSpec {
             const response=await meal.app.runtime.run(session.scopeId,null,async tx=>{
                 retained=tx
                 const scope=meal.app.scope(tx)
-                interactor=scope.resolve<IncreaseProductUseCase>(IncreaseProductUseCase.token)
+                interactor=scope.resolve(IncreaseProductUseCase.token)
                 const first=await interactor.execute(request)
                 assert.equal(first.value.rounds[0].items.shrimp,2)
                 assert.throws(()=>meal.app.scope({...tx}),/INVALID_TRANSACTION_CONTEXT/)
@@ -102,9 +102,9 @@ export namespace TransactionalInteractorSpec {
             const session=meal.dining.session()!;let query!:GetConsumptionUseCase
             await meal.app.runtime.run(session.scopeId,null,async tx=>{
                 const scope=meal.app.scope(tx)
-                query=scope.resolve<GetConsumptionUseCase>(GetConsumptionUseCase.token)
+                query=scope.resolve(GetConsumptionUseCase.token)
                 const before=query.execute(new GetConsumptionUseCase.Request(session.activityId,'buffet')).value!
-                await scope.resolve<IncreaseProductUseCase>(IncreaseProductUseCase.token).execute(new IncreaseProductUseCase.Request(session,session.activityId,'buffet',before.rounds[0].id,'shrimp',2))
+                await scope.resolve(IncreaseProductUseCase.token).execute(new IncreaseProductUseCase.Request(session,session.activityId,'buffet',before.rounds[0].id,'shrimp',2))
                 const after=query.execute(new GetConsumptionUseCase.Request(session.activityId,'buffet')).value!
                 assert.equal(after.rounds[0].items.shrimp,3)
             })

@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import type {Accounting} from '../in/Accounting';
 
 export interface ConsumptionQuery {
@@ -7,5 +8,5 @@ export interface ConsumptionQuery {
 }
 
 export namespace ConsumptionQuery {
-    export const token = Symbol('ConsumptionQuery');
+    export const token = Symbol('ConsumptionQuery') as InjectionToken<ConsumptionQuery>;
 }

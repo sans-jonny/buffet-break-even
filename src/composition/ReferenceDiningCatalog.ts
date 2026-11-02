@@ -1,4 +1,4 @@
-import type {Dining} from '../coordination/application/port/in/Dining';
+import type {Dining} from '../coordination/application/dto/Dining';
 
 /** Bundled local reference data, not a remote public catalog. */
 export namespace ReferenceDiningCatalog {

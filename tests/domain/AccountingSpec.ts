@@ -105,7 +105,7 @@ export namespace AccountingSpec {
             await meal.givenSingle()
             await meal.dining.finish('buffet');
             assert.equal(meal.dining.history()[0].netMinor, -20000)
-            await meal.dining.startSingle(10000);
+            await meal.startSingle(10000);
             await meal.dining.deleteRestaurant('buffet')
             await assert.rejects(meal.dining.finish('buffet'), /RESTAURANT_UNAVAILABLE/)
             await meal.dining.abandon();
@@ -115,7 +115,7 @@ export namespace AccountingSpec {
             const meal = await new DiningScenario.Meal().givenRestaurant();
             await meal.givenSingle();
             await meal.whenEating(2)
-            await assert.rejects(meal.dining.startSingle(10000), /SINGLE_ACTIVITY_EXISTS/)
+            await assert.rejects(meal.startSingle(10000), /SINGLE_ACTIVITY_EXISTS/)
             const activity = meal.dining.activity()! as any;
             assert.throws(() => {activity.ticketPriceMinor = 1}, TypeError)
             assert.equal(meal.dining.activity()!.ticketPriceMinor, 20000)

@@ -42,6 +42,8 @@
 </template>
 
 <script lang="ts" setup>
+import {useDiningStore} from '@/stores/business/useDiningStore'
+import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import {computed, ref} from 'vue'
@@ -51,17 +53,12 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {time} from '@/ui/format/time'
 import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-import {useDining} from '@/ui/useDining'
-import {DiningClient} from '@/ui/DiningClient'
-
-const client = useDining()
-const dining = client.dining
+const dining = useDiningStore()
 // 展示数据
 const recordId = ref('')
 const receipt = computed(() => {
-  client.revision.value;
-  const record = dining.history().find(r => r.activityId === recordId.value);
-  return record ? DiningClient.receipt(record) : null
+  const record = dining.historyData.find(r => r.activityId === recordId.value);
+  return record ? ReceiptView.fromResult(record) : null
 })
 const meals = computed(() => receipt.value?.rounds.length || 0)
 const dishCount = computed(() => receipt.value?.lines.reduce((sum, l) => sum + l.count, 0) || 0)

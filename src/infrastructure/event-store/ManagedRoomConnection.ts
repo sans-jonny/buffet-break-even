@@ -1,4 +1,4 @@
-import type {RoomConnection} from '../../coordination/application/port/out/RoomConnection';
+import type {RoomConnection} from '../../coordination/application/port/out/session/RoomConnection';
 import type {RoomSubscription} from '../../kernel/application/RoomSubscription';
 import type {RoomSynchronizer} from '../../kernel/application/RoomSynchronizer';
 import type {CommittedBatchProjector} from '../../kernel/application/CommittedBatchProjector';

@@ -11,10 +11,10 @@ export namespace CategoryDiningSpec {
     export function verify(): void {
         test('显式替换单人活动时，新建事件失败会回滚旧活动的放弃', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant();
-            await meal.dining.startSingle(20000, 'My');
+            await meal.startSingle(20000, 'My');
             const previous = meal.dining.session();
             meal.app.runtime.on('DiningStarted', async () => { throw new Error('CREATE_FAILED'); });
-            await assert.rejects(meal.dining.startSingle(30000, 'My', previous!.activityId), /CREATE_FAILED/);
+            await assert.rejects(meal.startSingle(30000, 'My', previous!.activityId), /CREATE_FAILED/);
             assert.deepEqual(meal.dining.session(), previous);
             assert.equal(meal.dining.activity()!.status, 'ACTIVE');
             assert.equal(meal.dining.activity()!.ticketPriceMinor, 20000);
@@ -25,7 +25,7 @@ export namespace CategoryDiningSpec {
             const meal = await new DiningScenario.Meal().givenRestaurant();
             await meal.givenRoom();
             const previous = meal.dining.session();
-            await assert.rejects(meal.dining.startSingle(30000, 'My', previous!.activityId), /INVALID_SINGLE_REPLACEMENT/);
+            await assert.rejects(meal.startSingle(30000, 'My', previous!.activityId), /INVALID_SINGLE_REPLACEMENT/);
             assert.deepEqual(meal.dining.session(), previous);
             assert.equal(meal.dining.room()!.status, 'ACTIVE');
         });
@@ -35,7 +35,7 @@ export namespace CategoryDiningSpec {
             await meal.givenRestaurant({id: 'second'});
             await meal.givenRestaurant({id: 'barbecue', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}});
             assert.deepEqual(meal.dining.restaurantCategories(), [{id: 'My', name: '我的餐厅'}, {id: 'BBQ', name: '炭火烧肉'}]);
-            await meal.dining.startSingle(20000, 'My');
+            await meal.startSingle(20000, 'My');
             assert.deepEqual(meal.dining.activity()!.restaurantIds, ['buffet', 'second']);
             assert.deepEqual(meal.dining.restaurants().map(r => r.id), ['buffet', 'second']);
             await assert.rejects(meal.dining.edit('barbecue', 'add', 'shrimp'), /RESTAURANT_NOT_IN_ACTIVITY/);
@@ -46,8 +46,8 @@ export namespace CategoryDiningSpec {
 
         test('未知分类不能创建活动，私人原件的分类必须为 My', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant();
-            await assert.rejects(meal.dining.startSingle(20000, 'missing'), /RESTAURANT_CATEGORY_EMPTY/);
-            await assert.rejects(meal.dining.createRoom('room', '123456', 20000, 'missing'), /RESTAURANT_CATEGORY_EMPTY/);
+            await assert.rejects(meal.startSingle(20000, 'missing'), /RESTAURANT_CATEGORY_EMPTY/);
+            await assert.rejects(meal.createRoom('room', '123456', 20000, 'missing'), /RESTAURANT_CATEGORY_EMPTY/);
             assert.equal(meal.dining.session(), undefined);
             assert.equal(meal.relay.sent, 0);
             await assert.rejects(meal.givenRestaurant({id: 'invalid', restaurantCategory: {id: 'BBQ', name: '烧肉'}}), /PRIVATE_RESTAURANT_CATEGORY_REQUIRED/);
@@ -57,17 +57,17 @@ export namespace CategoryDiningSpec {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRestaurant({id: 'second'});
             await host.givenRestaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '烧肉'}});
-            await host.dining.initialize();
+            await host.initialize();
             const original = host.app.runtime.get('catalog/local/restaurant/buffet');
-            await host.dining.createRoom('room', '123456', 20000, 'My');
+            await host.createRoom('room', '123456', 20000, 'My');
             assert.deepEqual(host.relay.catalogs.get('room')!.map(r => r.id), ['buffet', 'second']);
             assert.deepEqual(host.relay.catalogs.get('room')![0], original);
             assert.deepEqual(host.relay.streams.get('room')![0].events.map(e => e.type), ['RoomOpened', 'DiningStarted']);
             assert.deepEqual(host.dining.restaurants().map(r => r.id), ['room:buffet', 'room:second']);
             assert.deepEqual(host.dining.activity()!.restaurantIds, ['room:buffet', 'room:second']);
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.dining.initialize();
-            await guest.dining.joinRoom('room');
+            await guest.initialize();
+            await guest.joinRoom('room');
             await guest.whenEating(2, 'room:buffet', 'room:buffet:shrimp');
             guest.thenValueIs(3000, 'room:buffet');
             await host.givenRestaurant({version: 2, products: [{id: 'shrimp', name: '虾', categoryId: 'seafood', priceMinor: 2000}]});
@@ -82,8 +82,8 @@ export namespace CategoryDiningSpec {
         test('选择公共分类不会上传设备内其他私人餐厅', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRestaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '烧肉'}});
-            await host.dining.initialize();
-            await host.dining.createRoom('room', '123456', 20000, 'BBQ');
+            await host.initialize();
+            await host.createRoom('room', '123456', 20000, 'BBQ');
             assert.equal(host.relay.catalogs.has('room'), false);
             assert.deepEqual(host.dining.restaurants().map(r => r.id), ['public']);
             assert.deepEqual(host.dining.room()!.privateSourceIds, []);
@@ -94,14 +94,14 @@ export namespace CategoryDiningSpec {
             t.after(setup.dispose);
             await setup.ready;
             assert.deepEqual(Array.from(setup.state.cuisineTypes.value, (c: {id: string}) => c.id), ['sukiyaki']);
-            await app.client.dining.publishLocal(DiningScenario.restaurant());
-            await app.client.dining.publishLocal(DiningScenario.restaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}}));
+            await app.services.dining.publishLocal(DiningScenario.restaurant());
+            await app.services.dining.publishLocal(DiningScenario.restaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}}));
             const categories = setup.state.cuisineTypes.value;
             assert.equal(categories.find((c: {id: string}) => c.id === 'My').emoji, '👨‍🍳');
             assert.equal(categories.find((c: {id: string}) => c.id === 'BBQ').name, '炭火烧肉');
             setup.state.typeId.value = 'My';
             await setup.state.startSingle();
-            assert.deepEqual(Array.from(app.client.dining.restaurants(), (r: {id: string}) => r.id), ['buffet']);
+            assert.deepEqual(Array.from(app.services.dining.restaurants(), (r: {id: string}) => r.id), ['buffet']);
         });
 
         test('私人餐厅 HTTP 持久化接口往返原始对象，幂等上传且不产生领域事件', async () => {
