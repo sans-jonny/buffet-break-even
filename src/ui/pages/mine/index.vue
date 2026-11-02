@@ -48,24 +48,24 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
+import {usePersonalStore} from '@/stores/business/usePersonalStore'
 import MineSettingRow from '@/ui/components/mine-setting-row/mine-setting-row.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const dining = useDiningStore()
+const personal = usePersonalStore()
 // 展示数据
 const history = computed(() => {
-  return dining.historyData
+  return personal.historyData
 })
 const nickname = computed(() => {
-  return dining.identityData?.nickname || ''
+  return personal.identityData?.nickname || ''
 })
 const lifetimeDifference = computed(() => history.value.reduce((sum, r) => sum + r.netMinor, 0) / 100)
 const meals = computed(() => history.value.length)
 const receiptsCount = computed(() => {
-  return dining.receiptData ? 1 : 0
+  return personal.receiptData ? 1 : 0
 })
 const totalRoundsSaved = computed(() => history.value.reduce((sum, r) => sum + r.rounds.length, 0))
 const achievement = computed(() => history.value.filter(r => r.netMinor >= 0).length + '/' + history.value.length)
@@ -93,7 +93,7 @@ function editNickname() {
 
 // 业务操作
 async function saveNickname() {
-  await dining.nickname(nicknameInput.value)
+  await personal.nickname(nicknameInput.value)
   editingNickname.value = false
 }
 </script>

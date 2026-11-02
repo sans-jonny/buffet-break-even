@@ -1,4 +1,3 @@
-import type {InjectionToken} from '../../../kernel/application/InjectionToken';
 import {RepositoryTransaction} from '../../../infrastructure/storage/RepositoryTransaction';
 import {BatchRuntime} from '../../../infrastructure/projection/BatchRuntime';
 import {CatalogEventMapper} from '../adapter/persistence/CatalogEventMapper';
@@ -27,15 +26,14 @@ export namespace CatalogComposition {
     export function registerRuntime(runtime: BatchRuntime.Runtime): void {
         runtime.register(CatalogEventMapper.types, StorageRestaurantRepository.project);
     }
-    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction, options: {id: () => string; now: () => string}, personalRunner: InjectionToken<TransactionRunner>): void {
-        const restaurantRepository = new StorageRestaurantRepository(repositoryContext);
-        scope.provide(RestaurantRepository.token, restaurantRepository);
-        scope.provide(RestaurantQuery.token, new StorageRestaurantQuery(restaurantRepository));
-        scope.provide(PublishRestaurantUseCase.token, new PublishRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
-        scope.provide(DeleteRestaurantUseCase.token, new DeleteRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
-        scope.provide(CopyRestaurantToRoomUseCase.token, new CopyRestaurantToRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
-        scope.provide(ReplaceRoomRestaurantUseCase.token, new ReplaceRoomRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
-        scope.provide(GetRestaurantUseCase.token, new GetRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantQuery.token)));
-        scope.provide(ListRestaurantsUseCase.token, new ListRestaurantsInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantQuery.token)));
+    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction): void {
+        scope.factory(RestaurantRepository.token, () => new StorageRestaurantRepository(repositoryContext));
+        scope.factory(RestaurantQuery.token, () => new StorageRestaurantQuery(scope.resolve(RestaurantRepository.token)));
+        scope.factory(PublishRestaurantUseCase.token, () => new PublishRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
+        scope.factory(DeleteRestaurantUseCase.token, () => new DeleteRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
+        scope.factory(CopyRestaurantToRoomUseCase.token, () => new CopyRestaurantToRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
+        scope.factory(ReplaceRoomRestaurantUseCase.token, () => new ReplaceRoomRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantRepository.token)));
+        scope.factory(GetRestaurantUseCase.token, () => new GetRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantQuery.token)));
+        scope.factory(ListRestaurantsUseCase.token, () => new ListRestaurantsInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RestaurantQuery.token)));
     }
 }

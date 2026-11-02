@@ -73,13 +73,13 @@ export namespace AccountingSpec {
             await meal.givenSingle();
             await meal.whenEating(2);
             await meal.whenSubmitting()
-            await meal.dining.saveReceipt('buffet')
+            await meal.app.personal.saveReceipt(meal.dining.preview('buffet'))
             await meal.givenRestaurant({
                 version: 2,
                 products: [{id: 'shrimp', name: '虾', categoryId: 'seafood', priceMinor: 2000}]
             })
             meal.thenValueIs(4000);
-            assert.equal(meal.dining.receipt()!.foodValueMinor, 3000)
+            assert.equal(meal.app.personal.receipt()!.foodValueMinor, 3000)
             await meal.givenRestaurant({version: 3, products: []})
             meal.thenValueIs(0);
             assert.equal(meal.dining.consumption('buffet')!.rounds.length, 1)
@@ -92,24 +92,24 @@ export namespace AccountingSpec {
             await meal.whenEating(4, 'other')
             await assert.rejects(meal.dining.finish(''), /FINAL_RESTAURANT_REQUIRED/)
             await meal.dining.finish('buffet')
-            assert.equal(meal.dining.history().length, 1)
-            assert.equal(meal.dining.history()[0].foodValueMinor, 3000)
-            assert.equal(meal.dining.history()[0].netMinor, -17000)
+            assert.equal(meal.app.personal.history().length, 1)
+            assert.equal(meal.app.personal.history()[0].foodValueMinor, 3000)
+            assert.equal(meal.app.personal.history()[0].netMinor, -17000)
             assert.equal(meal.dining.consumption('buffet')!.rounds[0].status, 'SUBMITTED')
             await assert.rejects(meal.dining.finish('other'), /ALREADY_ENDED/)
-            await meal.dining.saveHistory();
-            assert.equal(meal.dining.history().length, 1)
+            await meal.app.personal.saveHistory(meal.dining.session(), meal.dining.activity()?.result);
+            assert.equal(meal.app.personal.history().length, 1)
         })
         test('零菜品可以完成；已删除餐厅不可以完成；放弃不产生历史', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant();
             await meal.givenSingle()
             await meal.dining.finish('buffet');
-            assert.equal(meal.dining.history()[0].netMinor, -20000)
+            assert.equal(meal.app.personal.history()[0].netMinor, -20000)
             await meal.startSingle(10000);
-            await meal.dining.deleteRestaurant('buffet')
+            await meal.app.catalog.remove('buffet')
             await assert.rejects(meal.dining.finish('buffet'), /RESTAURANT_UNAVAILABLE/)
             await meal.dining.abandon();
-            assert.equal(meal.dining.history().length, 1)
+            assert.equal(meal.app.personal.history().length, 1)
         })
         test('单人活动至多一个；重启可恢复；副本和返回 DTO 不能改写可信状态', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant();

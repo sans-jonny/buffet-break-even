@@ -4,11 +4,11 @@
       <view>
         <text class="current-money">¥{{ formattedValue }}</text>
         <text :class="{editable: editable}" class="target-money" @tap="editable && $emit('edit-price')"> / ¥{{
-            target
+            Math.round(target)
           }}{{ editable ? ' ✎' : '' }}
         </text>
       </view>
-      <text class="percent">{{ percent }}%</text>
+      <text class="percent">{{ Math.round(percent) }}%</text>
     </view>
     <view class="progress-track">
       <view :style="{ width: `${fillPercent}%` }" class="progress-fill"/>
@@ -21,7 +21,6 @@
 
 <script lang="ts" setup>
 import {computed} from 'vue'
-import {price as Price} from '@/ui/format/price'
 
 interface ProgressTip {
   progress: number
@@ -40,7 +39,7 @@ const props = withDefaults(defineProps<{
 })
 defineEmits<{ (event: 'edit-price'): void }>()
 
-const formattedValue = computed(() => Price.formatPrice(props.value))
+const formattedValue = computed(() => Math.round(props.value))
 const fillPercent = computed(() => Math.min(Math.max(props.percent, 0) * 0.7, 100))
 const activeTip = computed(() => {
   let matchedTip: ProgressTip | undefined

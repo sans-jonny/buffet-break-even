@@ -6,13 +6,16 @@ import type {CommittedBatchProjector} from '../../kernel/application/CommittedBa
 /** Owns transport lifetime and recovery, without making dining decisions. */
 export class ManagedRoomConnection implements RoomConnection {
     private current?: {roomId: string; ready: Promise<void>; stop?: () => void; timer?: ReturnType<typeof setInterval>};
+    private suspended = false;
 
     constructor(private readonly subscription: RoomSubscription,
                 private readonly synchronizer: RoomSynchronizer,
                 private readonly projector: CommittedBatchProjector,
-                private readonly report: (error: unknown) => void) {}
+                private readonly report: (error: unknown) => void,
+                private readonly refreshMedia?: (roomId: string) => Promise<void>) {}
 
     watch(roomId: string): Promise<void> {
+        if (this.suspended) return Promise.reject(new Error('ROOM_CONNECTION_CANCELLED'));
         if (this.current?.roomId === roomId) return this.current.ready;
         this.stop();
         const connection: NonNullable<ManagedRoomConnection['current']> = {roomId, ready: Promise.resolve()};
@@ -25,7 +28,7 @@ export class ManagedRoomConnection implements RoomConnection {
                         if ((error as Error).message === 'EVENT_GAP') return this.synchronizer.synchronize(roomId);
                         throw error;
                     }) : this.synchronizer.synchronize(roomId);
-                    void received.catch(this.report);
+                    void received.then(() => this.current === connection ? this.refreshMedia?.(roomId) : undefined).catch(this.report);
                 }, error => { if (this.current === connection) this.report(error); });
                 if (this.current !== connection) {
                     stop();
@@ -33,9 +36,11 @@ export class ManagedRoomConnection implements RoomConnection {
                 }
                 connection.stop = stop;
                 await this.synchronizer.synchronize(roomId);
+                if (this.current === connection) await this.refreshMedia?.(roomId).catch(this.report);
                 if (this.current !== connection) throw new Error('ROOM_CONNECTION_CANCELLED');
                 connection.timer = setInterval(() => {
-                    void this.synchronizer.synchronize(roomId).catch(this.report);
+                    void this.synchronizer.synchronize(roomId)
+                        .then(() => this.current === connection ? this.refreshMedia?.(roomId) : undefined).catch(this.report);
                 }, 5000);
             } catch (error) {
                 if (this.current === connection) this.stop();
@@ -50,6 +55,15 @@ export class ManagedRoomConnection implements RoomConnection {
         this.current = undefined;
         if (connection?.timer) clearInterval(connection.timer);
         connection?.stop?.();
+    }
+
+    suspend(): void {
+        this.suspended = true;
+        this.stop();
+    }
+
+    resume(): void {
+        this.suspended = false;
     }
 
     acknowledge(roomId: string): Promise<void> {

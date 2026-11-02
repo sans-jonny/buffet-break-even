@@ -2,7 +2,6 @@ import {inject, getCurrentScope, onScopeDispose, type EffectScope} from 'vue';
 import {onShow, onHide} from '@dcloudio/uni-app';
 import type {InjectionToken} from '../kernel/application/InjectionToken';
 import {QueryClientProvider} from '../infrastructure/query/QueryClientProvider';
-import {RefreshDiningSessionUseCase} from '../coordination/application/port/in/session/RefreshDiningSessionUseCase';
 
 /** Each page owns one query subscription lease, regardless of how many stores it uses. */
 export namespace BusinessStoreScope {
@@ -14,16 +13,13 @@ export namespace BusinessStoreScope {
         if (scope && !scopes.has(scope)) {
             scopes.add(scope);
             const queries = inject<QueryClientProvider>(QueryClientProvider.token);
-            const refresh = inject<RefreshDiningSessionUseCase>(RefreshDiningSessionUseCase.token);
             if (!queries) throw new Error('QueryClientProvider 未注册');
             let disposed = false, release: (() => void) | undefined = queries.acquire();
             onScopeDispose(() => { disposed = true; release?.(); release = undefined; });
             onHide(() => { release?.(); release = undefined; });
-            onShow(async () => {
+            onShow(() => {
                 if (disposed) return;
                 release ||= queries.acquire();
-                await refresh?.execute(new RefreshDiningSessionUseCase.Request());
-                await queries.refresh();
             });
         }
         return store;

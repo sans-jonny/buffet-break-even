@@ -42,19 +42,13 @@ interface RestaurantConsumptionRepository {
 
 ## 容器与事务作用域
 
-当前采用 UniApp/Vue 原生 `app.provide`、`inject`、`runWithContext`，为每个 UseCase 注册对应 Interactor。不存在 `InTransactionUseCase`、具体 TransactionPort、`*Transactions` 能力集合或公开的 `executeIn()` 方法。
+当前采用类型化的 `UniAppUseCaseScope` 轻量容器，使用 `provide` 注册实例、`factory` 注册按需创建的依赖；UI 根将已解析对象发布到 Vue `app.provide`，事务作用域不创建 Vue App，也不通过 Vue 上下文解析业务依赖。不存在 `InTransactionUseCase`、具体 TransactionPort、`*Transactions` 能力集合或公开的 `executeIn()` 方法。
 
-外层 `TransactionalInteractor` 开启事务后创建独立依赖作用域。该作用域重新注入 Interactor、Repository 与 Query 适配器，Repository 通过注入的 `RepositoryTransaction` 获取当前工作区。嵌套 UseCase 仍调用 `execute()`，使用 `ActiveTransactionRunner` 加入同一事务；同一用例内串行 `apply` 读己之写，最外层只提交一次。没有全局可变的异步事务指针。失效、伪造的事务作用域不可访问。
+外层 `TransactionalInteractor` 开启事务后创建独立依赖作用域。该作用域按需创建 Interactor、Repository 与 Query 适配器，同一作用域复用实例，跨作用域保持隔离，Repository 通过注入的 `RepositoryTransaction` 获取当前工作区。嵌套 UseCase 仍调用 `execute()`，使用 `ActiveTransactionRunner` 加入同一事务；同一用例内串行 `apply` 读己之写，最外层只提交一次。没有全局可变的异步事务指针。失效、伪造的事务作用域不可访问。
 
 直接使用容器根作用域的 Repository 调用 `apply` 时，如果没有有效事务，适配器自动开启一次短事务并等待提交。多人已存在聚合按关联房间选择事件流；新建多人活动需要绑定房间的事务作用域，不会默默作为单人提交。裸调用多次 `apply` 不会自动推断一个跨调用事务：需要共用事务的 UseCase 必须继承事务基类。
 
-第三方备选：
-
-- [typed-inject](https://github.com/nicojs/typed-inject)：无装饰器、无反射元数据，显式注入与子容器设计适合优先评估。
-- [Awilix](https://github.com/jeffijoe/awilix)：有浏览器构建、显式注册及作用域；小程序需选择浏览器入口，不能使用 Node 文件自动加载能力。
-- [TSyringe](https://github.com/microsoft/tsyringe)：有子容器，默认依赖装饰器与 `reflect-metadata`，在当前 UniApp 编译链中需要额外配置。
-
-上述项目文档不能替代微信小程序真机兼容验证，本次未安装或替换第三方容器。微信小程序构建验证针对当前原生容器实现。
+容器的工厂类型检查、延迟实例化、作用域隔离、构造失败恢复和循环依赖检测均有测试；没有引入第三方容器。
 
 ## 单人与多人 apply
 
@@ -75,6 +69,6 @@ interface RestaurantConsumptionRepository {
 
 架构测试检查同名顶级对象、依赖方向、Repository 无事务参数和 stage、Domain 无 state 包装和事件快照、无冻结实例、子类不能覆写 execute。场景保留既有业务断言，并覆盖独立 apply 自动事务、串行 apply 共享工作区、聚合版本冲突整批回滚、多人跨 Repository 事件流序号、409 补发、完整广播、游标与投影原子发布和恢复。
 
-本次验证：108 项测试全部通过，类型检查、H5 和微信小程序构建成功。真实浏览器完成单人用餐到历史及多人创建、加入、加菜同步和提交轮次流程；日志核验为 schema 3、无快照 payload、连续事件流序号，无页面异常。临时浏览器、服务和验收数据库已关闭或清理。微信真机未验证。
+早期重构验收记录：108 项测试全部通过，类型检查、H5 和微信小程序构建成功。真实浏览器完成单人用餐到历史及多人创建、加入、加菜同步和提交轮次流程；日志核验为 schema 3、无快照 payload、连续事件流序号，无页面异常。临时浏览器、服务和验收数据库已关闭或清理。微信真机未验证。
 
-真实在线判定、十分钟回收、可信成员授权、旧日志迁移和真机断电耐久仍未解决；服务器保持纯事件中继，不校验领域业务规则。
+领域在线判定、可信成员授权、旧日志迁移和真机断电耐久仍未解决；服务器不校验领域业务规则。房间基础设施生命周期已补充：按连接数判断空房，持久化十分钟回收计时，允许同一用户创建及加入多个房间。

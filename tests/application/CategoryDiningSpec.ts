@@ -34,7 +34,7 @@ export namespace CategoryDiningSpec {
             const meal = await new DiningScenario.Meal().givenRestaurant();
             await meal.givenRestaurant({id: 'second'});
             await meal.givenRestaurant({id: 'barbecue', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}});
-            assert.deepEqual(meal.dining.restaurantCategories(), [{id: 'My', name: '我的餐厅'}, {id: 'BBQ', name: '炭火烧肉'}]);
+            assert.deepEqual(meal.app.catalog.categories, [{id: 'My', name: '我的餐厅'}, {id: 'BBQ', name: '炭火烧肉'}]);
             await meal.startSingle(20000, 'My');
             assert.deepEqual(meal.dining.activity()!.restaurantIds, ['buffet', 'second']);
             assert.deepEqual(meal.dining.restaurants().map(r => r.id), ['buffet', 'second']);
@@ -93,9 +93,9 @@ export namespace CategoryDiningSpec {
             const app = pageHarness(), setup = app.setup('setup');
             t.after(setup.dispose);
             await setup.ready;
-            assert.deepEqual(Array.from(setup.state.cuisineTypes.value, (c: {id: string}) => c.id), ['sukiyaki']);
-            await app.services.dining.publishLocal(DiningScenario.restaurant());
-            await app.services.dining.publishLocal(DiningScenario.restaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}}));
+            assert.deepEqual(Array.from(setup.state.cuisineTypes.value, (c: {id: string}) => c.id), ['sukiyaki', 'barbecue', 'hotpot', 'pizza']);
+            await app.services.catalog.publish(DiningScenario.restaurant());
+            await app.services.catalog.publish(DiningScenario.restaurant({id: 'public', type: 'PUBLIC', restaurantCategory: {id: 'BBQ', name: '炭火烧肉'}}));
             const categories = setup.state.cuisineTypes.value;
             assert.equal(categories.find((c: {id: string}) => c.id === 'My').emoji, '👨‍🍳');
             assert.equal(categories.find((c: {id: string}) => c.id === 'BBQ').name, '炭火烧肉');

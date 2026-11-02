@@ -14,7 +14,9 @@
 | `catalog` | 餐厅原件发布、删除、房间目录同步及消费对账 | `PublishRestaurantOriginal`、`SyncRoomRestaurant`、`RoomRestaurantPublisher` |
 | `records` | 个人小票和用餐历史的保存、删除 | `SaveReceipt`、`SaveDiningHistory` |
 
-共享 DTO 位于 `application/dto/Dining.ts`。依赖装配仍由 `composition/CoordinationComposition.ts` 负责。
+共享 DTO 位于 `application/dto`。`composition/CoordinationComposition.ts` 只负责委托：用餐与房间命令由 `DiningComposition` 注册，目录协调由 `CatalogCoordinationComposition` 注册，身份与个人记录由 `DeviceComposition` 注册，设备会话流程由 `SessionComposition` 注册。业务依赖使用作用域内的延迟工厂。
+
+`application/service` 保存复用的内部协作逻辑：`DiningAccess` 统一房间授权，`EditableDiningRound` 准备当前轮次，`RoomCatalogSynchronization` 处理目录部分同步与恢复。它们通过公开输入端口协作，不持有业务存储或跨事务状态。
 
 `session` 面向用户发起的完整流程，连接远端分配、同步和本地提交；`dining`、`room` 中的用例承担具体业务操作。身份与当前选择放在 `device`，收藏和历史写操作放在 `records`；现有 `LocalDiningData`、`GetPersonalDining` 仍统一读写设备个人数据，此次不拆分存储契约。
 

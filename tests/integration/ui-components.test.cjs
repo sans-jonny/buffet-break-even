@@ -36,6 +36,36 @@ test('轮播组件将选择和拖动预告传给页面，支持页面更新选�
     assert.equal(props.modelValue, 'creator')
 })
 
+test('餐厅分类新增、重排和删除后，轮播可选择最新列表中的所有卡片', async t => {
+    const props = reactive({modelValue: 'sukiyaki', items: [
+        {id: 'creator', name: '创造者模式', emoji: '✏️'},
+        {id: 'sukiyaki', name: '寿喜烧', emoji: '🍲'}
+    ]})
+    const {state, dispose} = pageHarness().component('cuisine-drum', props, (event, value) => {
+        if (event === 'update:modelValue') props.modelValue = value
+    })
+    t.after(dispose)
+    props.items.push(
+        {id: 'barbecue', name: '烤肉', emoji: '🥩'},
+        {id: 'hotpot', name: '火锅', emoji: '🥘'},
+        {id: 'pizza', name: '披萨', emoji: '🍕'}
+    )
+    await nextTick()
+    for (let index = 0; index < props.items.length; index++) {
+        state.drum.choose(index)
+        await nextTick()
+        assert.equal(props.modelValue, props.items[index].id)
+        assert.equal(state.drum.highlightedIndex.value, index)
+    }
+    props.items.reverse()
+    await nextTick()
+    assert.equal(state.drum.highlightedIndex.value, 0)
+    props.items = props.items.filter(item => item.id !== 'barbecue')
+    await nextTick()
+    state.drum.choose(3)
+    assert.equal(props.modelValue, 'creator')
+})
+
 test('进度提示支持乱序阈值和相同阈值，进度条继续限制展示宽度', t => {
     const props = reactive({
         value: 248, target: 200, percent: 124, tips: [

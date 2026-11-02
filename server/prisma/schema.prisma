@@ -13,7 +13,23 @@ model RoomStream {
   code    String      @unique
   version Int         @default(0)
   catalogDocument String?
+  emptySince DateTime?
   batches RoomBatch[]
+  images RoomProductImage[]
+
+  @@index([emptySince])
+}
+
+model RoomProductImage {
+  roomId String
+  restaurantId String
+  productId String
+  digest String?
+  content Bytes?
+  externalUrl String?
+  stream RoomStream @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+
+  @@id([roomId, restaurantId, productId])
 }
 
 model RoomBatch {

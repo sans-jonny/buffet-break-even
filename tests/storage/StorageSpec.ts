@@ -70,12 +70,12 @@ export namespace StorageSpec {
             const meal = await new DiningScenario.Meal().givenRestaurant();
             await meal.givenSingle();
             await meal.dining.finish('buffet')
-            await meal.dining.saveReceipt('buffet');
+            await meal.app.personal.saveReceipt(meal.dining.preview('buffet'));
             await meal.givenRoom();
             await meal.whenEating(3, 'room:buffet', 'room:buffet:shrimp')
             const personal = JSON.stringify({
-                receipt: meal.dining.receipt(),
-                history: meal.dining.history(),
+                receipt: meal.app.personal.receipt(),
+                history: meal.app.personal.history(),
                 identity: meal.dining.identity()
             })
             await meal.app.runtime.local(state => {
@@ -84,11 +84,11 @@ export namespace StorageSpec {
             await meal.app.runtime.rebuild('room');
             meal.thenQuantityIs(3, 'room:buffet', 'room:buffet:shrimp')
             assert.equal(JSON.stringify({
-                receipt: meal.dining.receipt(),
-                history: meal.dining.history(),
+                receipt: meal.app.personal.receipt(),
+                history: meal.app.personal.history(),
                 identity: meal.dining.identity()
             }), personal)
-            assert.ok(meal.dining.localRestaurant('buffet'))
+            assert.ok(meal.app.catalog.restaurant('buffet', true))
         })
     }
 }

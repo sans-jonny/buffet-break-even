@@ -11,20 +11,49 @@ export namespace RoomEventStore {
     }
 
     export class Store {
-        constructor(private readonly db: PrismaClient) {
+        constructor(private readonly db: PrismaClient, private readonly now: () => Date = () => new Date()) {
         }
 
         async create(): Promise<{ roomId: string; code: string }> {
             for (let attempt = 0; attempt < 16; attempt++) {
                 const roomId = randomUUID(), code = String(Math.floor(100000 + Math.random() * 900000))
                 try {
-                    await this.db.roomStream.create({data: {roomId, code}});
+                    await this.db.roomStream.create({data: {roomId, code, emptySince: this.now()}});
                     return {roomId, code}
                 } catch (error) {
                     if ((error as { code?: string }).code !== 'P2002') throw error
                 }
             }
             throw new Error('ROOM_CODE_CAPACITY')
+        }
+
+        /** Connections do not survive a process restart; preserve existing empty-room deadlines. */
+        async resetConnections(): Promise<void> {
+            await this.db.roomStream.updateMany({where: {emptySince: null}, data: {emptySince: this.now()}})
+        }
+
+        async occupied(roomId: string): Promise<void> {
+            const updated = await this.db.roomStream.updateMany({where: {roomId}, data: {emptySince: null}})
+            if (!updated.count) throw new Error('STREAM_NOT_FOUND')
+        }
+
+        async empty(roomId: string): Promise<void> {
+            await this.db.roomStream.updateMany({where: {roomId, emptySince: null}, data: {emptySince: this.now()}})
+        }
+
+        async removeExpired(): Promise<void> {
+            // Explicit deletion also supports legacy SQLite databases without cascading FKs.
+            await this.db.$transaction(async tx => {
+                const rooms = await tx.roomStream.findMany({
+                    where: {emptySince: {lte: new Date(this.now().getTime() - 10 * 60 * 1000)}}, select: {roomId: true}
+                })
+                if (!rooms.length) return
+                const roomId = {in: rooms.map(room => room.roomId)}
+                await tx.roomProductImage.deleteMany({where: {roomId}})
+                await tx.roomEvent.deleteMany({where: {roomId}})
+                await tx.roomBatch.deleteMany({where: {roomId}})
+                await tx.roomStream.deleteMany({where: {roomId}})
+            })
         }
 
         async locate(code: string): Promise<{ roomId: string; code: string; version: number }> {

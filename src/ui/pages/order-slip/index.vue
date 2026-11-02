@@ -62,6 +62,7 @@ const goBack = () => navigation.back('menu')
 // 业务操作
 async function completeRound() {
   await dining.submit(selectedRestaurant.value)
+  menuPageState.state(JSON.stringify([dining.sessionData?.activityId || 'no-session', selectedRestaurant.value])).showCart = false
   await navigation.back('menu')
 }
 </script>

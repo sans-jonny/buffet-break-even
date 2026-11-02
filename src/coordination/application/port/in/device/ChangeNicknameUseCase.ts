@@ -8,9 +8,9 @@ export interface ChangeNicknameUseCase extends UseCase<ChangeNicknameUseCase.Req
 export namespace ChangeNicknameUseCase {
     export const token = Symbol('ChangeNicknameUseCase') as UseCase.Token<ChangeNicknameUseCase>;
 
-    export class Request extends UseCase.TransactionRequest {
+    export class Request extends UseCase.Request {
         constructor(readonly nickname: string) {
-            super({scopeId: 'local-personal', roomId: null});
+            super();
             UseCase.id(nickname);
             Domain.require(nickname.trim().length <= 24, 'INVALID_NICKNAME');
         }

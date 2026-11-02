@@ -1,5 +1,12 @@
-<script lang="ts">
-export default {}
+<script lang="ts" setup>
+import {inject} from 'vue'
+import {onShow, onHide} from '@dcloudio/uni-app'
+import {DiningAppLifecycle} from '../infrastructure/lifecycle/DiningAppLifecycle'
+
+const lifecycle = inject<DiningAppLifecycle>(DiningAppLifecycle.token)
+if (!lifecycle) throw new Error('DiningAppLifecycle 未注册')
+onShow(() => lifecycle.resume())
+onHide(() => lifecycle.suspend())
 </script>
 
 <style>

@@ -25,7 +25,7 @@ export class Restaurant extends AggregateRoot<Restaurant.State> {
         this.type = Domain.copy(state.type);
         this.deleted = Domain.copy(state.deleted);
         this.categories = Domain.copy(state.categories);
-        this.products = Domain.copy(state.products);
+        this.products = state.products.map(product => new Product(product).snapshot);
         this.sourceId = Domain.copy(state.sourceId);
         this.sourceVersion = Domain.copy(state.sourceVersion);
     }
@@ -56,7 +56,7 @@ export class Restaurant extends AggregateRoot<Restaurant.State> {
             type: state.type,
             deleted: state.deleted,
             categories: state.categories,
-            products: state.products,
+            products: state.products.map(product => new Product(product).snapshot),
             sourceId: state.sourceId,
             sourceVersion: state.sourceVersion
         });

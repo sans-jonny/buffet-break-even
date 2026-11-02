@@ -10,14 +10,12 @@ import {
     ListDiningActivitiesUseCase
 } from '../../../../contexts/accounting/application/port/in/ListDiningActivitiesUseCase';
 import {PublishRestaurantUseCase} from '../../../../contexts/catalog/application/port/in/PublishRestaurantUseCase';
-import {ListRoomsUseCase} from '../../../../contexts/collaboration/application/port/in/ListRoomsUseCase';
 
 export class PublishLocalRestaurantInteractor extends TransactionalInteractor<PublishLocalRestaurantUseCase.Request, PublishLocalRestaurantUseCase.Response> implements PublishLocalRestaurantUseCase {
     constructor(transactions: TransactionRunner,
                 private readonly listDiningActivities: ListDiningActivitiesUseCase,
                 private readonly reconcileConsumption: ReconcileConsumptionUseCase,
-                private readonly publishRestaurant: PublishRestaurantUseCase,
-                private readonly listRooms: ListRoomsUseCase) {
+                private readonly publishRestaurant: PublishRestaurantUseCase) {
         super(transactions, PublishLocalRestaurantUseCase.token);
     }
 
@@ -26,8 +24,7 @@ export class PublishLocalRestaurantInteractor extends TransactionalInteractor<Pu
         Domain.require(r.restaurant.type === 'PRIVATE' || r.restaurant.type === 'PUBLIC', 'ORIGINAL_REQUIRED');
         const updated = (await this.publishRestaurant.execute(new PublishRestaurantUseCase.Request(r.scope, 'local', r.restaurant))).value;
         for (const activity of this.listDiningActivities.execute(new ListDiningActivitiesUseCase.Request()).value) {
-            const room = this.listRooms.execute(new ListRoomsUseCase.Request()).value.find(a => a.activityId === activity.id);
-            if (('local' === 'local' && !room) || room?.id === 'local')
+            if (activity.mode === 'SINGLE' && activity.status === 'ACTIVE')
                 await this.reconcileConsumption.execute(new ReconcileConsumptionUseCase.Request(r.scope, activity.id, updated));
         }
         return new PublishLocalRestaurantUseCase.Response(updated);

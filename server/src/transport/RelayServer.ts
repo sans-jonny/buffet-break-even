@@ -4,13 +4,35 @@ import websocket from '@fastify/websocket'
 import {PrismaClient} from '../../generated/client'
 import {RoomEventStore} from '../event-store/RoomEventStore'
 import {EventBatch} from '../../../protocol/EventBatch'
+import {ProductImages} from './ProductImages'
 
 export namespace RelayServer {
-    export async function create(db = new PrismaClient()) {
-        const app = Fastify({bodyLimit: 2000000}), store = new RoomEventStore.Store(db)
+    export async function create(db = new PrismaClient(), options: {now?: () => Date; legacyImageDirectory?: string} = {}) {
+        const app = Fastify({bodyLimit: 2000000}), store = new RoomEventStore.Store(db, options.now)
         const subscriptions = new Map<string, Set<{ send(data: string): void }>>()
+        let presenceQueue: Promise<unknown> = Promise.resolve()
+        function presence<T>(work: () => Promise<T>): Promise<T> {
+            const result = presenceQueue.then(work)
+            presenceQueue = result.catch(error => app.log.error(error))
+            return result
+        }
+        await store.resetConnections()
+        await store.removeExpired()
         await app.register(cors, {origin: true});
         await app.register(websocket)
+        await ProductImages.register(app, db, options.legacyImageDirectory)
+        // Request-time expiry enforces the deadline even between background sweeps.
+        app.addHook('onRequest', async () => { await presence(() => store.removeExpired()) })
+        const cleanup = setInterval(() => { void presence(() => store.removeExpired()) }, 1000)
+        cleanup.unref()
+        const heartbeat = new Set<{alive: boolean; ping(): void; terminate(): void}>()
+        const heartbeatTimer = setInterval(() => {
+            for (const peer of heartbeat) {
+                if (!peer.alive) peer.terminate()
+                else { peer.alive = false; peer.ping() }
+            }
+        }, 30000)
+        heartbeatTimer.unref()
         app.setErrorHandler((failure, _request, reply) => {
             const error = failure as Error & { statusCode?: number }
             const status = error instanceof RoomEventStore.Conflict ? 409 : error.message === 'STREAM_NOT_FOUND' ? 404
@@ -63,16 +85,41 @@ export namespace RelayServer {
             return batch
         })
         app.get<{ Params: { roomId: string } }>('/rooms/:roomId/subscribe', {websocket: true}, (socket, request) => {
-            const roomId = request.params.roomId, subscribers = subscriptions.get(roomId) || new Set()
-            subscribers.add(socket);
-            subscriptions.set(roomId, subscribers)
+            const roomId = request.params.roomId
+            let closed = false
+            const peer = {alive: true, ping: () => socket.ping(), terminate: () => socket.terminate()}
+            heartbeat.add(peer)
+            socket.on('pong', () => { peer.alive = true })
             socket.on('close', () => {
-                subscribers.delete(socket);
-                if (!subscribers.size) subscriptions.delete(roomId)
+                closed = true
+                heartbeat.delete(peer)
+                void presence(async () => {
+                    const subscribers = subscriptions.get(roomId)
+                    subscribers?.delete(socket)
+                    if (subscribers && !subscribers.size) {
+                        subscriptions.delete(roomId)
+                        await store.empty(roomId)
+                    }
+                })
             })
-            socket.send(JSON.stringify({type: 'subscribed', roomId}))
+            void presence(async () => {
+                await store.removeExpired()
+                if (closed) return
+                await store.occupied(roomId)
+                const subscribers = subscriptions.get(roomId) || new Set()
+                subscribers.add(socket)
+                subscriptions.set(roomId, subscribers)
+                if (!closed) socket.send(JSON.stringify({type: 'subscribed', roomId}))
+            }).catch(() => {
+                socket.close(1008, 'STREAM_NOT_FOUND')
+            })
         })
         app.addHook('onClose', async () => {
+            clearInterval(cleanup)
+            clearInterval(heartbeatTimer)
+            await presenceQueue
+            // Graceful shutdown starts the grace period for remaining connections.
+            for (const roomId of subscriptions.keys()) await store.empty(roomId)
             await db.$disconnect()
         })
         return app

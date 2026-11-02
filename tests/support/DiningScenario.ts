@@ -105,12 +105,12 @@ export namespace DiningScenario {
         private sequence = 0
         readonly id = () => `${this.device}-${++this.sequence}`
 
-        constructor(readonly relay = new Relay(), readonly device = 'one', withSessionPorts = true) {
+        constructor(readonly relay = new Relay(), readonly device = 'one', withSessionPorts = true, media?: Buffet.Options['media']) {
             this.app = Buffet.create({
                 storage: this.storage,
                 id: this.id,
                 now: () => '2026-11-01T04:00:00.000Z',
-                remote: relay
+                remote: relay, media
             })
             this.dining = this.app.dining
             if (withSessionPorts) configureSessions(this.app, this.id)
@@ -118,7 +118,7 @@ export namespace DiningScenario {
 
         async givenRestaurant(changes: Partial<Dining.Restaurant> = {}): Promise<this> {
             await this.initialize();
-            await this.dining.publishLocal(restaurant(changes));
+            await this.app.catalog.publish(restaurant(changes));
             return this
         }
 

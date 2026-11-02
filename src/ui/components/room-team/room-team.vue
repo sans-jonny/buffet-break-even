@@ -22,17 +22,21 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
 type Member = { id: string; nickname: string; online: boolean }
 const props = withDefaults(defineProps<{
-  room?: { code: string; hostId: string | null; members: Member[] };
+  room?: { code: string; hostId: string | null; status: string; members: Member[] };
   memberId?: string;
   status?: string;
-  message?: string
-}>(), {memberId: '', status: 'online', message: ''})
+  message?: string;
+  busy?: boolean
+}>(), {memberId: '', status: 'online', message: '', busy: false})
 const emit = defineEmits<{ (event: 'select-member', member: Member): void }>()
 const confirmation = useAppDialog()
 const orderedMembers = computed(() => [...(props.room?.members || [])].sort((a,
                                                                              b) => Number(b.id === props.room?.hostId) - Number(a.id === props.room?.hostId)))
 
 function transfer(member: Member) {
+  const room = props.room
+  if (!room || room.hostId !== props.memberId || room.status !== 'ACTIVE' ||
+      member.id === room.hostId || !member.online || props.status !== 'online' || props.busy) return
   confirmation.open({
     title: '转让房主', content: '确认将房主权限交给「' + member.nickname + '」？', success: r => {
       if (r.confirm) emit('select-member', member)
@@ -41,7 +45,7 @@ function transfer(member: Member) {
 }
 
 function copyCode() {
-  confirmation.open({title: '房间号', content: props.room?.code || ''})
+  if (props.room) uni.setClipboardData({data: props.room.code})
 }
 </script>
 <style scoped>

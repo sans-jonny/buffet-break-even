@@ -5,9 +5,72 @@ import assert from 'node:assert/strict'
 import {DiningScenario} from '../support/DiningScenario'
 import {DiningRoom} from '../../src/contexts/collaboration/domain/aggregate/DiningRoom'
 import {Domain} from '../../src/kernel/domain/Domain'
+import {IncreaseDiningProductUseCase} from '../../src/coordination/application/port/in/dining/IncreaseDiningProductUseCase'
+import {SessionStore} from '../../src/stores/business/SessionStore'
 
 export namespace CollaborationSpec {
     export function verify(): void {
+        test('空房普通成员和房主退出菜单都只离房，保留整桌供重新加入', async t => {
+            const host = await new DiningScenario.Meal().givenRestaurant();
+            t.after(host.app.dispose);
+            await host.givenRoom();
+            const guest = new DiningScenario.Meal(host.relay, 'empty-guest');
+            t.after(guest.app.dispose);
+            await guest.initialize();
+            await guest.joinRoom('room');
+            const guests = SessionStore.create(guest.app, guest.app.queries, guest.app.pinia);
+            const hosts = SessionStore.create(host.app, host.app.queries, host.app.pinia);
+            t.after(() => { guests.$dispose(); hosts.$dispose(); });
+            await guests.exitMenu();
+            await host.app.runtime.synchronize('room');
+            assert.equal(host.dining.room()!.status, 'ACTIVE');
+            assert.equal(guest.dining.session(), undefined);
+            await hosts.exitMenu();
+            assert.equal(host.app.collaboration.findRoom('room')!.status, 'ACTIVE');
+            assert.equal(host.dining.session(), undefined);
+        });
+        test('昵称变化提交成员事件并同步到多个房间；重复保存不重复发事件，结束后的历史保持原名', async t => {
+            const host = await new DiningScenario.Meal().givenRestaurant();
+            t.after(host.app.dispose);
+            await host.givenRoom();
+            const guest = new DiningScenario.Meal(host.relay, 'nickname-guest');
+            t.after(guest.app.dispose);
+            await guest.initialize();
+            await guest.joinRoom('room');
+            await host.createRoom('other', '654321', 20000);
+            await host.app.personal.nickname('新昵称');
+            const name = (room: import('../../src/coordination/application/dto/Dining').Dining.Room | undefined) => room!.members.find(m => m.id === host.dining.identity().id)!.nickname;
+            await guest.app.runtime.synchronize('room');
+            assert.equal(name(guest.app.collaboration.findRoom('room')), '新昵称');
+            assert.equal(name(host.app.collaboration.findRoom('other')), '新昵称');
+            const sent = host.relay.sent;
+            await host.app.personal.nickname('新昵称');
+            assert.equal(host.relay.sent, sent);
+            await host.dining.finish('other:buffet');
+            await host.app.personal.nickname('再次改名');
+            assert.equal(host.app.personal.history()[0].diners[0].nickname, '新昵称');
+            await guest.app.runtime.synchronize('room');
+            assert.equal(name(guest.app.collaboration.findRoom('room')), '再次改名');
+        });
+        test('共用授权入口拒绝普通成员的房主操作和错配活动，不提交候选事件', async t => {
+            const host = await new DiningScenario.Meal().givenRestaurant();
+            t.after(host.app.dispose);
+            await host.givenRoom();
+            const guest = new DiningScenario.Meal(host.relay, 'guest');
+            t.after(guest.app.dispose);
+            await guest.initialize();
+            await guest.joinRoom('room');
+            const sent = host.relay.sent;
+            await assert.rejects(guest.dining.paying(10000), /HOST_REQUIRED/);
+            await assert.rejects(guest.dining.finish('room:buffet'), /HOST_REQUIRED/);
+            await assert.rejects(guest.dining.abandon(), /HOST_REQUIRED/);
+            await assert.rejects(guest.app.collaboration.transfer(host.dining.identity().id), /HOST_REQUIRED/);
+            const session = {...guest.dining.session()!, activityId: 'another-activity'};
+            await assert.rejects(guest.app.resolve(IncreaseDiningProductUseCase.token).execute(
+                new IncreaseDiningProductUseCase.Request(session, guest.dining.identity().id, 'room:buffet', 'room:buffet:shrimp', 1)
+            ), /ROOM_ACTIVITY_MISMATCH/);
+            assert.equal(host.relay.sent, sent);
+        });
         test('多人共用总门票；新成员从零回放，普通成员可加量但不能提交', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();
             await host.givenRoom()
@@ -82,7 +145,7 @@ export namespace CollaborationSpec {
             await guest.joinRoom('room');
             await guest.leave()
             await host.dining.finish('room:buffet')
-            assert.deepEqual(host.dining.history()[0].diners.map(d => d.id), [host.dining.identity().id])
+            assert.deepEqual(host.app.personal.history()[0].diners.map(d => d.id), [host.dining.identity().id])
             await assert.rejects(guest.joinRoom('room'), /NOT_ELIGIBLE/)
             await assert.rejects(host.dining.finish('room:buffet'), /ALREADY_ENDED/)
         })
@@ -93,11 +156,11 @@ export namespace CollaborationSpec {
             await guest.initialize();
             await guest.joinRoom('room')
             const original = DiningScenario.restaurant({version: 2, products: []})
-            await assert.rejects(guest.dining.synchronizePrivate(original), /CREATOR_SOURCE_REQUIRED/)
+            await assert.rejects(guest.app.collaboration.synchronizePrivate(original), /CREATOR_SOURCE_REQUIRED/)
             await host.whenEating(2, 'room:buffet', 'room:buffet:shrimp');
-            await host.dining.synchronizePrivate(original)
+            await host.app.collaboration.synchronizePrivate(original)
             host.thenQuantityIs(0, 'room:buffet', 'room:buffet:shrimp')
-            await assert.rejects(host.dining.synchronizePrivate(original), /STALE_CATALOG_VERSION/)
+            await assert.rejects(host.app.collaboration.synchronizePrivate(original), /STALE_CATALOG_VERSION/)
             assert.deepEqual(host.dining.room()!.privateSourceIds, ['buffet'])
         })
         test('单人与多人可同时存在且消费记录隔离', async () => {
@@ -118,14 +181,14 @@ export namespace CollaborationSpec {
             await guest.joinRoom('room')
             await host.dining.finish('room:buffet');
             await guest.app.runtime.synchronize('room')
-            assert.equal(guest.dining.history().length, 1)
+            assert.equal(guest.app.personal.history().length, 1)
             const activityId = guest.dining.activity()!.id
-            await guest.dining.deleteHistory(activityId);
+            await guest.app.personal.deleteHistory(activityId);
             await guest.app.runtime.rebuild('room')
-            assert.equal(guest.dining.history().length, 0)
-            await guest.dining.saveHistory();
-            assert.equal(guest.dining.history().length, 1)
-            assert.equal(guest.dining.history()[0].ticketPriceMinor, 20000)
+            assert.equal(guest.app.personal.history().length, 0)
+            await guest.app.personal.saveHistory(guest.dining.session(), guest.dining.activity()?.result);
+            assert.equal(guest.app.personal.history().length, 1)
+            assert.equal(guest.app.personal.history()[0].ticketPriceMinor, 20000)
         })
         test('公共目录新增和调价进入现有房间完整事件链，新设备可回放相同价格', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();

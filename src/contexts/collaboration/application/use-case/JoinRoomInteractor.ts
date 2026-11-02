@@ -12,7 +12,6 @@ export class JoinRoomInteractor extends TransactionalInteractor<JoinRoomUseCase.
 
     protected async executeInTransaction(r: JoinRoomUseCase.Request,
                                          tx: Transaction.Context): Promise<JoinRoomUseCase.Response> {
-        Domain.require(!this.rooms.all().some(a => a.id !== r.roomId && a.snapshot().status === 'ACTIVE' && a.snapshot().members.some(m => m.id === r.memberId && m.present)), 'ACTIVE_ROOM_EXISTS');
         const room = this.rooms.findById(r.roomId);
         Domain.require(room, 'ROOM_NOT_FOUND');
         const saved = await this.rooms.apply(room.join(r.memberId, r.nickname, r.joinedAt));

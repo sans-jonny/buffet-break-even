@@ -56,7 +56,7 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
+import {usePersonalStore} from '@/stores/business/usePersonalStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed, ref} from 'vue'
@@ -64,10 +64,10 @@ import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {time} from '@/ui/format/time'
 import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-const dining = useDiningStore()
+const personal = usePersonalStore()
 // 展示数据
 const records = computed(() => {
-  return dining.historyData.map(ReceiptView.fromResult)
+  return personal.historyData.map(ReceiptView.fromResult)
 })
 const totalRoundsSaved = computed(() => records.value.reduce((sum, r) => sum + r.rounds.length, 0))
 const totalDishesSaved = computed(() => records.value.reduce((sum, r) => sum + r.lines.reduce((a,

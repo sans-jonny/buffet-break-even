@@ -1,7 +1,9 @@
 <template>
   <view class="product-card">
     <view :style="{ background: product.gradient }" class="food-picture flex-center">
-      <text class="food-emoji">{{ product.emoji }}</text>
+      <image v-if="product.coverUrl && failedUrl !== product.coverUrl" :src="product.coverUrl" :alt="product.name"
+             class="food-cover" mode="aspectFill" :lazy-load="true" @error="failedUrl = product.coverUrl"/>
+      <text v-else class="food-emoji">{{ product.emoji }}</text>
     </view>
     <view class="food-info">
       <text class="food-name">{{ product.name }}</text>
@@ -26,11 +28,13 @@
 <script lang="ts" setup>
 import {price as Price} from '@/ui/format/price'
 import {usePressFeedback} from '@/ui/components/interaction/usePressFeedback'
+import {ref} from 'vue'
 
 const {phase, press, release, animationEnd} = usePressFeedback()
+const failedUrl = ref('')
 
 defineProps<{
-  product: { id: string; name: string; price: number; emoji: string; gradient: string }
+  product: { id: string; name: string; price: number; emoji: string; gradient: string; coverUrl?: string }
   count?: number
   readonly?: boolean
 }>()
@@ -38,6 +42,7 @@ defineEmits<{ (event: 'add', id: string): void }>()
 </script>
 
 <style scoped>
+.food-cover {width:100%;height:100%}
 .product-card {
   height: 186rpx;
   border-radius: 30rpx;

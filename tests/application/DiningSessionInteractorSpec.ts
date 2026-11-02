@@ -67,9 +67,9 @@ export namespace DiningSessionInteractorSpec {
                 {execute: async () => { throw new Error('SELECTION_FAILED'); }},
                 d.meal.app.resolve(GetPersonalDiningUseCase.token), d.meal.app.resolve(ListRestaurantsUseCase.token),
                 d.preferences, d.gateway, d.connection, d.meal.id);
-            await assert.rejects(interactor.execute(new CreateDiningRoomUseCase.Request(20000, 'My')), /SELECTION_FAILED/);
+            await assert.rejects(interactor.execute(new CreateDiningRoomUseCase.Request(20000, 'My')), /SESSION_SELECTION_PENDING/);
             assert.equal(d.meal.relay.sent, 1);
-            assert.ok(d.meal.dining.findRoom('room'));
+            assert.ok(d.meal.app.collaboration.findRoom('room'));
             assert.equal(d.meal.dining.session(), undefined);
             assert.equal(d.preferences.lastRoom(), 'room');
             assert.deepEqual(d.calls, ['allocate', 'watch:room', 'stop']);
@@ -108,16 +108,31 @@ export namespace DiningSessionInteractorSpec {
             await assert.rejects(d.sessions.startSingle(0, 'My'), /INVALID_TICKET_PRICE/);
             assert.deepEqual(d.calls, ['stop', 'stop']);
         });
-        test('初始化默认目录仅填充空设备，已删除的原件不会被重新发布', async () => {
+        test('初始化默认目录不会重新发布已删除的原件', async () => {
             const d = device();
             await d.sessions.initialize();
             const identity = d.meal.dining.identity().id;
-            await d.meal.dining.deleteRestaurant('buffet');
+            await d.meal.app.catalog.remove('buffet');
             await d.sessions.initialize();
             assert.equal(d.meal.dining.identity().id, identity);
-            assert.deepEqual(d.meal.dining.localRestaurants(), []);
-            assert.equal(d.meal.dining.localRestaurant('buffet').deleted, true);
-            assert.equal(d.meal.dining.localRestaurant('buffet').version, 2);
+            assert.deepEqual(d.meal.app.catalog.restaurants, []);
+            assert.equal(d.meal.app.catalog.restaurant('buffet', true).deleted, true);
+            assert.equal(d.meal.app.catalog.restaurant('buffet', true).version, 2);
+        });
+
+        test('已有目录的设备补入新增餐厅分类，保留本地编辑且重复初始化不重复发布', async () => {
+            const d = device();
+            await d.sessions.initialize();
+            await d.meal.app.catalog.publish(DiningScenario.restaurant({version: 2, name: '本地修改'}));
+            const added = DiningScenario.restaurant({id: 'new-bbq', type: 'PUBLIC', restaurantCategory: {id: 'barbecue', name: '烤肉'}});
+            const request = new InitializeDiningUseCase.Request([DiningScenario.restaurant(), added]);
+            await d.meal.app.resolve(InitializeDiningUseCase.token).execute(request);
+            assert.equal(d.meal.app.catalog.restaurant('buffet').name, '本地修改');
+            assert.equal(d.meal.app.catalog.restaurant('buffet').version, 2);
+            assert.equal(d.meal.app.catalog.restaurant('new-bbq').restaurantCategory.id, 'barbecue');
+            await d.meal.app.resolve(InitializeDiningUseCase.token).execute(request);
+            assert.equal(d.meal.app.catalog.restaurant('new-bbq').version, 1);
+            assert.equal(d.meal.app.catalog.restaurants.length, 2);
         });
 
         test('创建房间在远端分配前校验票价，并按顺序同步及提交完整房间', async () => {
@@ -161,15 +176,23 @@ export namespace DiningSessionInteractorSpec {
             assert.deepEqual(d.calls, []);
         });
 
-        test('创建业务失败释放连接，并保留已分配的房间以供核对', async () => {
+        test('同一用户可以创建多个房间，离开后可以重新加入旧房间', async () => {
             const d = device();
             await d.sessions.initialize();
             await d.meal.createRoom('other', '654321', 20000);
-            await assert.rejects(d.sessions.createRoom(20000, 'My'), /ACTIVE_ROOM_EXISTS/);
-            assert.deepEqual(d.calls, ['allocate', 'watch:room', 'stop']);
+            await d.sessions.createRoom(20000, 'My');
+            assert.deepEqual(d.calls, ['allocate', 'watch:room']);
             assert.equal(d.preferences.lastRoom(), 'room');
+            assert.equal(d.meal.dining.session()!.roomId, 'room');
+            assert.equal(d.meal.app.collaboration.findRoom('other')!.status, 'ACTIVE');
+            await d.sessions.leaveRoom();
+            assert.equal(d.meal.dining.session(), undefined);
+            d.gateway.locate = async code => ({roomId: code === '654321' ? 'other' : 'room'});
+            await d.sessions.joinRoom('654321');
             assert.equal(d.meal.dining.session()!.roomId, 'other');
-            assert.equal(d.meal.relay.streams.has('room'), false);
+            await d.sessions.joinRoom('123456');
+            assert.equal(d.meal.dining.session()!.roomId, 'room');
+            assert.equal(d.meal.dining.room()!.members.find(m => m.id === d.meal.dining.identity().id)!.present, true);
         });
 
         test('加入已废弃房间仍由领域拒绝，应用流程释放连接', async () => {
@@ -193,7 +216,7 @@ export namespace DiningSessionInteractorSpec {
             assert.equal(d.preferences.lastRoom(), 'room');
             assert.equal(d.meal.relay.sent, 1);
             await d.meal.app.runtime.synchronize('room');
-            assert.ok(d.meal.dining.findRoom('room'));
+            assert.ok(d.meal.app.collaboration.findRoom('room'));
             assert.equal(d.meal.relay.sent, 1);
         });
 

@@ -73,8 +73,7 @@ export namespace BatchRuntime {
             return this.serial(async () => {
                 const state = this.storage.read();
                 await work(state);
-                this.storage.publish(state);
-                this.notify();
+                this.publish(state);
             });
         }
 
@@ -82,8 +81,7 @@ export namespace BatchRuntime {
             return this.serial(async () => {
                 const state = this.storage.read();
                 if (await this.apply(batch, state)) {
-                    this.storage.publish(state);
-                    this.notify(batch.events.map(event => event.key));
+                    this.publish(state);
                 }
             });
         }
@@ -97,7 +95,7 @@ export namespace BatchRuntime {
                     if (knownCommitted) {
                         const state = this.storage.read();
                         delete state[`outcome/${roomId}`];
-                        this.storage.publish(state);
+                        this.publish(state);
                     }
                 } finally {
                     if (unknown)
@@ -132,8 +130,7 @@ export namespace BatchRuntime {
                         throw new Error('EVENT_GAP');
                     afterVersion = next;
                 }
-                this.storage.publish(state);
-                this.notify();
+                this.publish(state);
                 if (this.sync.get(roomId) !== 'UNKNOWN')
                     this.sync.set(roomId, 'READY');
             });
@@ -175,12 +172,12 @@ export namespace BatchRuntime {
                     else {
                         // Persist uncertainty BEFORE sending: a process crash cannot make a non-idempotent
                         // request look safe to resend. This marker is technical, not a business projection.
-                        this.storage.publish({...base, [`outcome/${roomId}`]: 'UNKNOWN'});
+                        this.publish({...base, [`outcome/${roomId}`]: 'UNKNOWN'});
                         try {
                             committed = await this.remoteCommitter!.commit(candidate);
                         } catch (error) {
                             if ((error as Error).message === 'VERSION_CONFLICT' || (error as Error).message.startsWith('REJECTED_')) {
-                                this.storage.publish(base);
+                                this.publish(base);
                                 if ((error as Error).message === 'VERSION_CONFLICT') {
                                     if (error instanceof StreamConflictError && error.recovery.batches?.length) {
                                         const recovered = this.storage.read();
@@ -189,8 +186,7 @@ export namespace BatchRuntime {
                                                 throw new Error('WRONG_STREAM');
                                             await this.apply(batch, recovered);
                                         }
-                                        this.storage.publish(recovered);
-                                        this.notify();
+                                        this.publish(recovered);
                                     }
                                     if (attempt < 2)
                                         continue;
@@ -205,7 +201,7 @@ export namespace BatchRuntime {
                         if (committed.scopeId !== scopeId || committed.roomId !== roomId || committed.previousVersion !== candidate.expectedVersion)
                             throw new Error('WRONG_STREAM');
                         await this.apply(committed, base);
-                        this.storage.publish(base);
+                        this.publish(base);
                     } catch (error) {
                         if (roomId) {
                             this.sync.set(roomId, 'SYNC_PENDING');
@@ -213,7 +209,6 @@ export namespace BatchRuntime {
                         }
                         throw error;
                     }
-                    this.notify(committed.events.map(event => event.key));
                     if (roomId)
                         this.sync.set(roomId, 'READY');
                     return response;
@@ -233,10 +228,19 @@ export namespace BatchRuntime {
                 await this.catchUp(roomId);
                 const state = this.storage.read();
                 delete state[`outcome/${roomId}`];
-                this.storage.publish(state);
+                this.publish(state);
                 this.sync.set(roomId, 'READY');
-                this.notify();
             });
+        }
+
+        /** Publish first, then invalidate every changed business projection, including derived records. */
+        private publish(state: Transaction.State): void {
+            const before = this.storage.read();
+            const keys = [...new Set([...Object.keys(before), ...Object.keys(state)])]
+                .filter(key => /^(accounting\/|catalog\/|collaboration\/|personal\/)/.test(key))
+                .filter(key => JSON.stringify(before[key]) !== JSON.stringify(state[key]));
+            this.storage.publish(state);
+            if (keys.length) this.notify(keys);
         }
 
         private notify(keys: readonly string[] = []): void {
@@ -351,8 +355,7 @@ export namespace BatchRuntime {
                         throw new Error('EVENT_GAP');
                 }
                 if (changed) {
-                    this.storage.publish(state);
-                    this.notify();
+                    this.publish(state);
                 }
                 this.sync.set(roomId, 'READY');
             } catch (error) {

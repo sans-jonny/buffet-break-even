@@ -3,6 +3,10 @@ export namespace PageFeedback {
         const messages: Record<string, string> = {
             UNKNOWN_COMMIT_OUTCOME: '提交结果待确认，请先核对房间记录，勿重复加量',
             SYNC_PENDING: '已提交，正在恢复同步',
+            SESSION_SELECTION_PENDING: '用餐已建立，请点击恢复会话继续',
+            SESSION_BUSY: '正在切换会话，请稍候',
+            ROOM_CONNECTION_CANCELLED: '房间连接已暂停，请返回后重试',
+            REJECTED_404: '房间不存在或已因无人超过10分钟被销毁，请创建或加入其他房间',
             HOST_REQUIRED: '此操作需要当前房主',
             ALREADY_ENDED: '用餐已经结束',
             EMPTY_ROUND: '空轮次不能提交',

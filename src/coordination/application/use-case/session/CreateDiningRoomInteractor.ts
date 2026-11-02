@@ -1,3 +1,4 @@
+import {DiningSelectionPendingError} from '../../service/DiningSelectionPendingError';
 import {CreateDiningRoomUseCase} from '../../port/in/session/CreateDiningRoomUseCase';
 import {CreateMultiplayerDiningUseCase} from '../../port/in/dining/CreateMultiplayerDiningUseCase';
 import {GetPersonalDiningUseCase} from '../../port/in/device/GetPersonalDiningUseCase';
@@ -27,7 +28,11 @@ export class CreateDiningRoomInteractor implements CreateDiningRoomUseCase {
             await this.connection.watch(room.roomId);
             const response = await this.create.execute(new CreateMultiplayerDiningUseCase.Request(
                 room.roomId, room.code, this.id(), actor, request.ticketPriceMinor, request.categoryId));
-            await this.select.execute(new SelectDiningSessionUseCase.Request(response.value));
+            try {
+                await this.select.execute(new SelectDiningSessionUseCase.Request(response.value));
+            } catch (error) {
+                throw new DiningSelectionPendingError(response.value, error);
+            }
             return new CreateDiningRoomUseCase.Response(response.value);
         } catch (error) {
             const code = (error as Error)?.message;

@@ -1,161 +1,20 @@
-import {InitializeDiningUseCase} from '../application/port/in/initialization/InitializeDiningUseCase';
-import {InitializeDiningInteractor} from '../application/use-case/initialization/InitializeDiningInteractor';
-import {StartSingleDiningUseCase} from '../application/port/in/session/StartSingleDiningUseCase';
-import {StartSingleDiningInteractor} from '../application/use-case/session/StartSingleDiningInteractor';
-import {ResumeSingleDiningUseCase} from '../application/port/in/session/ResumeSingleDiningUseCase';
-import {ResumeSingleDiningInteractor} from '../application/use-case/session/ResumeSingleDiningInteractor';
-import {CreateDiningRoomUseCase} from '../application/port/in/session/CreateDiningRoomUseCase';
-import {CreateDiningRoomInteractor} from '../application/use-case/session/CreateDiningRoomInteractor';
-import {JoinDiningRoomUseCase} from '../application/port/in/session/JoinDiningRoomUseCase';
-import {JoinDiningRoomInteractor} from '../application/use-case/session/JoinDiningRoomInteractor';
-import {RefreshDiningSessionUseCase} from '../application/port/in/session/RefreshDiningSessionUseCase';
-import {RefreshDiningSessionInteractor} from '../application/use-case/session/RefreshDiningSessionInteractor';
-import {LeaveDiningSessionUseCase} from '../application/port/in/session/LeaveDiningSessionUseCase';
-import {LeaveDiningSessionInteractor} from '../application/use-case/session/LeaveDiningSessionInteractor';
-import {AcknowledgeDiningSubmissionUseCase} from '../application/port/in/session/AcknowledgeDiningSubmissionUseCase';
-import {AcknowledgeDiningSubmissionInteractor} from '../application/use-case/session/AcknowledgeDiningSubmissionInteractor';
-import {RoomGateway} from '../application/port/out/session/RoomGateway';
-import {RoomConnection} from '../application/port/out/session/RoomConnection';
-import {DiningPreferences} from '../application/port/out/session/DiningPreferences';
 import type {InjectionToken} from '../../kernel/application/InjectionToken';
-import {GetPersonalDiningUseCase} from '../application/port/in/device/GetPersonalDiningUseCase';
-import {GetPersonalDiningInteractor} from '../application/use-case/device/GetPersonalDiningInteractor';
-import {RoomRestaurantPublisher} from '../application/port/out/catalog/RoomRestaurantPublisher';
-import {RepositoryTransaction} from '../../infrastructure/storage/RepositoryTransaction';
-import {UniAppUseCaseScope} from '../../composition/UniAppUseCaseScope';
 import {TransactionRunner} from '../../kernel/application/TransactionRunner';
-import {LocalDiningData} from '../application/port/out/device/LocalDiningData';
-import {CreateDiningActivityUseCase} from '../../contexts/accounting/application/port/in/CreateDiningActivityUseCase';
-import {CreateConsumptionUseCase} from '../../contexts/accounting/application/port/in/CreateConsumptionUseCase';
-import {IncreaseProductUseCase} from '../../contexts/accounting/application/port/in/IncreaseProductUseCase';
-import {DecreaseProductUseCase} from '../../contexts/accounting/application/port/in/DecreaseProductUseCase';
-import {RemoveConsumptionItemUseCase} from '../../contexts/accounting/application/port/in/RemoveConsumptionItemUseCase';
-import {ClearRoundUseCase} from '../../contexts/accounting/application/port/in/ClearRoundUseCase';
-import {SubmitRoundUseCase} from '../../contexts/accounting/application/port/in/SubmitRoundUseCase';
-import {ChangeTicketPriceUseCase} from '../../contexts/accounting/application/port/in/ChangeTicketPriceUseCase';
-import {EndDiningActivityUseCase} from '../../contexts/accounting/application/port/in/EndDiningActivityUseCase';
-import {AbandonDiningActivityUseCase} from '../../contexts/accounting/application/port/in/AbandonDiningActivityUseCase';
-import {ReconcileConsumptionUseCase} from '../../contexts/accounting/application/port/in/ReconcileConsumptionUseCase';
-import {GetConsumptionUseCase} from '../../contexts/accounting/application/port/in/GetConsumptionUseCase';
-import {ListDiningActivitiesUseCase} from '../../contexts/accounting/application/port/in/ListDiningActivitiesUseCase';
-import {CalculateDiningResultUseCase} from '../../contexts/accounting/application/port/in/CalculateDiningResultUseCase';
-import {PublishRestaurantUseCase} from '../../contexts/catalog/application/port/in/PublishRestaurantUseCase';
-import {DeleteRestaurantUseCase} from '../../contexts/catalog/application/port/in/DeleteRestaurantUseCase';
-import {ReplaceRoomRestaurantUseCase} from '../../contexts/catalog/application/port/in/ReplaceRoomRestaurantUseCase';
-import {GetRestaurantUseCase} from '../../contexts/catalog/application/port/in/GetRestaurantUseCase';
-import {ListRestaurantsUseCase} from '../../contexts/catalog/application/port/in/ListRestaurantsUseCase';
-import {OpenRoomUseCase} from '../../contexts/collaboration/application/port/in/OpenRoomUseCase';
-import {JoinRoomUseCase} from '../../contexts/collaboration/application/port/in/JoinRoomUseCase';
-import {LeaveRoomUseCase} from '../../contexts/collaboration/application/port/in/LeaveRoomUseCase';
-import {TransferHostUseCase} from '../../contexts/collaboration/application/port/in/TransferHostUseCase';
-import {EndRoomUseCase} from '../../contexts/collaboration/application/port/in/EndRoomUseCase';
-import {AbandonRoomUseCase} from '../../contexts/collaboration/application/port/in/AbandonRoomUseCase';
-import {GetRoomUseCase} from '../../contexts/collaboration/application/port/in/GetRoomUseCase';
-import {ListRoomsUseCase} from '../../contexts/collaboration/application/port/in/ListRoomsUseCase';
-import {AuthorizeRoomUseCase} from '../../contexts/collaboration/application/port/in/AuthorizeRoomUseCase';
-import {AuthorizeCatalogSyncUseCase} from '../../contexts/collaboration/application/port/in/AuthorizeCatalogSyncUseCase';
-import {CreateSingleDiningInteractor} from '../application/use-case/dining/CreateSingleDiningInteractor';
-import {CreateSingleDiningUseCase} from '../application/port/in/dining/CreateSingleDiningUseCase';
-import {
-    CreateMultiplayerDiningInteractor
-} from '../application/use-case/dining/CreateMultiplayerDiningInteractor';
-import {CreateMultiplayerDiningUseCase} from '../application/port/in/dining/CreateMultiplayerDiningUseCase';
-import {JoinMultiplayerDiningInteractor} from '../application/use-case/room/JoinMultiplayerDiningInteractor';
-import {JoinMultiplayerDiningUseCase} from '../application/port/in/room/JoinMultiplayerDiningUseCase';
-import {IncreaseDiningProductInteractor} from '../application/use-case/dining/IncreaseDiningProductInteractor';
-import {IncreaseDiningProductUseCase} from '../application/port/in/dining/IncreaseDiningProductUseCase';
-import {DecreaseDiningProductInteractor} from '../application/use-case/dining/DecreaseDiningProductInteractor';
-import {DecreaseDiningProductUseCase} from '../application/port/in/dining/DecreaseDiningProductUseCase';
-import {RemoveDiningProductInteractor} from '../application/use-case/dining/RemoveDiningProductInteractor';
-import {RemoveDiningProductUseCase} from '../application/port/in/dining/RemoveDiningProductUseCase';
-import {ClearDiningRoundInteractor} from '../application/use-case/dining/ClearDiningRoundInteractor';
-import {ClearDiningRoundUseCase} from '../application/port/in/dining/ClearDiningRoundUseCase';
-import {SubmitDiningRoundInteractor} from '../application/use-case/dining/SubmitDiningRoundInteractor';
-import {SubmitDiningRoundUseCase} from '../application/port/in/dining/SubmitDiningRoundUseCase';
-import {
-    ChangeDiningTicketPriceInteractor
-} from '../application/use-case/dining/ChangeDiningTicketPriceInteractor';
-import {ChangeDiningTicketPriceUseCase} from '../application/port/in/dining/ChangeDiningTicketPriceUseCase';
-import {EndDiningInteractor} from '../application/use-case/dining/EndDiningInteractor';
-import {EndDiningUseCase} from '../application/port/in/dining/EndDiningUseCase';
-import {AbandonDiningInteractor} from '../application/use-case/dining/AbandonDiningInteractor';
-import {AbandonDiningUseCase} from '../application/port/in/dining/AbandonDiningUseCase';
-import {LeaveDiningRoomInteractor} from '../application/use-case/room/LeaveDiningRoomInteractor';
-import {LeaveDiningRoomUseCase} from '../application/port/in/room/LeaveDiningRoomUseCase';
-import {TransferDiningHostInteractor} from '../application/use-case/room/TransferDiningHostInteractor';
-import {TransferDiningHostUseCase} from '../application/port/in/room/TransferDiningHostUseCase';
-import {PublishLocalRestaurantInteractor} from '../application/use-case/catalog/PublishLocalRestaurantInteractor';
-import {PublishLocalRestaurantUseCase} from '../application/port/in/catalog/PublishLocalRestaurantUseCase';
-import {DeleteLocalRestaurantInteractor} from '../application/use-case/catalog/DeleteLocalRestaurantInteractor';
-import {DeleteLocalRestaurantUseCase} from '../application/port/in/catalog/DeleteLocalRestaurantUseCase';
-import {SyncRoomRestaurantInteractor} from '../application/use-case/catalog/SyncRoomRestaurantInteractor';
-import {SyncRoomRestaurantUseCase} from '../application/port/in/catalog/SyncRoomRestaurantUseCase';
-import {InitializeIdentityInteractor} from '../application/use-case/device/InitializeIdentityInteractor';
-import {InitializeIdentityUseCase} from '../application/port/in/device/InitializeIdentityUseCase';
-import {ChangeNicknameInteractor} from '../application/use-case/device/ChangeNicknameInteractor';
-import {ChangeNicknameUseCase} from '../application/port/in/device/ChangeNicknameUseCase';
-import {SelectDiningSessionInteractor} from '../application/use-case/device/SelectDiningSessionInteractor';
-import {SelectDiningSessionUseCase} from '../application/port/in/device/SelectDiningSessionUseCase';
-import {ClearDiningSessionInteractor} from '../application/use-case/device/ClearDiningSessionInteractor';
-import {ClearDiningSessionUseCase} from '../application/port/in/device/ClearDiningSessionUseCase';
-import {SaveReceiptInteractor} from '../application/use-case/records/SaveReceiptInteractor';
-import {SaveReceiptUseCase} from '../application/port/in/records/SaveReceiptUseCase';
-import {SaveDiningHistoryInteractor} from '../application/use-case/records/SaveDiningHistoryInteractor';
-import {SaveDiningHistoryUseCase} from '../application/port/in/records/SaveDiningHistoryUseCase';
-import {DeleteReceiptInteractor} from '../application/use-case/records/DeleteReceiptInteractor';
-import {DeleteReceiptUseCase} from '../application/port/in/records/DeleteReceiptUseCase';
-import {DeleteDiningHistoryInteractor} from '../application/use-case/records/DeleteDiningHistoryInteractor';
-import {DeleteDiningHistoryUseCase} from '../application/port/in/records/DeleteDiningHistoryUseCase';
-import {
-    PublishRestaurantOriginalWorkflow
-} from '../application/workflow/catalog/PublishRestaurantOriginalWorkflow';
-import {PublishRestaurantOriginalUseCase} from '../application/port/in/catalog/PublishRestaurantOriginalUseCase';
-import {DeleteRestaurantOriginalWorkflow} from '../application/workflow/catalog/DeleteRestaurantOriginalWorkflow';
-import {DeleteRestaurantOriginalUseCase} from '../application/port/in/catalog/DeleteRestaurantOriginalUseCase';
-import {GetDiningResultInteractor} from '../application/use-case/dining/GetDiningResultInteractor';
-import {GetDiningResultUseCase} from '../application/port/in/dining/GetDiningResultUseCase';
+import {UniAppUseCaseScope} from '../../composition/UniAppUseCaseScope';
+import {DiningComposition} from './DiningComposition';
+import {CatalogCoordinationComposition} from './CatalogCoordinationComposition';
+import {DeviceComposition} from './DeviceComposition';
+import {SessionComposition} from './SessionComposition';
 
+/** Registers lazy factories by responsibility; transaction scopes instantiate only what they use. */
 export namespace CoordinationComposition {
-    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction, options: {id: () => string; now: () => string}, personalRunner: InjectionToken<TransactionRunner>): void {
-        scope.provide(GetPersonalDiningUseCase.token, new GetPersonalDiningInteractor(scope.resolve(LocalDiningData.token)));
-        scope.provide(CreateSingleDiningUseCase.token, new CreateSingleDiningInteractor(scope.resolve(TransactionRunner.token), scope.resolve(CreateDiningActivityUseCase.token), scope.resolve(ListRestaurantsUseCase.token)));
-        scope.provide(CreateMultiplayerDiningUseCase.token, new CreateMultiplayerDiningInteractor(scope.resolve(TransactionRunner.token), scope.resolve(CreateDiningActivityUseCase.token), scope.resolve(ListRestaurantsUseCase.token), scope.resolve(PublishRestaurantUseCase.token), scope.resolve(RoomRestaurantPublisher.token), scope.resolve(OpenRoomUseCase.token)));
-        scope.provide(JoinMultiplayerDiningUseCase.token, new JoinMultiplayerDiningInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ListDiningActivitiesUseCase.token), scope.resolve(ReconcileConsumptionUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(ReplaceRoomRestaurantUseCase.token), scope.resolve(JoinRoomUseCase.token), scope.resolve(ListRoomsUseCase.token), options.now));
-        scope.provide(IncreaseDiningProductUseCase.token, new IncreaseDiningProductInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetConsumptionUseCase.token), scope.resolve(CreateConsumptionUseCase.token), scope.resolve(IncreaseProductUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), options.id));
-        scope.provide(DecreaseDiningProductUseCase.token, new DecreaseDiningProductInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetConsumptionUseCase.token), scope.resolve(CreateConsumptionUseCase.token), scope.resolve(DecreaseProductUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), options.id));
-        scope.provide(RemoveDiningProductUseCase.token, new RemoveDiningProductInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetConsumptionUseCase.token), scope.resolve(CreateConsumptionUseCase.token), scope.resolve(RemoveConsumptionItemUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), options.id));
-        scope.provide(ClearDiningRoundUseCase.token, new ClearDiningRoundInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetConsumptionUseCase.token), scope.resolve(CreateConsumptionUseCase.token), scope.resolve(ClearRoundUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), options.id));
-        scope.provide(SubmitDiningRoundUseCase.token, new SubmitDiningRoundInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetConsumptionUseCase.token), scope.resolve(SubmitRoundUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token)));
-        scope.provide(ChangeDiningTicketPriceUseCase.token, new ChangeDiningTicketPriceInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ChangeTicketPriceUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token)));
-        scope.provide(EndDiningUseCase.token, new EndDiningInteractor(scope.resolve(TransactionRunner.token), scope.resolve(EndDiningActivityUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(EndRoomUseCase.token), options.now));
-        scope.provide(AbandonDiningUseCase.token, new AbandonDiningInteractor(scope.resolve(TransactionRunner.token), scope.resolve(AbandonDiningActivityUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), scope.resolve(AbandonRoomUseCase.token)));
-        scope.provide(LeaveDiningRoomUseCase.token, new LeaveDiningRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(LeaveRoomUseCase.token), options.now));
-        scope.provide(TransferDiningHostUseCase.token, new TransferDiningHostInteractor(scope.resolve(TransactionRunner.token), scope.resolve(GetRoomUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), scope.resolve(TransferHostUseCase.token)));
-        scope.provide(PublishLocalRestaurantUseCase.token, new PublishLocalRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ListDiningActivitiesUseCase.token), scope.resolve(ReconcileConsumptionUseCase.token), scope.resolve(PublishRestaurantUseCase.token), scope.resolve(ListRoomsUseCase.token)));
-        scope.provide(DeleteLocalRestaurantUseCase.token, new DeleteLocalRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ListDiningActivitiesUseCase.token), scope.resolve(ReconcileConsumptionUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(DeleteRestaurantUseCase.token), scope.resolve(ListRoomsUseCase.token)));
-        scope.provide(SyncRoomRestaurantUseCase.token, new SyncRoomRestaurantInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ListDiningActivitiesUseCase.token), scope.resolve(ReconcileConsumptionUseCase.token), scope.resolve(ReplaceRoomRestaurantUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(PublishRestaurantUseCase.token), scope.resolve(AuthorizeRoomUseCase.token), scope.resolve(AuthorizeCatalogSyncUseCase.token), scope.resolve(ListRoomsUseCase.token)));
-        scope.provide(InitializeIdentityUseCase.token, new InitializeIdentityInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(ChangeNicknameUseCase.token, new ChangeNicknameInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(SelectDiningSessionUseCase.token, new SelectDiningSessionInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(ClearDiningSessionUseCase.token, new ClearDiningSessionInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(SaveReceiptUseCase.token, new SaveReceiptInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(SaveDiningHistoryUseCase.token, new SaveDiningHistoryInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token), scope.resolve(GetRoomUseCase.token)));
-        scope.provide(DeleteReceiptUseCase.token, new DeleteReceiptInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(DeleteDiningHistoryUseCase.token, new DeleteDiningHistoryInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
-        scope.provide(PublishRestaurantOriginalUseCase.token, new PublishRestaurantOriginalWorkflow(scope.resolve(PublishLocalRestaurantUseCase.token), scope.resolve(ListRoomsUseCase.token), scope.resolve(SyncRoomRestaurantUseCase.token)));
-        scope.provide(DeleteRestaurantOriginalUseCase.token, new DeleteRestaurantOriginalWorkflow(scope.resolve(DeleteLocalRestaurantUseCase.token), scope.resolve(ListRoomsUseCase.token), scope.resolve(SyncRoomRestaurantUseCase.token)));
-        scope.provide(GetDiningResultUseCase.token, new GetDiningResultInteractor(scope.resolve(CalculateDiningResultUseCase.token), scope.resolve(GetRestaurantUseCase.token), scope.resolve(GetRoomUseCase.token)));
-        scope.provide(InitializeDiningUseCase.token, new InitializeDiningInteractor(scope.resolve(InitializeIdentityUseCase.token), scope.resolve(GetPersonalDiningUseCase.token), scope.resolve(ListRestaurantsUseCase.token), scope.resolve(PublishRestaurantOriginalUseCase.token), options.id));
+    export function register(scope: UniAppUseCaseScope, options: {id: () => string; now: () => string}, personalRunner: InjectionToken<TransactionRunner>): void {
+        DiningComposition.register(scope, options);
+        CatalogCoordinationComposition.register(scope);
+        DeviceComposition.register(scope, options, personalRunner);
     }
 
     export function registerSessions(scope: Pick<UniAppUseCaseScope, 'provide' | 'resolve'>, id: () => string): void {
-        const connection = scope.resolve(RoomConnection.token);
-        scope.provide(StartSingleDiningUseCase.token, new StartSingleDiningInteractor(scope.resolve(CreateSingleDiningUseCase.token), scope.resolve(SelectDiningSessionUseCase.token), connection, id));
-        scope.provide(ResumeSingleDiningUseCase.token, new ResumeSingleDiningInteractor(scope.resolve(SelectDiningSessionUseCase.token), connection));
-        scope.provide(CreateDiningRoomUseCase.token, new CreateDiningRoomInteractor(scope.resolve(CreateMultiplayerDiningUseCase.token), scope.resolve(SelectDiningSessionUseCase.token), scope.resolve(GetPersonalDiningUseCase.token), scope.resolve(ListRestaurantsUseCase.token), scope.resolve(DiningPreferences.token), scope.resolve(RoomGateway.token), connection, id));
-        scope.provide(JoinDiningRoomUseCase.token, new JoinDiningRoomInteractor(scope.resolve(JoinMultiplayerDiningUseCase.token), scope.resolve(SelectDiningSessionUseCase.token), scope.resolve(GetPersonalDiningUseCase.token), scope.resolve(GetRoomUseCase.token), scope.resolve(DiningPreferences.token), scope.resolve(RoomGateway.token), connection));
-        scope.provide(RefreshDiningSessionUseCase.token, new RefreshDiningSessionInteractor(scope.resolve(GetPersonalDiningUseCase.token), connection));
-        scope.provide(LeaveDiningSessionUseCase.token, new LeaveDiningSessionInteractor(scope.resolve(LeaveDiningRoomUseCase.token), scope.resolve(ClearDiningSessionUseCase.token), scope.resolve(GetPersonalDiningUseCase.token), connection));
-        scope.provide(AcknowledgeDiningSubmissionUseCase.token, new AcknowledgeDiningSubmissionInteractor(scope.resolve(GetPersonalDiningUseCase.token), connection));
+        SessionComposition.register(scope, id);
     }
 }

@@ -42,7 +42,7 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
+import {usePersonalStore} from '@/stores/business/usePersonalStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
@@ -53,11 +53,11 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {time} from '@/ui/format/time'
 import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-const dining = useDiningStore()
+const personal = usePersonalStore()
 // 展示数据
 const recordId = ref('')
 const receipt = computed(() => {
-  const record = dining.historyData.find(r => r.activityId === recordId.value);
+  const record = personal.historyData.find(r => r.activityId === recordId.value);
   return record ? ReceiptView.fromResult(record) : null
 })
 const meals = computed(() => receipt.value?.rounds.length || 0)
@@ -84,7 +84,7 @@ function confirmDelete() {
 
 // 业务操作
 async function deleteRecord() {
-  await dining.deleteHistory(recordId.value)
+  await personal.deleteHistory(recordId.value)
   await navigation.back('records')
 }
 

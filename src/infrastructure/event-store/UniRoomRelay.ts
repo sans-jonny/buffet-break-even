@@ -42,9 +42,11 @@ export namespace UniRoomRelay {
             return this.request(`/rooms/${encodeURIComponent(roomId)}/events?afterVersion=${afterVersion}`)
         }
 
-        subscribe(roomId: string,
+        async subscribe(roomId: string,
                   onHint: (batch?: EventBatch.Committed) => void,
                   onError: (error: Error) => void): Promise<() => void> {
+            // Expired rooms must report the HTTP not-found outcome instead of a generic socket error.
+            await this.request(`/rooms/${encodeURIComponent(roomId)}/head`)
             return new Promise((resolve, reject) => {
                 let acknowledged = false
                 const task = uni.connectSocket({

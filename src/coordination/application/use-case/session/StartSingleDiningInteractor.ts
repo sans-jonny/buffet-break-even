@@ -1,3 +1,4 @@
+import {DiningSelectionPendingError} from '../../service/DiningSelectionPendingError';
 import {StartSingleDiningUseCase} from '../../port/in/session/StartSingleDiningUseCase';
 import {CreateSingleDiningUseCase} from '../../port/in/dining/CreateSingleDiningUseCase';
 import {SelectDiningSessionUseCase} from '../../port/in/device/SelectDiningSessionUseCase';
@@ -10,7 +11,11 @@ export class StartSingleDiningInteractor implements StartSingleDiningUseCase {
     async execute(request: StartSingleDiningUseCase.Request): Promise<StartSingleDiningUseCase.Response> {
         const response = await this.create.execute(new CreateSingleDiningUseCase.Request(
             this.id(), request.ticketPriceMinor, request.categoryId, request.replaceActivityId));
-        await this.select.execute(new SelectDiningSessionUseCase.Request(response.value));
+        try {
+            await this.select.execute(new SelectDiningSessionUseCase.Request(response.value));
+        } catch (error) {
+            throw new DiningSelectionPendingError(response.value, error);
+        }
         this.connection.stop();
         return new StartSingleDiningUseCase.Response(response.value);
     }

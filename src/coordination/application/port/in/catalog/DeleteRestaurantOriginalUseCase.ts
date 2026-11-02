@@ -1,3 +1,4 @@
+import type {CatalogSynchronization} from '../../../dto/CatalogSynchronization';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface DeleteRestaurantOriginalUseCase extends UseCase<DeleteRestaurantOriginalUseCase.Request, DeleteRestaurantOriginalUseCase.Response> {
@@ -15,5 +16,7 @@ export namespace DeleteRestaurantOriginalUseCase {
     }
 
     export class Response extends UseCase.Response {
+        readonly value: CatalogSynchronization.Result;
+        constructor(value: CatalogSynchronization.Result) { super(); this.value = UseCase.dto(value); }
     }
 }

@@ -26,7 +26,7 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
+import {usePersonalStore} from '@/stores/business/usePersonalStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed} from 'vue'
@@ -34,10 +34,10 @@ import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {time} from '@/ui/format/time'
 import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-const dining = useDiningStore()
+const personal = usePersonalStore()
 // 展示数据
 const receipts = computed(() => {
-  return dining.receiptData ? [ReceiptView.fromResult(dining.receiptData!)] : []
+  return personal.receiptData ? [ReceiptView.fromResult(personal.receiptData!)] : []
 })
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)

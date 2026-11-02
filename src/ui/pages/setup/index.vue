@@ -20,22 +20,29 @@
         <text class="currency">¥</text>
         <input v-model="ticketInput" placeholder="输入总价" placeholder-style="color: #8f8d8a;" type="digit"/>
       </view>
-      <view class="mode-actions">
-        <depth-button :disabled="startingSingle" class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
-        <depth-button class="mode-button" @click="openRoom">👥 多人模式</depth-button>
+      <view v-if="sessions.selectionPending" class="selection-recovery">
+        <text>用餐已建立，恢复会话即可继续。</text>
+        <view class="selection-recovery-actions">
+          <button :disabled="sessions.loading" @tap="recoverSelection">恢复会话</button>
+          <button :disabled="sessions.loading" @tap="sessions.dismissSelectionRecovery()">稍后处理</button>
+        </view>
+      </view>
+      <view v-else class="mode-actions">
+        <depth-button :disabled="startingSingle || sessions.loading || !!sessions.selectionPending" class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
+        <depth-button :disabled="sessions.loading || !!sessions.selectionPending" class="mode-button" @click="openRoom">👥 多人模式</depth-button>
       </view>
     </view>
     <app-dialog v-if="showRoomModal" :title="joining ? '加入房间' : '一起吃回本'" @close="closeRoomModal">
       <template v-if="!joining">
         <text class="room-dialog-note">创建房间将使用首页门票 ¥{{ ticketInput }}，昵称可在「我的」中设置。</text>
-        <button :hover-stay-time="0" class="room-dialog-primary" @tap="createRoom">创建房间</button>
+        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-primary" @tap="createRoom">创建房间</button>
         <button :hover-stay-time="0" class="room-dialog-secondary" @tap="openJoinRoom">加入房间</button>
-        <button :hover-stay-time="0" class="room-dialog-secondary" @tap="resumeRoom">加入上次房间</button>
+        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-secondary" @tap="resumeRoom">加入上次房间</button>
       </template>
       <template v-else>
         <text class="room-dialog-note">输入房主分享的六位房间号</text>
         <input v-model="roomCode" class="room-code-input" maxlength="6" placeholder="六位房间号" type="number"/>
-        <button :hover-stay-time="0" class="room-dialog-primary" @tap="joinRoom">进入房间</button>
+        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-primary" @tap="joinRoom">进入房间</button>
         <button :hover-stay-time="0" class="room-dialog-secondary" @tap="joining = false">返回</button>
       </template>
     </app-dialog>
@@ -140,20 +147,22 @@ async function enterSingle(action: () => Promise<unknown>) {
   }
 }
 
-async function createRoom() {
-  await sessions.createRoom(PageAmount.minor(ticketInput.value), typeId.value)
+async function enterRoom(action: () => Promise<unknown>) {
+  try { await action() }
+  catch (error) {
+    if (sessions.selectionPending) closeRoomModal()
+    throw error
+  }
   closeRoomModal()
   await navigation.open('menu')
 }
 
-async function joinRoom() {
-  await sessions.joinRoom(roomCode.value)
-  closeRoomModal()
-  await navigation.open('menu')
-}
+const createRoom = () => enterRoom(() => sessions.createRoom(PageAmount.minor(ticketInput.value), typeId.value))
+const joinRoom = () => enterRoom(() => sessions.joinRoom(roomCode.value))
+const resumeRoom = () => enterRoom(() => sessions.joinRoom())
 
-async function resumeRoom() {
-  await sessions.joinRoom()
+async function recoverSelection() {
+  await sessions.recoverSelection()
   closeRoomModal()
   await navigation.open('menu')
 }
@@ -168,6 +177,23 @@ onLoad(async query => {
 </script>
 
 <style scoped>
+.selection-recovery {
+  padding-top: 24rpx;
+  font-size: 25rpx;
+  color: #946511;
+}
+
+.selection-recovery-actions {
+  display: flex;
+  gap: 16rpx;
+  margin-top: 16rpx;
+}
+
+.selection-recovery-actions button {
+  flex: 1;
+  font-size: 25rpx;
+}
+
 .setup-navbar {
   padding-left: 28rpx;
   padding-right: 28rpx

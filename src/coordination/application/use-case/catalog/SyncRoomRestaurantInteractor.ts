@@ -1,4 +1,5 @@
 import {Domain} from '../../../../kernel/domain/Domain';
+import {RoomRestaurantPublisher} from '../../port/out/catalog/RoomRestaurantPublisher';
 import {Transaction} from '../../../../kernel/application/Transaction';
 import {TransactionRunner} from '../../../../kernel/application/TransactionRunner';
 import {TransactionalInteractor} from '../../../../kernel/application/TransactionalInteractor';
@@ -7,13 +8,10 @@ import {SyncRoomRestaurantUseCase} from '../../port/in/catalog/SyncRoomRestauran
 import {
     ReconcileConsumptionUseCase
 } from '../../../../contexts/accounting/application/port/in/ReconcileConsumptionUseCase';
-import {
-    ListDiningActivitiesUseCase
-} from '../../../../contexts/accounting/application/port/in/ListDiningActivitiesUseCase';
 import {PublishRestaurantUseCase} from '../../../../contexts/catalog/application/port/in/PublishRestaurantUseCase';
 import {ReplaceRoomRestaurantUseCase} from '../../../../contexts/catalog/application/port/in/ReplaceRoomRestaurantUseCase';
 import {GetRestaurantUseCase} from '../../../../contexts/catalog/application/port/in/GetRestaurantUseCase';
-import {ListRoomsUseCase} from '../../../../contexts/collaboration/application/port/in/ListRoomsUseCase';
+import {GetRoomUseCase} from '../../../../contexts/collaboration/application/port/in/GetRoomUseCase';
 import {AuthorizeRoomUseCase} from '../../../../contexts/collaboration/application/port/in/AuthorizeRoomUseCase';
 import {
     AuthorizeCatalogSyncUseCase
@@ -21,14 +19,14 @@ import {
 
 export class SyncRoomRestaurantInteractor extends TransactionalInteractor<SyncRoomRestaurantUseCase.Request, SyncRoomRestaurantUseCase.Response> implements SyncRoomRestaurantUseCase {
     constructor(transactions: TransactionRunner,
-                private readonly listDiningActivities: ListDiningActivitiesUseCase,
                 private readonly reconcileConsumption: ReconcileConsumptionUseCase,
                 private readonly replaceRoomRestaurant: ReplaceRoomRestaurantUseCase,
                 private readonly getRestaurant: GetRestaurantUseCase,
                 private readonly publishRestaurant: PublishRestaurantUseCase,
                 private readonly authorizeRoom: AuthorizeRoomUseCase,
                 private readonly authorizeCatalogSync: AuthorizeCatalogSyncUseCase,
-                private readonly listRooms: ListRoomsUseCase) {
+                private readonly getRoom: GetRoomUseCase,
+                private readonly roomRestaurants: RoomRestaurantPublisher) {
         super(transactions, SyncRoomRestaurantUseCase.token);
     }
 
@@ -38,6 +36,7 @@ export class SyncRoomRestaurantInteractor extends TransactionalInteractor<SyncRo
         let updated: Dining.Restaurant;
         if (r.original.type === 'PRIVATE') {
             this.authorizeCatalogSync.execute(new AuthorizeCatalogSyncUseCase.Request(r.roomId, r.actorId, r.original.id));
+            await this.roomRestaurants.publishMedia?.(r.roomId, [r.original.id]);
             updated = (await this.replaceRoomRestaurant.execute(new ReplaceRoomRestaurantUseCase.Request(r.scope, r.roomId, r.original))).value;
         } else {
             const previous = this.getRestaurant.execute(new GetRestaurantUseCase.Request(r.roomId, r.original.id)).value;
@@ -48,11 +47,9 @@ export class SyncRoomRestaurantInteractor extends TransactionalInteractor<SyncRo
                 sourceVersion: r.original.version
             }))).value;
         }
-        for (const activity of this.listDiningActivities.execute(new ListDiningActivitiesUseCase.Request()).value) {
-            const room = this.listRooms.execute(new ListRoomsUseCase.Request()).value.find(a => a.activityId === activity.id);
-            if ((r.roomId === 'local' && !room) || room?.id === r.roomId)
-                await this.reconcileConsumption.execute(new ReconcileConsumptionUseCase.Request(r.scope, activity.id, updated));
-        }
+        const room = this.getRoom.execute(new GetRoomUseCase.Request(r.roomId)).value;
+        Domain.require(room, 'ROOM_NOT_FOUND');
+        await this.reconcileConsumption.execute(new ReconcileConsumptionUseCase.Request(r.scope, room.activityId, updated));
         return new SyncRoomRestaurantUseCase.Response(updated);
     }
 }

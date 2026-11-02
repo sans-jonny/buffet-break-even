@@ -17,7 +17,10 @@
       <text>{{ restaurant.products.length }} 道</text>
     </view>
     <view v-for="p in restaurant.products" :key="p.id" class="restaurant-card dish-card" @tap="editProduct(p.id)">
-      <view class="dish-picture flex-center">{{ p.emoji || '🍽️' }}</view>
+      <view class="dish-picture flex-center">
+        <image v-if="p.coverUrl" :src="productImages.url(p.coverUrl)" class="dish-cover" mode="aspectFill"/>
+        <text v-else>{{ p.emoji || '🍽️' }}</text>
+      </view>
       <view class="restaurant-copy">
         <text class="restaurant-name">{{ p.name }}</text>
         <view class="dish-details">
@@ -34,22 +37,29 @@
         <text @tap="editCategory()">＋ 分类</text>
       </view>
     </view>
-    <text class="editor-note">保存后会出现在「我的餐厅」。修改仅影响之后新开的用餐。</text>
+    <text class="editor-note">保存后会出现在「我的餐厅」，并同步到有权限更新的进行中用餐。</text>
     <view class="editor-footer">
       <button :hover-stay-time="0" @tap="previewRestaurant(restaurant)">预览</button>
       <button :disabled="!isDirty" :hover-stay-time="0" class="primary" @tap="saveAll">保存</button>
     </view>
-    <app-dialog v-if="form" :title="form.kind === 'category' ? '编辑分类' : '编辑菜品'" @close="form = null">
+    <app-dialog v-if="form" :title="form.kind === 'category' ? '编辑分类' : '编辑菜品'" @close="closeForm">
       <input v-model="form.name" class="editor-input" maxlength="60" placeholder="名称"/>
       <template v-if="form.kind === 'product'">
         <picker :range="restaurant.categories" :value="form.categoryIndex" range-key="name" @change="chooseCategory">
           <view class="editor-input">分类：{{ restaurant.categories[form.categoryIndex]?.name || '请选择分类' }}</view>
         </picker>
         <input v-model="form.price" class="editor-input" placeholder="每份参考价值（元）" type="digit"/>
+        <input v-model="coverInput" class="editor-input" maxlength="2048" placeholder="封面图片 URL（可选）"/>
+        <image v-if="form.coverUrl" :src="productImages.url(form.coverUrl)" class="cover-preview" mode="aspectFill"/>
+        <view class="cover-actions">
+          <button :disabled="uploadingCover" @tap="uploadCover">{{ uploadingCover ? '读取中…' : '选择本机图片' }}</button>
+          <button v-if="form.coverUrl" :disabled="uploadingCover" @tap="form.coverUrl = ''">移除封面</button>
+        </view>
+        <text class="editor-note">支持 JPG、PNG、WebP，最大 3MB。照片保存在本机，共享到多人房间时临时上传；留空使用默认图标。</text>
       </template>
       <text class="editor-note">所有估值由你提供，用于回本参考。</text>
-      <button :hover-stay-time="0" class="primary" @tap="applyForm">确认修改</button>
-      <button v-if="form.id" :hover-stay-time="0" class="delete-entry" @tap="deleteEntry">
+      <button :disabled="uploadingCover" :hover-stay-time="0" class="primary" @tap="applyForm">确认修改</button>
+      <button v-if="form.id" :disabled="uploadingCover" :hover-stay-time="0" class="delete-entry" @tap="deleteEntry">
         {{ form.kind === 'category' ? '删除分类' : '删除菜品' }}
       </button>
     </app-dialog>
@@ -70,18 +80,21 @@ import {PageIds} from '@/ui/presentation/PageIds'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {ref} from 'vue'
+import {computed, ref} from 'vue'
 import {onBackPress, onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
+import {useProductImages} from '@/ui/composables/useProductImages'
 
 const catalog = useCatalogStore()
+const productImages = useProductImages()
+const uploadingCover = ref(false)
 // 展示数据
 const restaurant = ref({
   id: PageIds.create(),
   name: '',
   categories: [] as { id: string; name: string }[],
-  products: [] as { id: string; name: string; price: number; category: string; emoji: string; unit: string }[]
+  products: [] as { id: string; name: string; price: number; category: string; emoji: string; unit: string; coverUrl?: string }[]
 })
 let catalogVersion = 0
 // UI 交互状态
@@ -91,9 +104,13 @@ const isDirty = ref(false)
 
 const showLeaveDialog = ref(false)
 
-type Form = { kind: 'category' | 'product'; id: string; name: string; price: string; categoryIndex: number }
+type Form = { kind: 'category' | 'product'; id: string; draftId: string; name: string; price: string; categoryIndex: number; coverUrl: string }
 
 const form = ref<Form | null>(null)
+const coverInput = computed({
+  get: () => form.value && !productImages.isLocal(form.value.coverUrl) ? form.value.coverUrl : '',
+  set: value => { if (form.value) form.value.coverUrl = value }
+})
 
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
@@ -117,7 +134,7 @@ function goBack() {
 
 // UI 交互方法
 function open(kind: Form['kind'], id = '', name = '') {
-  form.value = {kind, id, name, price: '', categoryIndex: 0}
+  form.value = {kind, id, draftId: id || PageIds.create(), name, price: '', categoryIndex: 0, coverUrl: ''}
 }
 
 function editCategory(id = '') {
@@ -129,8 +146,23 @@ function editProduct(id = '') {
   open('product', id, p?.name)
   if (p && form.value) {
     form.value.price = String(p.price);
+    form.value.coverUrl = p.coverUrl || '';
     form.value.categoryIndex = restaurant.value.categories.findIndex(c => c.id === p.category)
   }
+}
+
+function closeForm() {
+  if (!uploadingCover.value) form.value = null
+}
+
+async function uploadCover() {
+  const current = form.value
+  if (!current || current.kind !== 'product' || uploadingCover.value) return
+  uploadingCover.value = true
+  try {
+    const url = await productImages.chooseLocal()
+    if (url && form.value === current) current.coverUrl = url
+  } finally { uploadingCover.value = false }
 }
 
 function chooseCategory(event: { detail: { value: string | number } }) {
@@ -150,10 +182,11 @@ function deleteEntry() {
 
 // 业务操作
 function applyForm() {
+  if (uploadingCover.value) return
   const input = form.value
   if (!input) return
   if (!input.name.trim()) throw new Error('名称不能为空')
-  const id = input.id || PageIds.create()
+  const id = input.draftId
   if (input.kind === 'category') {
     const value = {id, name: input.name.trim()}
     const index = restaurant.value.categories.findIndex(c => c.id === id)
@@ -161,13 +194,16 @@ function applyForm() {
   } else {
     const category = restaurant.value.categories[input.categoryIndex]
     if (!category) throw new Error('请先选择分类')
+    const coverUrl = input.coverUrl.trim()
+    productImages.validate(coverUrl)
     const value = {
       id,
       name: input.name.trim(),
       price: PageAmount.minor(input.price) / 100,
       category: category.id,
       emoji: '🍽️',
-      unit: '份'
+      unit: '份',
+      ...(coverUrl ? {coverUrl} : {})
     }
     const index = restaurant.value.products.findIndex(p => p.id === id)
     if (index < 0) restaurant.value.products.push(value); else restaurant.value.products[index] = value
@@ -191,7 +227,8 @@ function removeProduct(id: string) {
 
 async function saveAll() {
   const r = restaurant.value
-  await catalog.publish({
+  await productImages.saveRestaurant(r.id, r.products)
+  const response = await catalog.publish({
     id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
     restaurantCategory: {id: 'My', name: '我的餐厅'},
     products: r.products.map(p => ({
@@ -203,6 +240,8 @@ async function saveAll() {
   })
   catalogVersion++;
   isDirty.value = false
+  if (response.value.pendingRooms.length)
+    uni.showToast({title: '已保存，房间同步待恢复', icon: 'none'})
 }
 
 async function saveAndLeave() {
@@ -233,6 +272,7 @@ onLoad(async query => {
         price: p.priceMinor / 100,
         category: p.categoryId,
         emoji: '🍽️',
+        coverUrl: productImages.local.get(r.id, p.id),
         unit: '份'
       }))
     }
@@ -248,6 +288,10 @@ onBackPress(() => {
 
 <style scoped src="@/ui/styles/restaurants.css"></style>
 <style scoped>
+.dish-cover {width:100%;height:100%;border-radius:inherit}
+.cover-preview {display:block;width:180rpx;height:180rpx;margin:16rpx 0;border-radius:20rpx}
+.cover-actions {display:flex;gap:16rpx;margin:16rpx 0}
+.cover-actions button {flex:1;font-size:25rpx}
 .leave-actions {
   display: flex;
   gap: 20rpx;

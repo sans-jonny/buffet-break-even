@@ -52,7 +52,7 @@ export namespace CatalogSpec {
         test('目录按稳定身份区分同名公共与私人餐厅，重复产品 ID 拒绝', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant()
             await meal.givenRestaurant({id: 'public', type: 'PUBLIC'})
-            assert.deepEqual(meal.dining.localRestaurants().map(r => r.name), ['同名餐厅', '同名餐厅'])
+            assert.deepEqual(meal.app.catalog.restaurants.map(r => r.name), ['同名餐厅', '同名餐厅'])
             const original = DiningScenario.restaurant()
             assert.deepEqual({...Restaurant.publish({
                 ...original,

@@ -33,9 +33,10 @@ const emit = defineEmits<{
   (event: 'preview', value: string): void
 }>()
 const selected = computed({get: () => props.modelValue, set: value => emit('update:modelValue', value)})
-const drum = useCuisineDrum(props.items.map(item => item.id), selected,
+const drum = useCuisineDrum(() => props.items.map(item => item.id), selected,
     () => (typeof uni.getWindowInfo === 'function' ? uni.getWindowInfo() : uni.getSystemInfoSync()).windowWidth || 375)
-watch(drum.highlightedIndex, index => emit('preview', props.items[index]?.id || props.modelValue), {immediate: true})
+watch(() => props.items[drum.highlightedIndex.value]?.id || props.modelValue,
+    id => emit('preview', id), {immediate: true})
 </script>
 
 <style scoped>

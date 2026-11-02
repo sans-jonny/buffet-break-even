@@ -20,7 +20,7 @@
             <text>BUFFET-CALC</text>
             <text aria-live="polite" class="printing">{{ printComplete ? 'PRINT COMPLETE' : 'PRINTING...' }}</text>
           </view>
-          <depth-button :depth="8" :disabled="isPrinting" ambient-shadow="0 14rpx 18rpx rgba(0, 0, 0, .16)"
+          <depth-button :depth="8" :disabled="isPrinting || album.busy.value" ambient-shadow="0 14rpx 18rpx rgba(0, 0, 0, .16)"
                         class="camera-key" label="打开保存小票图片"
                         shadow-color="#aaa299" @click="openReceiptPreview">
             <text class="camera-icon iconfont icon-xiangji"/>
@@ -34,29 +34,31 @@
       </view>
     </view>
 
-    <app-dialog v-if="showReceiptPreview" title="保存小票图片" @close="showReceiptPreview = false">
-      <text class="album-preview-note">小票预览</text>
-      <receipt-paper detached v-bind="receiptProps"/>
+    <canvas v-if="album.canvasVersion.value" :key="album.canvasVersion.value" canvas-id="receipt-album" id="receipt-album" class="receipt-canvas" :hidpi="false" :style="{width: album.canvasSize.value.width + 'px', height: album.canvasSize.value.height + 'px'}" :width="album.canvasSize.value.width" :height="album.canvasSize.value.height"/>
+    <app-dialog v-if="album.previewPath.value" title="保存小票图片" @close="album.previewPath.value = ''">
+      <text class="album-preview-note">长按图片保存，也可以点击图片下载</text>
+      <!-- #ifdef H5 -->
+      <a :href="album.previewPath.value" :download="album.filename.value" class="album-download">
+        <img class="album-preview" :src="album.previewPath.value" alt="小票图片，长按可保存"/>
+      </a>
+      <!-- #endif -->
+      <!-- #ifndef H5 -->
+      <image class="album-preview" :src="album.previewPath.value" mode="widthFix" :show-menu-by-longpress="true" @tap="album.download"/>
+      <!-- #endif -->
     </app-dialog>
+    <app-confirm-dialog :controller="album.permissionDialog"/>
 
     <text v-if="isRoomView && roomMessage" class="room-result-note">{{ roomMessage }}</text>
-    <picker v-if="!isSavedView && (!isRoomView || viewMode === 'room-host') && dining.activityData?.status === 'ACTIVE'"
-            :range="finalRestaurants" range-key="name" @change="chooseFinalRestaurant">
-      <view class="final-restaurant">
-        最终餐厅：{{ finalRestaurants.find(r => r.id === finalRestaurantId)?.name || '请选择最终餐厅 ›' }}
-      </view>
-    </picker>
     <view class="result-actions">
       <view class="secondary-action flex-center" @tap="secondaryAction.run">{{ secondaryAction.label }}</view>
       <view v-if="!isSavedView" class="primary-action flex-center" @tap="save">存到小票夹</view>
-      <view v-if="viewMode === 'room-ended'" class="primary-action flex-center" @tap="dining.saveHistory()">补存历史
-      </view>
     </view>
     <app-confirm-dialog :controller="confirmation"/>
   </view>
 </template>
 
 <script lang="ts" setup>
+import {usePersonalStore} from '@/stores/business/usePersonalStore'
 import {useDiningStore} from '@/stores/business/useDiningStore'
 import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
@@ -66,30 +68,27 @@ import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dia
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import {computed, ref, watch} from 'vue'
-import {onLoad, onUnload} from '@dcloudio/uni-app'
+import {useReceiptAlbum} from '@/ui/composables/useReceiptAlbum'
+import {onLoad, onShow, onUnload} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {time} from '@/ui/format/time'
+import {PageFeedback} from '@/ui/presentation/PageFeedback'
 
 const menuPageState = useMenuPageStateStore()
 
 
+const personal = usePersonalStore()
 const dining = useDiningStore()
 const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
-const finalRestaurantId = ref('')
-const finalRestaurants = computed(() => {
-  return dining.restaurants()
-})
-
-function chooseFinalRestaurant(event: { detail: { value: string | number } }) {
-  finalRestaurantId.value = finalRestaurants.value[Number(event.detail.value)]?.id || ''
-}
+const finalRestaurantId = computed(() => selectedRestaurant.value)
 
 // 展示数据
 const savedView = ref(false)
 const displayReceipt = computed(() => {
   const selected = finalRestaurantId.value || selectedRestaurant.value
-  const result = savedView.value ? dining.receiptData : dining.sessionData && selected ? dining.preview(selected) : undefined
+  const result = savedView.value ? personal.receiptData : dining.activityData?.result ||
+      (dining.sessionData && selected ? dining.preview(selected) : undefined)
   return result ? ReceiptView.fromResult(result) : {
     id: '',
     restaurant: '尚无用餐结果',
@@ -117,11 +116,11 @@ const receiptProps = computed(() => {
 // UI 交互状态
 const confirmation = useAppDialog()
 
-type ResultMode = 'single' | 'room-host' | 'room-member' | 'room-ended' | 'saved'
+type ResultMode = 'single' | 'single-ended' | 'room-host' | 'room-member' | 'room-ended' | 'saved'
 
 const viewMode = computed<ResultMode>(() => {
   const room = dining.roomData;
-  return savedView.value ? 'saved' : !room ? 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identityData?.id ? 'room-host' : 'room-member'
+  return savedView.value ? 'saved' : !room ? dining.activityData?.status === 'ENDED' ? 'single-ended' : 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identityData?.id ? 'room-host' : 'room-member'
 })
 
 const isSavedView = computed(() => viewMode.value === 'saved')
@@ -132,12 +131,12 @@ const printComplete = ref(false), RECEIPT_PRINT_MS = 1500
 
 const isPrinting = computed(() => !isSavedView.value && !printComplete.value)
 
-const showReceiptPreview = ref(false)
+const album = useReceiptAlbum(() => ({...receiptProps.value, date: displayReceipt.value.date}))
 
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 
-const goBack = () => navigation.back(isSavedView.value ? 'receipts' : 'menu')
+const goBack = () => viewMode.value === 'room-ended' || viewMode.value === 'single-ended' ? finishShared() : navigation.back(isSavedView.value ? 'receipts' : 'menu')
 
 const finishShared = () => navigation.open('setup', 'reset')
 
@@ -147,6 +146,7 @@ const secondaryAction = computed(() => {
     case 'saved':
       return {label: '删除收藏', run: confirmDelete}
     case 'room-ended':
+    case 'single-ended':
       return {label: '返回首页', run: finishShared}
     case 'room-host':
       return {label: '结束整桌用餐', run: endRoom}
@@ -163,13 +163,13 @@ function onPrintEnd(event: { animationName?: string; detail?: { animationName?: 
 }
 
 function openReceiptPreview() {
-  if (!isPrinting.value) showReceiptPreview.value = true
+  if (!isPrinting.value) return album.openPreview()
 }
 
 function endDining() {
-  if (!finalRestaurantId.value) throw new Error('请先选择最终餐厅')
+  if (!finalRestaurantId.value) throw new Error('当前餐厅不可用，请返回菜单重试')
   confirmation.open({
-    title: '确认最终餐厅',
+    title: '结算当前餐厅',
     content: `选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
     success: r => {
       if (r.confirm) return completeDining()
@@ -178,9 +178,9 @@ function endDining() {
 }
 
 function endRoom() {
-  if (!finalRestaurantId.value) throw new Error('请先选择最终餐厅')
+  if (!finalRestaurantId.value) throw new Error('当前餐厅不可用，请返回菜单重试')
   confirmation.open({
-    title: '确认最终餐厅',
+    title: '结算当前餐厅',
     content: `全桌选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
     success: r => {
       if (r.confirm) return completeRoom()
@@ -198,7 +198,7 @@ function confirmDelete() {
 
 // 业务操作
 async function save() {
-  await dining.saveReceipt(finalRestaurantId.value || selectedRestaurant.value)
+  await personal.saveReceipt(dining.activityData?.result || dining.preview(finalRestaurantId.value || selectedRestaurant.value))
   uni.showToast({title: '已存到小票夹', icon: 'none'})
 }
 
@@ -212,15 +212,37 @@ async function completeRoom() {
 }
 
 async function deleteReceipt() {
-  await dining.deleteReceipt()
+  await personal.deleteReceipt()
   await navigation.back('receipts')
 }
 
 // 生命周期与动画监听
-onLoad(query => {
+let historyPending: Promise<unknown> | undefined
+async function ensureHistory() {
+  const session = dining.sessionData, activity = dining.activityData, room = dining.roomData
+  if (savedView.value || !session || activity?.status !== 'ENDED' || !activity.result ||
+      !room?.eligibleIds.includes(dining.identityData?.id || '') ||
+      personal.historyData.some(record => record.activityId === activity.id)) return
+  if (historyPending) return historyPending
+  historyPending = personal.saveHistory(session, activity.result)
+  try { await historyPending } finally { historyPending = undefined }
+}
+
+const resultLoaded = ref(false)
+watch(() => resultLoaded.value && !savedView.value && dining.activityData?.status === 'ENDED' &&
+    dining.roomData?.eligibleIds.includes(dining.identityData?.id || '') ? dining.activityData.id : '', id => {
+  if (id) void ensureHistory().catch(PageFeedback.report)
+})
+
+onLoad(async query => {
   if (query?.receiptId) {
     savedView.value = true
   }
+  await ensureHistory()
+  resultLoaded.value = true
+})
+onShow(() => {
+  if (resultLoaded.value) void ensureHistory().catch(PageFeedback.report)
 })
 
 const stopPrintTimer = watch(isPrinting, (printing, _previous, onCleanup) => {
@@ -235,14 +257,9 @@ onUnload(stopPrintTimer)
 </script>
 
 <style scoped>
-.final-restaurant {
-  margin: 20rpx 30rpx;
-  padding: 24rpx;
-  background: #fff0dd;
-  border-radius: 20rpx;
-  text-align: center;
-  color: #8c5727
-}
+.receipt-canvas {position:fixed;left:-10000px;top:0;pointer-events:none}
+.album-preview {display:block;width:100%}
+.album-download {display:block}
 
 .album-preview-note {
   display: block;

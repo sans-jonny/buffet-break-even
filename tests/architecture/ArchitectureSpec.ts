@@ -29,6 +29,17 @@ export namespace ArchitectureSpec {
 
     export function verify(): void {
         const sources = ['src', 'server/src', 'protocol', 'tests'].flatMap(directory => files(resolve(directory)))
+        test('领域模型不声明 URL 或 emoji 等展示字段', () => {
+            for (const file of sources.filter(file => /src[\\/]contexts[\\/].+[\\/]domain[\\/]/.test(file))) {
+                const source = ts.createSourceFile(file, readFileSync(file, 'utf8'), ts.ScriptTarget.Latest, true);
+                const visit = (node: ts.Node) => {
+                    if ((ts.isPropertyDeclaration(node) || ts.isPropertySignature(node)) && node.name && ts.isIdentifier(node.name))
+                        assert.ok(!/url|emoji/i.test(node.name.text), `${file}: 展示信息应存入独立的媒体数据`);
+                    ts.forEachChild(node, visit);
+                };
+                visit(source);
+            }
+        });
         test('页面通过 useStore 访问业务，不保留客户端门面或等待初始化', () => {
             assert.equal(existsSync(resolve('src/ui/DiningClient.ts')), false);
             assert.equal(existsSync(resolve('src/ui/useDining.ts')), false);

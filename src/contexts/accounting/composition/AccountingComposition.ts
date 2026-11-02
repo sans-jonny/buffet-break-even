@@ -1,4 +1,3 @@
-import type {InjectionToken} from '../../../kernel/application/InjectionToken';
 import {RepositoryTransaction} from '../../../infrastructure/storage/RepositoryTransaction';
 import {BatchRuntime} from '../../../infrastructure/projection/BatchRuntime';
 import {AccountingEventMapper} from '../adapter/persistence/AccountingEventMapper';
@@ -66,27 +65,62 @@ export namespace AccountingComposition {
         runtime.register(AccountingEventMapper.activityTypes, StorageDiningActivityRepository.project);
         runtime.register(AccountingEventMapper.consumptionTypes, StorageRestaurantConsumptionRepository.project);
     }
-    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction, options: {id: () => string; now: () => string}, personalRunner: InjectionToken<TransactionRunner>): void {
-        const diningActivityRepository = new StorageDiningActivityRepository(repositoryContext);
-        scope.provide(DiningActivityRepository.token, diningActivityRepository);
-        const restaurantConsumptionRepository = new StorageRestaurantConsumptionRepository(repositoryContext);
-        scope.provide(RestaurantConsumptionRepository.token, restaurantConsumptionRepository);
-        scope.provide(DiningActivityQuery.token, new StorageDiningActivityQuery(diningActivityRepository));
-        scope.provide(ConsumptionQuery.token, new StorageConsumptionQuery(restaurantConsumptionRepository));
-        scope.provide(CreateDiningActivityUseCase.token, new CreateDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
-        scope.provide(CreateConsumptionUseCase.token, new CreateConsumptionInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(IncreaseProductUseCase.token, new IncreaseProductInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(DecreaseProductUseCase.token, new DecreaseProductInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(RemoveConsumptionItemUseCase.token, new RemoveConsumptionItemInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(ClearRoundUseCase.token, new ClearRoundInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(SubmitRoundUseCase.token, new SubmitRoundInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token), options.id));
-        scope.provide(ChangeTicketPriceUseCase.token, new ChangeTicketPriceInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
-        scope.provide(EndDiningActivityUseCase.token, new EndDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(AbandonDiningActivityUseCase.token, new AbandonDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
-        scope.provide(ReconcileConsumptionUseCase.token, new ReconcileConsumptionInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token), scope.resolve(RestaurantConsumptionRepository.token)));
-        scope.provide(GetDiningActivityUseCase.token, new GetDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityQuery.token)));
-        scope.provide(GetConsumptionUseCase.token, new GetConsumptionInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ConsumptionQuery.token)));
-        scope.provide(ListDiningActivitiesUseCase.token, new ListDiningActivitiesInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityQuery.token)));
-        scope.provide(CalculateDiningResultUseCase.token, new CalculateDiningResultInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityQuery.token), scope.resolve(ConsumptionQuery.token)));
+    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction, options: {id: () => string}): void {
+        scope.factory(DiningActivityRepository.token, () => new StorageDiningActivityRepository(repositoryContext));
+        scope.factory(RestaurantConsumptionRepository.token, () => new StorageRestaurantConsumptionRepository(repositoryContext));
+        scope.factory(DiningActivityQuery.token, () => new StorageDiningActivityQuery(scope.resolve(DiningActivityRepository.token)));
+        scope.factory(ConsumptionQuery.token, () => new StorageConsumptionQuery(scope.resolve(RestaurantConsumptionRepository.token)));
+        scope.factory(CreateDiningActivityUseCase.token, () => new CreateDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
+        scope.factory(CreateConsumptionUseCase.token, () => new CreateConsumptionInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(IncreaseProductUseCase.token, () => new IncreaseProductInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(DecreaseProductUseCase.token, () => new DecreaseProductInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(RemoveConsumptionItemUseCase.token, () => new RemoveConsumptionItemInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(ClearRoundUseCase.token, () => new ClearRoundInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(SubmitRoundUseCase.token, () => new SubmitRoundInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token),
+            options.id
+        ));
+        scope.factory(ChangeTicketPriceUseCase.token, () => new ChangeTicketPriceInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
+        scope.factory(EndDiningActivityUseCase.token, () => new EndDiningActivityInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(AbandonDiningActivityUseCase.token, () => new AbandonDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityRepository.token)));
+        scope.factory(ReconcileConsumptionUseCase.token, () => new ReconcileConsumptionInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityRepository.token),
+            scope.resolve(RestaurantConsumptionRepository.token)
+        ));
+        scope.factory(GetDiningActivityUseCase.token, () => new GetDiningActivityInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityQuery.token)));
+        scope.factory(GetConsumptionUseCase.token, () => new GetConsumptionInteractor(scope.resolve(TransactionRunner.token), scope.resolve(ConsumptionQuery.token)));
+        scope.factory(ListDiningActivitiesUseCase.token, () => new ListDiningActivitiesInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningActivityQuery.token)));
+        scope.factory(CalculateDiningResultUseCase.token, () => new CalculateDiningResultInteractor(
+            scope.resolve(TransactionRunner.token),
+            scope.resolve(DiningActivityQuery.token),
+            scope.resolve(ConsumptionQuery.token)
+        ));
     }
 }

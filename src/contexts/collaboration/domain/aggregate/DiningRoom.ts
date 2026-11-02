@@ -8,6 +8,7 @@ import {MemberRejoined} from '../event/MemberRejoined';
 import {MemberLeft} from '../event/MemberLeft';
 import {MemberObservedOffline} from '../event/MemberObservedOffline';
 import {HostTransferred} from '../event/HostTransferred';
+import {MemberNicknameChanged} from '../event/MemberNicknameChanged';
 import {RoomEnded} from '../event/RoomEnded';
 import {RoomAbandoned} from '../event/RoomAbandoned';
 
@@ -105,6 +106,12 @@ export class DiningRoom extends AggregateRoot<DiningRoom.State> {
         });
     }
 
+    changeNickname(memberId: string, nickname: string): MemberNicknameChanged {
+        this.authorize(memberId);
+        Domain.require(!!nickname.trim() && nickname.trim().length <= 24, 'INVALID_NICKNAME');
+        return new MemberNicknameChanged(this.id, this.version, {memberId, nickname: nickname.trim()});
+    }
+
     transferHost(actor: string, target: string): HostTransferred | DiningRoomRejected {
         this.authorize(actor, true);
         if (target === actor || !this.members.some(m => m.id === target && m.online && m.present))
@@ -152,6 +159,7 @@ export namespace DiningRoom {
         | MemberLeft
         | MemberObservedOffline
         | HostTransferred
+        | MemberNicknameChanged
         | RoomEnded
         | RoomAbandoned;
 }

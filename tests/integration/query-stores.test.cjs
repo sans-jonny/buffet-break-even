@@ -9,6 +9,8 @@ const {DiningStore} = require('../../src/stores/business/DiningStore.ts')
 const {IncreaseDiningProductUseCase} = require('../../src/coordination/application/port/in/dining/IncreaseDiningProductUseCase.ts')
 const {InitializeDiningUseCase} = require('../../src/coordination/application/port/in/initialization/InitializeDiningUseCase.ts')
 const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
+const {PersonalStore} = require('../../src/stores/business/PersonalStore.ts')
+const {LocalDiningData} = require('../../src/coordination/application/port/out/device/LocalDiningData.ts')
 
 async function fixture(t) {
     let sequence = 0
@@ -29,6 +31,7 @@ async function fixture(t) {
 test('同一 Pinia 根共享业务 Store；Page 直接读取属性，提交后由查询订阅更新', async t => {
     const {app, sessionStore} = await fixture(t)
     assert.equal(DiningStore.create(null, null, app.pinia), app.dining)
+    assert.equal(PersonalStore.create(null, null, app.pinia), app.personal)
     const activityId = app.dining.sessionData.activityId
     const count = computed(() => app.accounting.consumption(activityId, 'buffet')?.rounds[0].items.shrimp || 0)
     const values = []
@@ -43,6 +46,66 @@ test('同一 Pinia 根共享业务 Store；Page 直接读取属性，提交后�
     assert.ok(isReadonly(app.catalog.restaurants))
     assert.ok(isReadonly(app.dining.restaurantsData))
     assert.ok(Object.isFrozen(app.queries.client.getQueryData(['catalog', 'local'])[0]))
+})
+
+test('个人记录使用显式结果；无页面订阅时保存和删除后首次读取仍是最新数据', async t => {
+    const {app, sessionStore, release} = await fixture(t)
+    await app.dining.edit('buffet', 'add', 'shrimp', 2)
+    const originalSession = app.dining.sessionData
+    const result = app.dining.preview('buffet')
+    await sessionStore.startSingle(30000, undefined, originalSession.activityId)
+    assert.notEqual(app.dining.sessionData.activityId, result.activityId)
+    release()
+    assert.equal(app.personal.receipt(), undefined) // Prime an inactive personal query.
+    await app.personal.saveReceipt(result)
+    const saved = app.personal.receipt()
+    assert.equal(saved.activityId, originalSession.activityId)
+    assert.equal(saved.foodValueMinor, 3000)
+    assert.equal(saved.ticketPriceMinor, 20000)
+    assert.ok(Object.isFrozen(saved))
+    await app.personal.deleteReceipt()
+    assert.equal(app.personal.receipt(), undefined)
+    assert.equal(app.dining.activityData.ticketPriceMinor, 30000)
+})
+
+test('单人活动已创建但选择失败时保留恢复入口，仅重试选择，不重复创建或放弃', async t => {
+    const {app, sessionStore} = await fixture(t)
+    const previous = app.dining.sessionData
+    const data = app.resolve(LocalDiningData.token), select = data.selectSession.bind(data)
+    let fail = true
+    t.mock.method(data, 'selectSession', async (...args) => {
+        if (fail) { fail = false; throw new Error('SELECTION_DISK_FAILED') }
+        return select(...args)
+    })
+    await assert.rejects(sessionStore.startSingle(25000, undefined, previous.activityId), /SESSION_SELECTION_PENDING/)
+    const pending = sessionStore.selectionPending
+    assert.notEqual(pending.activityId, previous.activityId)
+    assert.equal(app.dining.sessionData.activityId, previous.activityId)
+    const count = app.accounting.activities.length
+    await assert.rejects(sessionStore.startSingle(30000), /SESSION_SELECTION_PENDING/)
+    assert.equal(app.accounting.activities.length, count)
+    await sessionStore.recoverSelection()
+    assert.equal(app.dining.sessionData.activityId, pending.activityId)
+    assert.equal(app.dining.activityData.ticketPriceMinor, 25000)
+    assert.equal(sessionStore.selectionPending, undefined)
+    assert.equal(app.accounting.activities.length, count)
+})
+
+test('并发切换会话被拒绝，不会在第一次选择完成前创建第二个活动', async t => {
+    const {app, sessionStore} = await fixture(t)
+    const data = app.resolve(LocalDiningData.token), select = data.selectSession.bind(data)
+    let entered, release
+    const selecting = new Promise(resolve => { entered = resolve })
+    const gate = new Promise(resolve => { release = resolve })
+    t.mock.method(data, 'selectSession', async (...args) => { entered(); await gate; return select(...args) })
+    const first = sessionStore.startSingle(25000, undefined, app.dining.sessionData.activityId)
+    try {
+        await selecting
+        await assert.rejects(sessionStore.startSingle(30000), /SESSION_BUSY/)
+    } finally { release() }
+    await first
+    assert.equal(app.accounting.activities.length, 2)
+    assert.equal(app.dining.activityData.ticketPriceMinor, 25000)
 })
 
 test('两个页面共享一个 observer；最后一页隐藏后停止订阅，重新显示刷新失效查询', async t => {
@@ -97,14 +160,37 @@ test('持久化失败不失效查询，刷新失败不会重发或否定已成�
     assert.equal(invalidations, 0)
     assert.equal(app.dining.activityData, old)
     storage.fail = undefined
-    void app.catalog.restaurants
-    app.queries.client.setQueryDefaults(['catalog', 'local'], {queryFn: () => { throw new Error('QUERY_FAILED') }})
+    void app.dining.preview('buffet')
+    app.queries.client.setQueryDefaults(['coordination', 'result'], {queryFn: () => { throw new Error('QUERY_FAILED') }})
     // Existing observers keep their own options; use the actual injected query function for failure.
-    const query = app.queries.client.getQueryCache().find({queryKey: ['catalog', 'local']})
+    const query = app.queries.client.getQueryCache().findAll({queryKey: ['coordination', 'result']})[0]
     query.setOptions({...query.options, queryFn: () => { throw new Error('QUERY_FAILED') }})
     await app.dining.paying(25000)
     assert.equal(app.dining.activityData.ticketPriceMinor, 25000)
     assert.equal(app.dining.error.message, 'QUERY_FAILED')
+})
+
+test('加菜只刷新对应消费和核算；完成用餐仍刷新自动生成的个人历史', async t => {
+    const {app} = await fixture(t)
+    const activityId = app.dining.sessionData.activityId
+    void app.catalog.restaurants
+    void app.collaboration.rooms
+    void app.personal.historyData
+    void app.accounting.activities
+    void app.accounting.consumption(activityId, 'buffet')
+    void app.dining.preview('buffet')
+    const invalidated = []
+    t.after(app.queries.client.getQueryCache().subscribe(event => {
+        if (event.type === 'updated' && event.action.type === 'invalidate') invalidated.push(event.query.queryKey)
+    }))
+    await app.dining.edit('buffet', 'add', 'shrimp', 1)
+    assert.ok(invalidated.some(key => key[0] === 'accounting' && key[1] === 'consumption'))
+    assert.ok(invalidated.some(key => key[0] === 'coordination' && key[1] === 'result'))
+    assert.ok(!invalidated.some(key => key[0] === 'catalog' || key[0] === 'collaboration' || key[1] === 'activities' || key[1] === 'personal'))
+    invalidated.length = 0
+    await app.dining.finish('buffet')
+    assert.ok(invalidated.some(key => key[1] === 'personal'))
+    assert.equal(app.personal.historyData.length, 1)
 })
 
 test('页面交互状态按活动与餐厅分槽，重复访问可恢复且不存业务 DTO', async t => {

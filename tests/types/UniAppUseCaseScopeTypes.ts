@@ -10,6 +10,9 @@ export namespace UniAppUseCaseScopeTypes {
     export function verify(scope: UniAppUseCaseScope, runner: UseCaseTransactionRunner, tx: Transaction.Context): void {
         const token = Symbol('Service') as InjectionToken<{name: string}>;
         scope.provide(token, {name: 'service'});
+        scope.factory(token, () => ({name: 'lazy'}));
+        // @ts-expect-error Factories must satisfy the token's service contract.
+        scope.factory(token, () => ({name: 123}));
         const service = scope.resolve(token);
         const name: string = service.name;
         // @ts-expect-error The resolved value is inferred from the token, not any.

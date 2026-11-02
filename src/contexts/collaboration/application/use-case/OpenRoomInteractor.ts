@@ -13,7 +13,6 @@ export class OpenRoomInteractor extends TransactionalInteractor<OpenRoomUseCase.
 
     protected async executeInTransaction(r: OpenRoomUseCase.Request,
                                          tx: Transaction.Context): Promise<OpenRoomUseCase.Response> {
-        Domain.require(!this.rooms.all().some(a => a.id !== r.roomId && a.snapshot().status === 'ACTIVE' && a.snapshot().members.some(m => m.id === r.memberId && m.present)), 'ACTIVE_ROOM_EXISTS');
         Domain.require(!this.rooms.findById(r.roomId), 'ROOM_ALREADY_EXISTS');
         const saved = await this.rooms.apply(DiningRoom.create(r.roomId, r.code, r.activityId, r.memberId, r.nickname, r.sourceIds));
         return new OpenRoomUseCase.Response(saved!.snapshot());

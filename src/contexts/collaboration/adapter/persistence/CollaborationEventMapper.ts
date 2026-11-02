@@ -6,7 +6,7 @@ import {SerializedEvent} from '../../../../kernel/application/SerializedEvent';
 import {DiningRoom} from '../../domain/aggregate/DiningRoom';
 
 export class CollaborationEventMapper {
-    static readonly types = ['RoomOpened', 'MemberJoined', 'MemberRejoined', 'MemberLeft', 'MemberObservedOffline', 'HostTransferred', 'RoomEnded', 'RoomAbandoned'];
+    static readonly types = ['RoomOpened', 'MemberJoined', 'MemberRejoined', 'MemberLeft', 'MemberObservedOffline', 'HostTransferred', 'MemberNicknameChanged', 'RoomEnded', 'RoomAbandoned'];
 
     static apply(event: SerializedEvent.Fact, state: Transaction.State): void {
         const e = SerializedEvent.decode<DiningRoom.Event>(event),
@@ -35,6 +35,11 @@ export class CollaborationEventMapper {
         Domain.require(before, 'AGGREGATE_NOT_FOUND');
         const next = PersistedRecord.copy(before);
         switch (e.type) {
+            case 'MemberNicknameChanged':
+                Domain.require(next.members.some(m => m.id === e.facts.memberId), 'MEMBER_NOT_FOUND');
+                Domain.require(!!e.facts.nickname.trim() && e.facts.nickname.trim().length <= 24, 'INVALID_NICKNAME');
+                next.members = next.members.map(m => m.id === e.facts.memberId ? {...m, nickname: e.facts.nickname} : m);
+                break;
             case 'MemberJoined':
                 next.members = [...next.members.filter(m => m.id !== e.facts.member.id), PersistedRecord.copy(e.facts.member)];
                 next.hostId = e.facts.hostId;

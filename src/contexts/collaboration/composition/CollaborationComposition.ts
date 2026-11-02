@@ -1,4 +1,3 @@
-import type {InjectionToken} from '../../../kernel/application/InjectionToken';
 import {RepositoryTransaction} from '../../../infrastructure/storage/RepositoryTransaction';
 import {BatchRuntime} from '../../../infrastructure/projection/BatchRuntime';
 import {CollaborationEventMapper} from '../adapter/persistence/CollaborationEventMapper';
@@ -31,23 +30,26 @@ import {
 } from '../application/use-case/AuthorizeCatalogSyncInteractor';
 import {AuthorizeCatalogSyncUseCase} from '../application/port/in/AuthorizeCatalogSyncUseCase';
 
+import {ChangeMemberNicknameUseCase} from '../application/port/in/ChangeMemberNicknameUseCase';
+import {ChangeMemberNicknameInteractor} from '../application/use-case/ChangeMemberNicknameInteractor';
+
 export namespace CollaborationComposition {
     export function registerRuntime(runtime: BatchRuntime.Runtime): void {
         runtime.register(CollaborationEventMapper.types, StorageDiningRoomRepository.project);
     }
-    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction, options: {id: () => string; now: () => string}, personalRunner: InjectionToken<TransactionRunner>): void {
-        const diningRoomRepository = new StorageDiningRoomRepository(repositoryContext);
-        scope.provide(DiningRoomRepository.token, diningRoomRepository);
-        scope.provide(RoomQuery.token, new StorageRoomQuery(diningRoomRepository));
-        scope.provide(OpenRoomUseCase.token, new OpenRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(JoinRoomUseCase.token, new JoinRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(LeaveRoomUseCase.token, new LeaveRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(TransferHostUseCase.token, new TransferHostInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(EndRoomUseCase.token, new EndRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(AbandonRoomUseCase.token, new AbandonRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
-        scope.provide(GetRoomUseCase.token, new GetRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
-        scope.provide(ListRoomsUseCase.token, new ListRoomsInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
-        scope.provide(AuthorizeRoomUseCase.token, new AuthorizeRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
-        scope.provide(AuthorizeCatalogSyncUseCase.token, new AuthorizeCatalogSyncInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
+    export function register(scope: UniAppUseCaseScope, repositoryContext: RepositoryTransaction): void {
+        scope.factory(ChangeMemberNicknameUseCase.token, () => new ChangeMemberNicknameInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(DiningRoomRepository.token, () => new StorageDiningRoomRepository(repositoryContext));
+        scope.factory(RoomQuery.token, () => new StorageRoomQuery(scope.resolve(DiningRoomRepository.token)));
+        scope.factory(OpenRoomUseCase.token, () => new OpenRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(JoinRoomUseCase.token, () => new JoinRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(LeaveRoomUseCase.token, () => new LeaveRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(TransferHostUseCase.token, () => new TransferHostInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(EndRoomUseCase.token, () => new EndRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(AbandonRoomUseCase.token, () => new AbandonRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(DiningRoomRepository.token)));
+        scope.factory(GetRoomUseCase.token, () => new GetRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
+        scope.factory(ListRoomsUseCase.token, () => new ListRoomsInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
+        scope.factory(AuthorizeRoomUseCase.token, () => new AuthorizeRoomInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
+        scope.factory(AuthorizeCatalogSyncUseCase.token, () => new AuthorizeCatalogSyncInteractor(scope.resolve(TransactionRunner.token), scope.resolve(RoomQuery.token)));
     }
 }

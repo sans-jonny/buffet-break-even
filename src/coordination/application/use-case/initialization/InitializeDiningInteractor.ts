@@ -10,11 +10,14 @@ export class InitializeDiningInteractor implements InitializeDiningUseCase {
                 private readonly id: () => string) {}
     async execute(request: InitializeDiningUseCase.Request): Promise<InitializeDiningUseCase.Response> {
         await this.initialize.execute(new InitializeIdentityUseCase.Request(this.id()));
-        // Deleted originals still count: an intentionally emptied catalog must not be reseeded.
-        if (!this.restaurants.execute(new ListRestaurantsUseCase.Request('local', true)).value.length) {
-            const actor = this.personal.execute().identity!;
-            for (const restaurant of request.referenceCatalog)
+        // Add new bundled restaurants to existing devices without overwriting edits or deletions.
+        const knownIds = new Set(this.restaurants.execute(new ListRestaurantsUseCase.Request('local', true)).value.map(r => r.id));
+        const actor = this.personal.execute().identity!;
+        for (const restaurant of request.referenceCatalog) {
+            if (!knownIds.has(restaurant.id)) {
                 await this.publish.execute(new PublishRestaurantOriginalUseCase.Request(restaurant, actor.id));
+                knownIds.add(restaurant.id);
+            }
         }
         return new InitializeDiningUseCase.Response();
     }

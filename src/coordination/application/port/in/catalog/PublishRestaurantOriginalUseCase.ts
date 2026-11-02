@@ -1,3 +1,4 @@
+import type {CatalogSynchronization} from '../../../dto/CatalogSynchronization';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -17,5 +18,7 @@ export namespace PublishRestaurantOriginalUseCase {
     }
 
     export class Response extends UseCase.Response {
+        readonly value: CatalogSynchronization.Result;
+        constructor(value: CatalogSynchronization.Result) { super(); this.value = UseCase.dto(value); }
     }
 }
