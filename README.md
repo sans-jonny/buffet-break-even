@@ -4,17 +4,31 @@
 
 ## 运行
 
-需要 Node.js 22 或更新版本。项目只有一个 npm 模块；客户端使用 UniApp Storage，服务端使用 SQLite / Prisma。
+需要 Node.js 22 或更新版本。客户端和服务端分别安装依赖：根目录是 UniApp 客户端，`server/package.json` 是独立的 Fastify / SQLite / Prisma 服务端包。
+
+先启动服务端（无需安装根目录依赖）：
+
+```powershell
+cd server
+Copy-Item .env.example .env
+npm ci
+npm run db:migrate
+npm start
+```
+
+安装和启动时都会自动生成 `server/generated/client`，避免缺失 Prisma 客户端。数据库迁移需在首次运行或更新数据库结构后执行；默认数据库为 `server/prisma/dev.db`。服务端读取 `server/.env`，也支持直接设置环境变量。服务端类型检查：在 `server` 中执行 `npm run type-check`。
+
+另开终端，在项目根目录启动客户端：
 
 ```powershell
 npm ci
 Copy-Item .env.example .env
-npm run db:generate
-npm run db:migrate
-npm run server
+npm run dev:h5
 ```
 
-另开终端执行 `npm run dev:h5`。单人模式无需服务端。多人默认连接 `http://127.0.0.1:3001`；跨设备请设置 `HOST=0.0.0.0`，并将
+根目录的 `npm run server`、`npm run db:generate`、`npm run db:migrate` 和 `npm run db:push` 会转发到服务端包；使用前需安装 `server` 依赖。服务端依赖共享的 `protocol` 目录，部署时需保留该目录与 `server` 的相对位置。
+
+单人模式无需服务端。多人默认连接 `http://127.0.0.1:3001`；跨设备请在 `server/.env` 设置 `HOST=0.0.0.0`，并在根目录 `.env` 中将
 `VITE_RELAY_URL` 改为可访问的地址。微信真机需配置合法 HTTPS/WSS 域名。
 
 ## 验证
@@ -27,7 +41,7 @@ npm run build:mp-weixin
 ```
 
 测试包括领域 DSL、事件闭包回滚、Storage 故障注入、真实 SQLite CAS/SQL 回滚、HTTP 协议、架构依赖和真实 SFC 业务流程。首次测试前先执行
-`npm run db:generate`；测试数据库在系统临时目录独立创建并清理。
+`npm --prefix server ci`（会自动生成 Prisma 客户端）；测试数据库在系统临时目录独立创建并清理。完整测试需要同时安装根目录和服务端依赖。
 
 ## 代码与约定
 

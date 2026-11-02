@@ -1,0 +1,28 @@
+{
+  "name": "buffet-relay-server",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "postinstall": "npm run db:generate",
+    "prestart": "npm run db:generate",
+    "start": "node scripts/start.cjs",
+    "type-check": "tsc --project tsconfig.json",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema prisma/schema.prisma"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.2.0",
+    "@fastify/websocket": "^11.2.0",
+    "@prisma/client": "6.19.0",
+    "fastify": "^5.6.2",
+    "typescript": "~5.7.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "prisma": "6.19.0"
+  }
+}

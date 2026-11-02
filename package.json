@@ -34,13 +34,13 @@
     "build:quickapp-webview": "node scripts/uni.cjs build -p quickapp-webview",
     "build:quickapp-webview-huawei": "node scripts/uni.cjs build -p quickapp-webview-huawei",
     "build:quickapp-webview-union": "node scripts/uni.cjs build -p quickapp-webview-union",
-    "type-check": "vue-tsc --noEmit && tsc --project tsconfig.server.json",
+    "type-check": "vue-tsc --noEmit && npm --prefix server run type-check && tsc --project tsconfig.server.json",
     "test": "node --test",
-    "server": "node scripts/server.cjs",
-    "db:generate": "prisma generate --schema server/prisma/schema.prisma",
-    "db:push": "prisma db push --schema server/prisma/schema.prisma",
+    "server": "npm --prefix server start",
+    "db:generate": "npm --prefix server run db:generate",
+    "db:push": "npm --prefix server run db:push",
     "test:design": "node --require ./scripts/typescript.cjs --test tests/design.test.cjs",
-    "db:migrate": "prisma migrate deploy --schema server/prisma/schema.prisma"
+    "db:migrate": "npm --prefix server run db:migrate"
   },
   "dependencies": {
     "@dcloudio/uni-app": "3.0.0-5020420260813003",
@@ -59,11 +59,7 @@
     "@dcloudio/uni-mp-weixin": "3.0.0-5020420260813003",
     "@dcloudio/uni-mp-xhs": "3.0.0-5020420260813003",
     "@dcloudio/uni-quickapp-webview": "3.0.0-5020420260813003",
-    "vue": "~3.4.21",
-    "@prisma/client": "6.19.0",
-    "fastify": "^5.6.2",
-    "@fastify/cors": "^11.2.0",
-    "@fastify/websocket": "^11.2.0"
+    "vue": "~3.4.21"
   },
   "devDependencies": {
     "@dcloudio/types": "^3.4.8",
@@ -76,7 +72,6 @@
     "unplugin-auto-import": "19.1.0",
     "vite": "5.2.8",
     "vue-tsc": "^2.2.12",
-    "prisma": "6.19.0",
     "@types/node": "^24.10.1"
   }
 }

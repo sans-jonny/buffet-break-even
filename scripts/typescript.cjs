@@ -1,4 +1,4 @@
-// Shared Node runner for server and TypeScript specifications; not shipped to the client.
+// Node runner for TypeScript specifications; not shipped to the client.
 const fs = require('node:fs')
 const ts = require('typescript')
 require.extensions['.ts'] = (module, filename) => {
