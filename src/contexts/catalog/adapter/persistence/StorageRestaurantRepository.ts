@@ -6,7 +6,6 @@ import {Transaction} from '../../../../kernel/application/Transaction';
 import {UseCase} from '../../../../kernel/application/UseCase';
 import {RepositoryTransaction} from '../../../../infrastructure/storage/RepositoryTransaction';
 import {CatalogEventMapper} from './CatalogEventMapper';
-import {RestaurantPersistenceRecord} from './RestaurantPersistenceRecord';
 
 export class StorageRestaurantRepository implements RestaurantRepository {
     constructor(private readonly context: RepositoryTransaction) {
@@ -18,11 +17,11 @@ export class StorageRestaurantRepository implements RestaurantRepository {
 
     findById(scope: string, id: string): Restaurant | undefined {
         const state = this.context.view().get<Restaurant.State>(this.key(scope, id));
-        return state ? Restaurant.reconstitute(RestaurantPersistenceRecord.normalize(state)) : undefined;
+        return state ? Restaurant.reconstitute(state) : undefined;
     }
 
     all(scope: string): readonly Restaurant[] {
-        return this.context.view().entries<Restaurant.State>(`catalog/${scope}/restaurant/`).map(s => Restaurant.reconstitute(RestaurantPersistenceRecord.normalize(s)));
+        return this.context.view().entries<Restaurant.State>(`catalog/${scope}/restaurant/`).map(s => Restaurant.reconstitute(s));
     }
 
     async apply(scope: string, decision: Restaurant.Event | DomainRejection): Promise<Restaurant | undefined> {

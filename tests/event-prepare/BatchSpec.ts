@@ -63,7 +63,7 @@ export namespace BatchSpec {
                 payload: {}
             }, {type: 'DiningStarted', schemaVersion: 999, key: 'accounting/activity/a', payload: {}}]) {
                 const meal = new DiningScenario.Meal()
-                const batch = EventBatch.commit({
+                const batch = EventBatch.commit({submissionId: 'test-submission',
                     scopeId: 'room',
                     roomId: 'room',
                     expectedVersion: 0,
@@ -77,11 +77,11 @@ export namespace BatchSpec {
         })
         test('批次重复忽略、缺口及半批次拒绝', async () => {
             const meal = new DiningScenario.Meal()
-            const batch = EventBatch.commit({
+            const batch = EventBatch.commit({submissionId: 'test-submission',
                 scopeId: 'x',
                 roomId: null,
                 expectedVersion: 0,
-                events: [SerializedEvent.fact(new DiningStarted('a', 0, {mode:'SINGLE',ticketPriceMinor:20000}), 'accounting/activity/a'), SerializedEvent.fact(new DiningStarted('b', 0, {mode:'SINGLE',ticketPriceMinor:20000}), 'accounting/activity/b')]
+                events: [SerializedEvent.fact(new DiningStarted('a', 0, {mode:'SINGLE',ticketPriceMinor:20000,restaurantIds:['buffet'],restaurantCategoryId:'My'}), 'accounting/activity/a'), SerializedEvent.fact(new DiningStarted('b', 0, {mode:'SINGLE',ticketPriceMinor:20000,restaurantIds:['buffet'],restaurantCategoryId:'My'}), 'accounting/activity/b')]
             }, 'b')
             await assert.rejects(meal.app.runtime.projectCommitted({
                 ...batch,
@@ -101,11 +101,11 @@ export namespace BatchSpec {
         })
         test('PROJECT_COMMITTED 的异步本地 Handler 失败时整批状态和 cursor 均不发布', async () => {
             const meal = new DiningScenario.Meal()
-            const batch = EventBatch.commit({
+            const batch = EventBatch.commit({submissionId: 'test-submission',
                 scopeId: 'x',
                 roomId: null,
                 expectedVersion: 0,
-                events: [SerializedEvent.fact(new DiningStarted('a', 0, {mode:'SINGLE',ticketPriceMinor:20000}), 'accounting/activity/a')]
+                events: [SerializedEvent.fact(new DiningStarted('a', 0, {mode:'SINGLE',ticketPriceMinor:20000,restaurantIds:['buffet'],restaurantCategoryId:'My'}), 'accounting/activity/a')]
             }, 'b')
             meal.app.runtime.onCommitted('DiningStarted', async (_event, state) => {
                 state['derived/a'] = 1;

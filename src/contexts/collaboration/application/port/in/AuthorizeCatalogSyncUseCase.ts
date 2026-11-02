@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface AuthorizeCatalogSyncUseCase extends UseCase<AuthorizeCatalogSyncUseCase.Request, AuthorizeCatalogSyncUseCase.Response> {
@@ -5,7 +6,7 @@ export interface AuthorizeCatalogSyncUseCase extends UseCase<AuthorizeCatalogSyn
 }
 
 export namespace AuthorizeCatalogSyncUseCase {
-    export const token = Symbol('AuthorizeCatalogSyncUseCase') as UseCase.Token<AuthorizeCatalogSyncUseCase>;
+    export const token = Symbol('AuthorizeCatalogSyncUseCase') as InjectionToken<AuthorizeCatalogSyncUseCase>;
 
     export class Request extends UseCase.Request {
         constructor(readonly roomId: string, readonly memberId: string, readonly sourceId: string) {

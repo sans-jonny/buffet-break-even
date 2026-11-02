@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import type {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface JoinDiningRoomUseCase extends UseCase<JoinDiningRoomUseCase.Req
 }
 
 export namespace JoinDiningRoomUseCase {
-    export const token = Symbol('JoinDiningRoomUseCase') as UseCase.Token<JoinDiningRoomUseCase>;
+    export const token = Symbol('JoinDiningRoomUseCase') as InjectionToken<JoinDiningRoomUseCase>;
     export class Request extends UseCase.Request {
         constructor(readonly code?: string) { super(); if (code) UseCase.id(code); }
     }

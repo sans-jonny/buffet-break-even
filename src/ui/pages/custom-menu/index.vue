@@ -30,6 +30,8 @@
       </view>
     </view>
     <button :hover-stay-time="0" class="restaurant-add" @tap="editProduct()">＋ 新增菜品</button>
+    <canvas v-if="productCover.visible.value" canvas-id="product-cover" id="product-cover" :hidpi="false"
+            :width="100" :height="100" class="product-cover-canvas" style="width:100px;height:100px"/>
     <view class="category-tools">
       <text class="editor-label">分类管理</text>
       <view class="category-tags">
@@ -37,10 +39,10 @@
         <text @tap="editCategory()">＋ 分类</text>
       </view>
     </view>
-    <text class="editor-note">保存后会出现在「我的餐厅」，并同步到有权限更新的进行中用餐。</text>
+    <text class="editor-note">保存后会出现在「我的餐厅」。修改仅保存本机，重新加入原房间时才更新已共享的私人菜单。</text>
     <view class="editor-footer">
       <button :hover-stay-time="0" @tap="previewRestaurant(restaurant)">预览</button>
-      <button :disabled="!isDirty" :hover-stay-time="0" class="primary" @tap="saveAll">保存</button>
+      <button :disabled="!isDirty || saving" :hover-stay-time="0" class="primary" @tap="saveAll">保存</button>
     </view>
     <app-dialog v-if="form" :title="form.kind === 'category' ? '编辑分类' : '编辑菜品'" @close="closeForm">
       <input v-model="form.name" class="editor-input" maxlength="60" placeholder="名称"/>
@@ -55,7 +57,7 @@
           <button :disabled="uploadingCover" @tap="uploadCover">{{ uploadingCover ? '读取中…' : '选择本机图片' }}</button>
           <button v-if="form.coverUrl" :disabled="uploadingCover" @tap="form.coverUrl = ''">移除封面</button>
         </view>
-        <text class="editor-note">支持 JPG、PNG、WebP，最大 3MB。照片保存在本机，共享到多人房间时临时上传；留空使用默认图标。</text>
+        <text class="editor-note">支持 JPG、PNG、WebP，最大 3MB。封面居中裁剪为 100×100 像素保存到本机，重新加入房间时才共享；留空使用默认图标。</text>
       </template>
       <text class="editor-note">所有估值由你提供，用于回本参考。</text>
       <button :disabled="uploadingCover" :hover-stay-time="0" class="primary" @tap="applyForm">确认修改</button>
@@ -85,15 +87,17 @@ import {onBackPress, onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {useProductImages} from '@/ui/composables/useProductImages'
+import {useProductCover} from '@/ui/composables/useProductCover'
 
 const catalog = useCatalogStore()
 const productImages = useProductImages()
+const productCover = useProductCover(), saving = ref(false)
 const uploadingCover = ref(false)
 // 展示数据
 const restaurant = ref({
   id: PageIds.create(),
   name: '',
-  categories: [] as { id: string; name: string }[],
+  categories: [{id: PageIds.create(), name: '默认'}] as { id: string; name: string }[],
   products: [] as { id: string; name: string; price: number; category: string; emoji: string; unit: string; coverUrl?: string }[]
 })
 let catalogVersion = 0
@@ -160,7 +164,7 @@ async function uploadCover() {
   if (!current || current.kind !== 'product' || uploadingCover.value) return
   uploadingCover.value = true
   try {
-    const url = await productImages.chooseLocal()
+    const url = await productImages.chooseLocal(productCover.render)
     if (url && form.value === current) current.coverUrl = url
   } finally { uploadingCover.value = false }
 }
@@ -226,22 +230,25 @@ function removeProduct(id: string) {
 }
 
 async function saveAll() {
-  const r = restaurant.value
-  await productImages.saveRestaurant(r.id, r.products)
-  const response = await catalog.publish({
-    id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
-    restaurantCategory: {id: 'My', name: '我的餐厅'},
-    products: r.products.map(p => ({
-      id: p.id,
-      name: p.name,
-      categoryId: p.category,
-      priceMinor: PageAmount.minor(String(p.price))
-    }))
-  })
-  catalogVersion++;
-  isDirty.value = false
-  if (response.value.pendingRooms.length)
-    uni.showToast({title: '已保存，房间同步待恢复', icon: 'none'})
+  if (saving.value) return
+  saving.value = true
+  try {
+    const r = restaurant.value
+    await productImages.saveRestaurant(r.id, r.products, productCover.render)
+    r.products.forEach(product => { product.coverUrl = productImages.local.get(r.id, product.id) })
+    await catalog.publish({
+      id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
+      restaurantCategory: {id: 'My', name: '我的餐厅'},
+      products: r.products.map(p => ({
+        id: p.id,
+        name: p.name,
+        categoryId: p.category,
+        priceMinor: PageAmount.minor(String(p.price))
+      }))
+    })
+    catalogVersion++;
+    isDirty.value = false
+  } finally { saving.value = false }
 }
 
 async function saveAndLeave() {
@@ -288,6 +295,7 @@ onBackPress(() => {
 
 <style scoped src="@/ui/styles/restaurants.css"></style>
 <style scoped>
+.product-cover-canvas {position:fixed;left:-10000px;top:0;pointer-events:none}
 .dish-cover {width:100%;height:100%;border-radius:inherit}
 .cover-preview {display:block;width:180rpx;height:180rpx;margin:16rpx 0;border-radius:20rpx}
 .cover-actions {display:flex;gap:16rpx;margin:16rpx 0}

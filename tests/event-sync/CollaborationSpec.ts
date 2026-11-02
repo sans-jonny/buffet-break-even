@@ -190,10 +190,10 @@ export namespace CollaborationSpec {
             assert.equal(guest.app.personal.history().length, 1)
             assert.equal(guest.app.personal.history()[0].ticketPriceMinor, 20000)
         })
-        test('公共目录新增和调价进入现有房间完整事件链，新设备可回放相同价格', async () => {
+        test('公共目录新增和调价只保留本机，房间事件不发布公开菜单', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant();
-            await host.givenRoom()
             await host.givenRestaurant({id: 'public', type: 'PUBLIC'})
+            await host.givenRoom()
             await host.whenEating(2, 'public')
             await host.givenRestaurant({
                 id: 'public',
@@ -203,9 +203,10 @@ export namespace CollaborationSpec {
             })
             host.thenValueIs(4000, 'public')
             const guest = new DiningScenario.Meal(host.relay, 'guest');
-            await guest.initialize();
+            await guest.givenRestaurant({id: 'public', type: 'PUBLIC'});
             await guest.joinRoom('room')
-            guest.thenValueIs(4000, 'public')
+            guest.thenValueIs(3000, 'public')
+            assert.equal(host.relay.streams.get('room')!.flatMap(batch => batch.events).some(event => event.type === 'RestaurantPublished'), false)
         })
     }
 }

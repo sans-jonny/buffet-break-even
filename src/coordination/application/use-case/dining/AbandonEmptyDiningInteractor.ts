@@ -19,7 +19,7 @@ export class AbandonEmptyDiningInteractor extends TransactionalInteractor<Abando
         if (activity?.status === 'ABANDONED') return new AbandonEmptyDiningUseCase.Response(true);
         if (activity?.status !== 'ACTIVE') return new AbandonEmptyDiningUseCase.Response(false);
         const ids = new Set([
-            ...(activity.restaurantIds || []),
+            ...activity.restaurantIds,
             ...this.restaurants.execute(new ListRestaurantsUseCase.Request(r.session.roomId || 'local', true)).value.map(a => a.id)
         ]);
         for (const id of ids) {

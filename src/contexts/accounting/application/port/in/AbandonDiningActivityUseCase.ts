@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Accounting} from './Accounting';
 
@@ -6,7 +7,7 @@ export interface AbandonDiningActivityUseCase extends UseCase<AbandonDiningActiv
 }
 
 export namespace AbandonDiningActivityUseCase {
-    export const token = Symbol('AbandonDiningActivityUseCase') as UseCase.Token<AbandonDiningActivityUseCase>;
+    export const token = Symbol('AbandonDiningActivityUseCase') as InjectionToken<AbandonDiningActivityUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope, readonly activityId: string) {

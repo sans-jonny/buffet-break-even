@@ -38,16 +38,17 @@ export namespace CatalogSpec {
             assert.deepEqual(updated.products, [])
             assert.deepEqual({...Restaurant.reconstitute(updated).synchronizeFrom(original, 'room')}, {rejected: 'STALE_CATALOG_VERSION'})
         })
-        test('公共目录的删除事实同步到房间，完整回放后仍不可选择或消费', async () => {
+        test('公共目录删除只影响本机，其他成员继续使用各自的本地公开菜单', async () => {
             const host = await new DiningScenario.Meal().givenRestaurant({type: 'PUBLIC'});
             await host.givenRoom(); await host.whenEating();
             await host.givenRestaurant({type: 'PUBLIC', version: 2, deleted: true});
             assert.equal(host.dining.restaurants().some(r => r.id === 'buffet'), false);
-            assert.equal(host.dining.consumption('buffet'), undefined);
+            assert.ok(host.dining.consumption('buffet'));
             const peer = new DiningScenario.Meal(host.relay, 'peer');
-            await peer.initialize(); await peer.joinRoom('room');
-            assert.equal(peer.dining.restaurants().some(r => r.id === 'buffet'), false);
-            await assert.rejects(peer.whenEating(), /RESTAURANT_UNAVAILABLE/);
+            await peer.givenRestaurant({type: 'PUBLIC'}); await peer.joinRoom('room');
+            assert.equal(peer.dining.restaurants().some(r => r.id === 'buffet'), true);
+            await peer.whenEating();
+            await assert.rejects(host.whenEating(), /RESTAURANT_UNAVAILABLE/);
         });
         test('目录按稳定身份区分同名公共与私人餐厅，重复产品 ID 拒绝', async () => {
             const meal = await new DiningScenario.Meal().givenRestaurant()

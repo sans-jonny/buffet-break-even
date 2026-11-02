@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface JoinRoomUseCase extends UseCase<JoinRoomUseCase.Request, JoinRo
 }
 
 export namespace JoinRoomUseCase {
-    export const token = Symbol('JoinRoomUseCase') as UseCase.Token<JoinRoomUseCase>;
+    export const token = Symbol('JoinRoomUseCase') as InjectionToken<JoinRoomUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

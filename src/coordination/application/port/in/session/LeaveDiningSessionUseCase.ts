@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface LeaveDiningSessionUseCase extends UseCase<LeaveDiningSessionUseCase.Request, LeaveDiningSessionUseCase.Response> {
@@ -5,7 +6,7 @@ export interface LeaveDiningSessionUseCase extends UseCase<LeaveDiningSessionUse
 }
 
 export namespace LeaveDiningSessionUseCase {
-    export const token = Symbol('LeaveDiningSessionUseCase') as UseCase.Token<LeaveDiningSessionUseCase>;
+    export const token = Symbol('LeaveDiningSessionUseCase') as InjectionToken<LeaveDiningSessionUseCase>;
     export class Request extends UseCase.Request {
 
     }

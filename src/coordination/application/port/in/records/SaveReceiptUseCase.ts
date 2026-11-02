@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface SaveReceiptUseCase extends UseCase<SaveReceiptUseCase.Request, 
 }
 
 export namespace SaveReceiptUseCase {
-    export const token = Symbol('SaveReceiptUseCase') as UseCase.Token<SaveReceiptUseCase>;
+    export const token = Symbol('SaveReceiptUseCase') as InjectionToken<SaveReceiptUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly result: Dining.Result) {

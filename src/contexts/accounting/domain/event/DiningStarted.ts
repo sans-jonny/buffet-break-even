@@ -12,7 +12,7 @@ export namespace DiningStarted {
     export type Facts = Readonly<{
         mode: 'SINGLE' | 'SHARED';
         ticketPriceMinor: number;
-        restaurantIds?: readonly string[];
-        restaurantCategoryId?: string;
+        restaurantIds: readonly string[];
+        restaurantCategoryId: string;
     }>;
 }

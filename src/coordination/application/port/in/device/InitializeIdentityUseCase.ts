@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface InitializeIdentityUseCase extends UseCase<InitializeIdentityUseCase.Request, InitializeIdentityUseCase.Response> {
@@ -5,7 +6,7 @@ export interface InitializeIdentityUseCase extends UseCase<InitializeIdentityUse
 }
 
 export namespace InitializeIdentityUseCase {
-    export const token = Symbol('InitializeIdentityUseCase') as UseCase.Token<InitializeIdentityUseCase>;
+    export const token = Symbol('InitializeIdentityUseCase') as InjectionToken<InitializeIdentityUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly identityId: string) {

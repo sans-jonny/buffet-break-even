@@ -1,6 +1,6 @@
 import type {RestaurantRecord} from '../../protocol/RestaurantRecord';
 import assert from 'node:assert/strict'
-import {Buffet} from '../../src/composition/Buffet'
+import {Bootstrap} from '../../src/composition/Bootstrap'
 import {Dining} from '../../src/coordination/application/dto/Dining'
 import {EventBatch} from '../../protocol/EventBatch'
 import {ManifestStorage} from '../../src/infrastructure/storage/ManifestStorage'
@@ -19,8 +19,9 @@ import {CoordinationComposition} from '../../src/coordination/composition/Coordi
 
 /** Reusable business vocabulary for specifications, never imported by production. */
 export namespace DiningScenario {
-    export function configureSessions(app: ReturnType<typeof Buffet.create>, id: () => string): void {
+    export function configureSessions(app: ReturnType<typeof Bootstrap.create>, id: () => string): void {
         app.provide(RoomConnection.token, {watch: roomId => app.runtime.synchronize(roomId), stop: () => {},
+            hasUnconfirmed: roomId => app.runtime.sync.get(roomId) === 'UNKNOWN' || !!app.runtime.get(`outcome/${roomId}`),
             acknowledge: roomId => app.runtime.acknowledgeUnknown(roomId)});
         app.provide(RoomGateway.token, {create: async () => ({roomId: 'room', code: '123456'}), locate: async code => ({roomId: code})});
         app.provide(DiningPreferences.token, new StorageDiningPreferences(app.runtime));
@@ -49,6 +50,11 @@ export namespace DiningScenario {
     }
 
     export class Relay implements BatchRuntime.Remote {
+        private readonly receivers = new Set<(batch: EventBatch.Committed) => void>();
+        listen(receive: (batch: EventBatch.Committed) => void): () => void {
+            this.receivers.add(receive);
+            return () => { this.receivers.delete(receive); };
+        }
         readonly streams = new Map<string, EventBatch.Committed[]>()
         readonly catalogs = new Map<string, readonly RestaurantRecord.Document[]>();
         async uploadRestaurants(roomId: string, records: readonly RestaurantRecord.Document[]): Promise<void> {
@@ -74,6 +80,7 @@ export namespace DiningScenario {
             batches.push(batch);
             this.streams.set(candidate.roomId!, batches)
             if (this.loseResponse) throw new Error('NETWORK_TIMEOUT')
+            for (const receive of this.receivers) receive(batch);
             return batch
         }
 
@@ -100,18 +107,21 @@ export namespace DiningScenario {
 
     export class Meal {
         readonly storage = new Storage()
-        readonly app: ReturnType<typeof Buffet.create>
-        readonly dining: ReturnType<typeof Buffet.create>['dining']
+        readonly app: ReturnType<typeof Bootstrap.create>
+        readonly dining: ReturnType<typeof Bootstrap.create>['dining']
         private sequence = 0
         readonly id = () => `${this.device}-${++this.sequence}`
 
-        constructor(readonly relay = new Relay(), readonly device = 'one', withSessionPorts = true, media?: Buffet.Options['media']) {
-            this.app = Buffet.create({
+        constructor(readonly relay = new Relay(), readonly device = 'one', withSessionPorts = true, media?: Bootstrap.Options['media']) {
+            this.app = Bootstrap.create({
                 storage: this.storage,
                 id: this.id,
                 now: () => '2026-11-01T04:00:00.000Z',
-                remote: relay, media
+                remote: relay, media, confirmationTimeoutMs: 50
             })
+            const stop = relay.listen(batch => { void this.app.runtime.projectCommitted(batch).catch(() => {}); });
+            const dispose = this.app.dispose;
+            this.app.dispose = () => { stop(); dispose(); };
             this.dining = this.app.dining
             if (withSessionPorts) configureSessions(this.app, this.id)
         }
@@ -124,12 +134,14 @@ export namespace DiningScenario {
 
         async givenSingle(total = 20000): Promise<this> {
             await this.initialize();
+            if (!this.app.catalog.restaurants.length) await this.givenRestaurant();
             await this.startSingle(total);
             return this
         }
 
         async givenRoom(roomId = 'room'): Promise<this> {
             await this.initialize();
+            if (!this.app.catalog.restaurants.length) await this.givenRestaurant();
             await this.createRoom(roomId, '123456', 20000);
             return this
         }
@@ -143,7 +155,7 @@ export namespace DiningScenario {
             await this.app.resolve(InitializeDiningUseCase.token).execute(new InitializeDiningUseCase.Request());
         }
 
-        startSingle(total: number, categoryId?: string, replaceActivityId?: string) {
+        startSingle(total: number, categoryId = 'My', replaceActivityId?: string) {
             return this.app.resolve(StartSingleDiningUseCase.token).execute(new StartSingleDiningUseCase.Request(total, categoryId, replaceActivityId));
         }
 
@@ -151,7 +163,7 @@ export namespace DiningScenario {
             return this.app.resolve(SelectDiningSessionUseCase.token).execute(new SelectDiningSessionUseCase.Request(session));
         }
 
-        async createRoom(roomId: string, code: string, total: number, categoryId?: string) {
+        async createRoom(roomId: string, code: string, total: number, categoryId = 'My') {
             const response = await this.app.resolve(CreateMultiplayerDiningUseCase.token).execute(
                 new CreateMultiplayerDiningUseCase.Request(roomId, code, this.id(), this.dining.identity(), total, categoryId));
             await this.selectSession(response.value);

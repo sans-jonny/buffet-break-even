@@ -8,10 +8,6 @@ const {DiningScenario} = require('../support/DiningScenario.ts')
 const {loadModule} = require('../helpers/runtime.cjs')
 const {pageHarness} = require('../helpers/pages.cjs')
 const {Restaurant} = require('../../src/contexts/catalog/domain/aggregate/Restaurant.ts')
-const {createHash} = require('node:crypto')
-const {mkdtemp, mkdir, writeFile, readFile, rm} = require('node:fs/promises')
-const {join} = require('node:path')
-const {tmpdir} = require('node:os')
 
 async function fixture(t) {
     const database = await RelaySpec.database()
@@ -25,6 +21,17 @@ async function picture(color = 'red', width = 1200) {
     const bytes = await sharp({create: {width, height: 600, channels: 3, background: color}}).png().toBuffer()
     return 'data:image/png;base64,' + bytes.toString('base64')
 }
+
+test('浏览器跨域预检允许私人图片同步使用的 PUT 和 JSON 请求', async t => {
+    const {app} = await fixture(t)
+    const response = await app.inject({method: 'OPTIONS', url: '/rooms/example/product-images/mine', headers: {
+        origin: 'http://localhost:5173', 'access-control-request-method': 'PUT', 'access-control-request-headers': 'content-type'
+    }})
+    assert.equal(response.statusCode, 204)
+    assert.ok(response.headers['access-control-allow-methods'].split(',').map(value => value.trim()).includes('PUT'))
+    assert.equal(response.headers['access-control-allow-origin'], 'http://localhost:5173')
+    assert.ok(response.headers['access-control-allow-headers'].includes('content-type'))
+})
 
 function client(app, stored = new Map(), files = new Map()) {
     let requests = 0
@@ -98,6 +105,7 @@ test('房间共享时才上传个人照片；更新、重建可读取展示数�
     assert.ok(!/coverUrl|emoji|data:image/.test(JSON.stringify(host.relay.catalogs.get(room.roomId))))
     await local.media.saveRestaurant('buffet', [{id: 'shrimp', coverUrl: await picture('blue')}])
     await host.givenRestaurant({version: 2})
+    await host.joinRoom(room.roomId)
     await guest.app.runtime.synchronize(room.roomId)
     await guest.app.runtime.rebuild(room.roomId)
     await guestMedia.refresh(room.roomId)
@@ -105,9 +113,40 @@ test('房间共享时才上传个人照片；更新、重建可读取展示数�
     assert.equal(await db.roomProductImage.count(), 1)
     await local.media.saveRestaurant('buffet', [{id: 'shrimp'}])
     await host.givenRestaurant({version: 3})
+    await host.joinRoom(room.roomId)
     await guestMedia.refresh(room.roomId)
     assert.equal(guestMedia.cover(restaurant, product.id, room.roomId), '')
     assert.equal(await db.roomProductImage.count(), 0)
+})
+
+test('菜单与图片信息一起加载，图片共享完成后通过房间连接通知菜单更新', async t => {
+    let socket
+    t.after(() => socket?.terminate())
+    const {app} = await fixture(t)
+    const room = (await app.inject({method: 'POST', url: '/rooms'})).json()
+    const record = DiningScenario.restaurant()
+    const saved = await app.inject({method: 'POST', url: `/rooms/${room.roomId}/private-restaurants`, payload: {restaurants: [record]}})
+    assert.equal(saved.statusCode, 204)
+    const notices = []
+    socket = await app.injectWS(`/rooms/${room.roomId}/subscribe`, {}, {onInit: ws => {
+        ws.on('message', data => notices.push(JSON.parse(String(data))))
+    }})
+    const local = client(app)
+    await local.media.saveRestaurant('buffet', [{id: 'shrimp', coverUrl: await picture()}])
+    await local.media.share(room.roomId, 'buffet', ['shrimp'])
+    await new Promise(resolve => setImmediate(resolve))
+    const initial = notices.find(notice => notice.type === 'subscribed')
+    assert.equal(initial.catalog.restaurants[0].id, 'buffet')
+    const update = notices.find(notice => notice.type === 'roomCatalogUpdated')
+    assert.equal(update.catalog.restaurants[0].id, 'buffet')
+    assert.equal(update.catalog.images[0].productId, 'shrimp')
+    const response = (await app.inject({url: `/rooms/${room.roomId}/catalog`})).json()
+    assert.deepEqual(response, update.catalog)
+    assert.equal(local.requests(), 2) // Upload and finalize; no separate manifest request.
+    await local.media.saveRestaurant('buffet', [])
+    await local.media.share(room.roomId, 'buffet', [])
+    await new Promise(resolve => setImmediate(resolve))
+    assert.deepEqual(notices.at(-1).catalog.images, [])
 })
 
 test('房间回收同时删除临时照片，公共照片继续可用，离线本机原图仍保留', async t => {
@@ -117,7 +156,7 @@ test('房间回收同时删除临时照片，公共照片继续可用，离线�
     await local.media.saveRestaurant('mine', [{id: 'p', coverUrl: await picture()}])
     const original = local.media.local.get('mine', 'p')
     await local.media.share(room.roomId, 'mine', ['p'])
-    const images = (await app.inject({url: `/rooms/${room.roomId}/product-images`})).json()
+    const images = (await app.inject({url: `/rooms/${room.roomId}/catalog`})).json().images
     assert.equal(images.length, 1)
     expire()
     assert.equal((await app.inject({url: images[0].url})).statusCode, 404)
@@ -151,6 +190,8 @@ test('UI 封面单独保存和移除，餐厅领域快照与事件只保留业�
     const page = app.setup('custom-menu')
     t.after(page.dispose)
     await page.ready
+    const thumbnail = 'data:image/png;base64,' + (await sharp({create: {width: 100, height: 100, channels: 3, background: 'red'}}).png().toBuffer()).toString('base64')
+    t.mock.method(page.state.productCover, 'render', async () => thumbnail)
     page.state.restaurant.value.name = '图片测试餐厅'
     page.state.editCategory()
     page.state.form.value.name = '海鲜'
@@ -168,7 +209,7 @@ test('UI 封面单独保存和移除，餐厅领域快照与事件只保留业�
     t.after(reopened.dispose)
     await reopened.ready
     reopened.state.editProduct(id)
-    assert.equal(reopened.state.form.value.coverUrl, 'https://example.com/shrimp.jpg')
+    assert.equal(reopened.state.form.value.coverUrl, thumbnail)
     reopened.state.form.value.coverUrl = ''
     reopened.state.applyForm()
     await reopened.state.saveAll()
@@ -181,36 +222,4 @@ test('UI 封面单独保存和移除，餐厅领域快照与事件只保留业�
     assert.ok(!/coverUrl|emoji/.test(JSON.stringify(event)))
     const sample = page.state.productImages.cover({id: 'niuniu', type: 'PUBLIC'}, 'beef')
     assert.equal(sample, 'http://relay.test/sample-images/steak.jpg')
-})
-
-test('旧服务端个人图片先持久化到本机，再删除旧文件；后续启动不会恢复主动移除的图片', async t => {
-    const directory = await mkdtemp(join(tmpdir(), 'buffet-image-migration-'))
-    const database = await RelaySpec.database()
-    const app = await RelayServer.create(database.db, {legacyImageDirectory: directory})
-    t.after(async () => { await app.close(); await database.dispose(); await rm(directory, {recursive: true, force: true}) })
-    const original = await sharp({create: {width: 20, height: 20, channels: 3, background: 'red'}}).webp().toBuffer()
-    const digest = createHash('sha256').update(original).digest('hex')
-    const folder = join(directory, createHash('sha256').update('p').digest('hex'))
-    await mkdir(folder)
-    const filename = join(folder, digest + '.webp')
-    await writeFile(filename, original)
-    const source = `/product-images/p/${digest}.webp`
-    const records = [{id: 'mine', type: 'PRIVATE', products: [{id: 'p', coverUrl: source}]}]
-    records.push({id: 'another', type: 'PRIVATE', products: [{id: 'reused', coverUrl: source}]})
-    const local = client(app)
-    const save = local.media.local.set.bind(local.media.local)
-    let fail = true
-    t.mock.method(local.media.local, 'set', async (...args) => {
-        if (fail) { fail = false; throw new Error('DISK_FULL') }
-        return save(...args)
-    })
-    await local.media.importLegacy(records)
-    assert.deepEqual(await readFile(filename), original)
-    await local.media.importLegacy(records)
-    assert.equal(await local.media.local.dataUrl(local.media.local.get('mine', 'p')), 'data:image/webp;base64,' + original.toString('base64'))
-    assert.equal(await local.media.local.dataUrl(local.media.local.get('another', 'reused')), 'data:image/webp;base64,' + original.toString('base64'))
-    await assert.rejects(readFile(filename), {code: 'ENOENT'})
-    await local.media.saveRestaurant('mine', [{id: 'p'}])
-    await local.media.importLegacy(records)
-    assert.equal(local.media.local.get('mine', 'p'), '')
 })

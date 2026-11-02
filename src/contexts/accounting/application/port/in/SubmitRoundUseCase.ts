@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Accounting} from './Accounting';
 
@@ -6,7 +7,7 @@ export interface SubmitRoundUseCase extends UseCase<SubmitRoundUseCase.Request, 
 }
 
 export namespace SubmitRoundUseCase {
-    export const token = Symbol('SubmitRoundUseCase') as UseCase.Token<SubmitRoundUseCase>;
+    export const token = Symbol('SubmitRoundUseCase') as InjectionToken<SubmitRoundUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

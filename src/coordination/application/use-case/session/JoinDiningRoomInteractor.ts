@@ -23,13 +23,12 @@ export class JoinDiningRoomInteractor implements JoinDiningRoomUseCase {
         await this.preferences.rememberRoom(roomId);
         try {
             await this.connection.watch(roomId);
+            if (this.connection.hasUnconfirmed?.(roomId)) await this.connection.acknowledge(roomId);
             const room = this.room.execute(new GetRoomUseCase.Request(roomId)).value;
             const member = room?.members.find(member => member.id === actor.id && member.present && member.online);
             if (room?.status === 'ACTIVE' && member && member.nickname !== actor.nickname)
                 await this.changeNickname.execute(new ChangeMemberNicknameUseCase.Request({scopeId: roomId, roomId}, roomId, actor.id, actor.nickname));
-            const session = room?.members.some(member => member.id === actor.id && member.present && member.online)
-                ? {scopeId: roomId, roomId, activityId: room.activityId}
-                : (await this.join.execute(new JoinMultiplayerDiningUseCase.Request(roomId, actor))).value;
+            const session = (await this.join.execute(new JoinMultiplayerDiningUseCase.Request(roomId, actor))).value;
             try {
                 await this.select.execute(new SelectDiningSessionUseCase.Request(session));
             } catch (error) {

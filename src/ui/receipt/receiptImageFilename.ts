@@ -7,5 +7,6 @@ export function receiptImageFilename(restaurant: string, time: string | Date, ty
     const pad = (value: number) => String(value).padStart(2, '0')
     const timestamp = typeof time === 'string' ? receiptTime.formatReceiptTimestamp(time)
         : `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())} ${pad(time.getHours())}:${pad(time.getMinutes())}:${pad(time.getSeconds())}`
+    if (!timestamp) throw new Error('INVALID_RECEIPT_TIMESTAMP')
     return `${name}_${timestamp.replace(/[<>"/\\|?*\u0000-\u001f]/g, '_')}.png`
 }

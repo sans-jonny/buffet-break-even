@@ -4,6 +4,7 @@ export interface RoomConnection {
     watch(roomId: string): Promise<void>;
     stop(): void;
     acknowledge(roomId: string): Promise<void>;
+    hasUnconfirmed?(roomId: string): boolean;
 }
 
 export namespace RoomConnection {

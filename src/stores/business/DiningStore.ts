@@ -37,7 +37,7 @@ export namespace DiningStore {
 
             function restaurants(): Dining.Restaurant[] {
                 const ids = activity()?.restaurantIds;
-                return queries.restaurants(session()?.roomId || 'local').filter(a => !a.deleted && (!ids || ids.includes(a.id)));
+                return ids ? queries.restaurants(session()?.roomId || 'local').filter(a => !a.deleted && ids.includes(a.id)) : [];
             }
 
             function activity() {
@@ -99,6 +99,7 @@ export namespace DiningStore {
             return {
                 loading: computed(() => commands.loading.value || queries.fetching.value),
                 error: computed(() => commands.error.value ?? queries.error.value),
+                dismissError: commands.clearError,
                 identityData: computed(identity), sessionData: computed(session),
                 restaurantsData: computed(() => readonly(restaurants())), activityData: computed(activity),
                 roomData: computed(room),

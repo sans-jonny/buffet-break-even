@@ -2,6 +2,8 @@ require('../../scripts/typescript.cjs')
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {DiningScenario} = require('../support/DiningScenario.ts')
+const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
+const {RoomConnection} = require('../../src/coordination/application/port/out/session/RoomConnection.ts')
 
 async function room(t) {
     const meal = await new DiningScenario.Meal().givenRestaurant()
@@ -10,56 +12,66 @@ async function room(t) {
     return meal
 }
 
-test('目录已存本地但房间拒绝时返回部分完成；重启后找回待同步项，仅补发房间版本', async t => {
+test('私人菜单修改只保存本地，重新加入才更新原房间', async t => {
     const meal = await room(t)
-    meal.relay.beforeAppend = async () => { throw new Error('REJECTED_503') }
+    const sent = meal.relay.sent
     const response = await meal.app.catalog.publish(DiningScenario.restaurant({version: 2, name: '更新后的餐厅'}))
-    assert.equal(response.value.localCommitted, true)
-    assert.deepEqual(response.value.pendingRooms, [{roomId: 'room', code: 'REJECTED_503'}])
+    assert.equal(response.value.version, 2)
+    assert.equal(meal.relay.sent, sent)
+    assert.equal(meal.dining.restaurants()[0].sourceVersion, 1)
     assert.equal(meal.app.catalog.restaurant('buffet').version, 2)
-    assert.equal(meal.app.catalog.pendingSyncData.length, 1)
     const restarted = new DiningScenario.Meal(meal.relay, 'restart')
     t.after(restarted.app.dispose)
     for (const [key, value] of meal.storage.values) restarted.storage.values.set(key, value)
     await restarted.initialize()
-    assert.equal(restarted.app.catalog.pendingSyncData[0].restaurantId, 'buffet')
-    const retry = await restarted.app.catalog.retrySync('buffet')
-    assert.deepEqual(retry.value.pendingRooms, [])
+    assert.equal(meal.relay.sent, sent)
+    await restarted.joinRoom('room')
     assert.equal(restarted.app.catalog.restaurant('buffet').version, 2)
     assert.equal(restarted.dining.restaurants()[0].sourceVersion, 2)
-    assert.equal(restarted.app.catalog.pendingSyncData.length, 0)
-    const sent = meal.relay.sent
-    await restarted.app.catalog.retrySync('buffet')
-    assert.equal(meal.relay.sent, sent)
+    const afterJoin = meal.relay.sent
+    assert.equal(meal.relay.sent, afterJoin)
 })
 
-test('删除原件后的同步失败仍可恢复，待同步查询包含已删除原件', async t => {
+test('删除私人菜单不立即删除房间副本，重新加入时才同步删除', async t => {
     const meal = await room(t)
-    meal.relay.beforeAppend = async () => { throw new Error('REJECTED_503') }
+    const sent = meal.relay.sent
     const response = await meal.app.catalog.remove('buffet')
-    assert.equal(response.value.pendingRooms.length, 1)
+    assert.equal(meal.relay.sent, sent)
+    assert.equal(meal.dining.restaurants().length, 1)
     assert.equal(meal.app.catalog.restaurants.length, 0)
-    assert.equal(meal.app.catalog.pendingSyncData.length, 1)
-    await meal.app.catalog.retrySync('buffet')
+    await meal.joinRoom('room')
     assert.equal(meal.app.catalog.restaurant('buffet', true).version, 2)
-    assert.equal(meal.app.catalog.pendingSyncData.length, 0)
     assert.deepEqual(meal.dining.restaurants(), [])
 })
 
 test('房间目录提交结果未知时不重发；显式核对后识别已提交版本', async t => {
     const meal = await room(t)
     meal.relay.loseResponse = true
-    const response = await meal.app.catalog.publish(DiningScenario.restaurant({version: 2}))
-    assert.equal(response.value.pendingRooms[0].code, 'UNKNOWN_COMMIT_OUTCOME')
+    await meal.app.catalog.publish(DiningScenario.restaurant({version: 2}))
+    await assert.rejects(meal.joinRoom('room'), /UNKNOWN_COMMIT_OUTCOME/)
     const sent = meal.relay.sent
-    const retry = await meal.app.catalog.retrySync('buffet')
-    assert.equal(retry.value.pendingRooms[0].code, 'UNKNOWN_COMMIT_OUTCOME')
+    await meal.joinRoom('room')
     assert.equal(meal.relay.sent, sent)
     meal.relay.loseResponse = false
     await meal.app.runtime.acknowledgeUnknown('room')
-    assert.equal(meal.app.catalog.pendingSyncData.length, 0)
-    await meal.app.catalog.retrySync('buffet')
     assert.equal(meal.relay.sent, sent)
+})
+
+test('已有点餐记录也会在离房时清除会话并断开连接；离房编辑不写服务端', async t => {
+    const meal = await room(t)
+    await meal.whenEating(1, 'room:buffet', 'room:buffet:shrimp')
+    const stopped = t.mock.method(meal.app.resolve(RoomConnection.token), 'stop', () => {})
+    const sessions = SessionStore.create(meal.app, meal.app.queries, meal.app.pinia)
+    t.after(() => sessions.$dispose())
+    await sessions.exitMenu()
+    assert.equal(meal.dining.session(), undefined)
+    assert.equal(stopped.mock.callCount(), 1)
+    assert.equal(meal.app.collaboration.findRoom('room').members.find(m => m.id === meal.dining.identity().id).present, false)
+    const sent = meal.relay.sent
+    await meal.givenRestaurant({version: 2, name: '离房后的新菜单'})
+    assert.equal(meal.relay.sent, sent)
+    await meal.joinRoom('room')
+    assert.equal(meal.dining.restaurants()[0].name, '离房后的新菜单')
 })
 
 test('本地保存失败仍拒绝整个命令，且不尝试房间同步', async t => {

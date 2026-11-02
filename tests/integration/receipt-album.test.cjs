@@ -2,7 +2,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const {loadModule} = require('../helpers/runtime.cjs')
 
-const receipt = () => ({restaurant:'我的餐厅',typeName:'火锅',participants:['团长','朋友'],receiptId:'DINING-1',dateTime:'2026-10-24 12:30',
+const receipt = () => ({restaurant:'我的餐厅',typeName:'火锅',participants:['团长','朋友'],receiptId:'DINING-1',dateTime:'2026-10-24 12:30',date:new Date(2026,9,24,12,30).toISOString(),
   price:100,value:120,lines:[{name:'鲜切牛肉',price:30,count:4}],result:{verdict:'break-even',isBreakEven:true,difference:20}})
 
 function setup(extra = {}, readReceipt = receipt) {
@@ -35,12 +35,12 @@ test('图片文件名包含餐厅名及本地年月日时分秒，并处理非�
   assert.equal(receiptImageFilename('牛牛',time),'牛牛_2026-10-24 08:09:03.png')
   assert.equal(receiptImageFilename('牛牛',time,'寿喜烧'),'寿喜烧 · 牛牛_2026-10-24 08:09:03.png')
   assert.equal(receiptImageFilename('牛/牛:*',time),'牛_牛___2026-10-24 08:09:03.png')
-  assert.equal(receiptImageFilename('牛牛','2001-02-03 04:05:06'),'牛牛_2001-02-03 04:05:06.png')
-  assert.equal(receiptImageFilename('牛牛','2001-02-03 04:05'),'牛牛_2001-02-03 04:05:00.png')
+  assert.equal(receiptImageFilename('牛牛',new Date(2001,1,3,4,5,6).toISOString()),'牛牛_2001-02-03 04:05:06.png')
+  assert.throws(()=>receiptImageFilename('牛牛','2001-02-03 04:05'), /INVALID_RECEIPT_TIMESTAMP/)
 })
 
 test('反复导出使用小票记录的历史时间，绝不使用当前导出时间',async()=>{
-  const {album}=setup({},()=>({...receipt(),date:'2001-02-03 04:05:06'}))
+  const {album}=setup({},()=>({...receipt(),date:new Date(2001,1,3,4,5,6).toISOString()}))
   await album.openPreview()
   assert.equal(album.filename.value,'火锅 · 我的餐厅_2001-02-03 04:05:06.png')
   album.previewPath.value=''
@@ -73,10 +73,10 @@ test('文件系统拒绝冒号时兼容保存，不影响精确到秒的时间',
   assert.equal(calls.find(call=>call[0]==='album')[1],'/user/'+album.filename.value.replace(/:/g,'-'))
 })
 
-test('小票与点餐明细标题统一种类在前，旧记录缺少种类保留原名',()=>{
+test('小票与点餐明细标题统一种类在前，未提供展示标签时保留餐厅名',()=>{
   const {formatRestaurantTitle}=loadModule('ui/format/restaurantTitle').restaurantTitle
   assert.equal(formatRestaurantTitle('牛牛','寿喜烧'),'寿喜烧 · 牛牛')
-  assert.equal(formatRestaurantTitle('旧版餐厅'),'旧版餐厅')
+  assert.equal(formatRestaurantTitle('我的餐厅'),'我的餐厅')
   const layout=loadModule('ui/receipt/ReceiptImage').ReceiptImage.layoutReceiptImage(receipt())
   assert.ok(layout.texts.some(item=>item.text==='火锅 · 我的餐厅'))
   assert.equal(layout.texts.some(item=>item.text==='我的餐厅 · 火锅'),false)

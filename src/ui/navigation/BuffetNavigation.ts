@@ -1,4 +1,5 @@
 export interface BuffetNavigation {
+    isNavigating?(): boolean
     open(destination: BuffetNavigation.Destination, mode?: 'push' | 'replace' | 'reset'): Promise<void>
 
     toOrderSlip(): Promise<void>

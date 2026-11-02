@@ -3,7 +3,6 @@ import {AggregateConflictError} from '../../../../kernel/application/AggregateCo
 import {Transaction} from '../../../../kernel/application/Transaction';
 import {SerializedEvent} from '../../../../kernel/application/SerializedEvent';
 import {Restaurant} from '../../domain/aggregate/Restaurant';
-import {RestaurantPersistenceRecord} from './RestaurantPersistenceRecord';
 
 export class CatalogEventMapper {
     static readonly types = ['RestaurantPublished', 'RestaurantDeleted'];
@@ -22,6 +21,6 @@ export class CatalogEventMapper {
                 version: e.expectedVersion + 1,
                 deleted: true, ...(e.facts.sourceVersion === undefined ? {} : {sourceVersion: e.facts.sourceVersion})
             };
-        state[event.key] = Restaurant.reconstitute(RestaurantPersistenceRecord.normalize(next)).snapshot();
+        state[event.key] = Restaurant.reconstitute(next).snapshot();
     }
 }

@@ -90,7 +90,6 @@ export namespace DiningComposition {
             scope.resolve(TransactionRunner.token),
             scope.resolve(CreateDiningActivityUseCase.token),
             scope.resolve(ListRestaurantsUseCase.token),
-            scope.resolve(PublishRestaurantUseCase.token),
             scope.resolve(RoomRestaurantPublisher.token),
             scope.resolve(OpenRoomUseCase.token)
         ));
@@ -102,6 +101,7 @@ export namespace DiningComposition {
             scope.resolve(ReplaceRoomRestaurantUseCase.token),
             scope.resolve(JoinRoomUseCase.token),
             scope.resolve(ListRoomsUseCase.token),
+            scope.resolve(RoomRestaurantPublisher.token),
             options.now
         ));
         scope.factory(IncreaseDiningProductUseCase.token, () => new IncreaseDiningProductInteractor(

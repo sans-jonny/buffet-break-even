@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import type {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface CreateDiningRoomUseCase extends UseCase<CreateDiningRoomUseCase
 }
 
 export namespace CreateDiningRoomUseCase {
-    export const token = Symbol('CreateDiningRoomUseCase') as UseCase.Token<CreateDiningRoomUseCase>;
+    export const token = Symbol('CreateDiningRoomUseCase') as InjectionToken<CreateDiningRoomUseCase>;
     export class Request extends UseCase.Request {
         constructor(readonly ticketPriceMinor: number, readonly categoryId: string) { super(); UseCase.amount(ticketPriceMinor, true); UseCase.id(categoryId); }
     }

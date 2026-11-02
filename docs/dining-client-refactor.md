@@ -29,7 +29,7 @@ Coordination 内部按初始化、设备状态、会话流程、用餐操作、�
 - 创建：用应用请求校验拒绝非法票价，再分配远端房间、记录上次房间、启动同步、调用多人创建用例及选取 Session。领域仍独立校验门票等不变量。
 - 加入：解析房间号或读取上次房间，等待历史补齐，再通过应用查询判断是否恢复在线成员的 Session；其他情况调用加入用例，由领域判断房间状态及成员资格。
 - 单人：setup 提示继续或放弃并新建；页面解析金额后调用 `SessionStore.startSingle` 或 `resumeSingle`，应用流程在操作成功后停止房间监听。创建和替换的业务事务由现有创建用例执行；失败时保留原连接。
-- 初始化：先初始化身份，只有本地原件目录完全为空时才发布注入的参考目录。已删除的原件仍计入存在性判断，不会重置用户清理过的目录。
+- 初始化：先初始化身份，补入不存在的参考餐厅；已有公共餐厅与当前内置菜单内容不同时，以本地连续版本更新并对进行中的单人消费对账。内容相同不重复发布，私人餐厅及显式删除记录保留；公共菜单更新不写房间事件流。
 
 这些 Interactor 使用普通 `UseCase.Request`，跨远端分配、事件同步、业务提交和设备会话提交，按真实提交边界执行，不提供跨步骤的全局原子事务。内部的 `CreateSingleDining`、`CreateMultiplayerDining` 等已有 `TransactionalInteractor` 继续管理各自的事务。已分配的房间在后续失败时仍保留为上次房间；单人创建或多人创建、加入成功后，如果设备会话选择失败，抛出携带已提交 Session 的 `DiningSelectionPendingError`。`SessionStore.selectionPending` 保留恢复入口，setup 提示用户恢复，`RecoverDiningSelection` 校验活动和成员资格后只重试选择，不重新创建或加入。会话切换与恢复不允许并发；重启后仍可通过未完成单人活动或上次房间恢复。退出提交结果未知时不清除当前会话、不停止恢复连接；退出已提交但清理本地会话失败时，重试根据成员投影跳过重复退出，只完成清理。
 
@@ -37,13 +37,17 @@ Coordination 内部按初始化、设备状态、会话流程、用餐操作、�
 
 `ManagedRoomConnection` 管理订阅、首次历史同步、每五秒补齐和事件缺口恢复。重复监听同一房间会等待同一个初始化 Promise；首次同步失败会关闭订阅并允许重连；停止后延迟建立的旧连接会关闭，旧通知会被忽略。应用创建或加入明确失败时停止连接；`UNKNOWN_COMMIT_OUTCOME` 和 `SYNC_PENDING` 保留后台补齐，不自动重发写命令。
 
-`StorageDiningPreferences` 封装上次房间的存储键。`ReferenceDiningCatalog` 保存默认目录配置。异步 `Bootstrap.device` 注册 `RoomGateway`、`RoomConnection`、`DiningPreferences`，调用 `CoordinationComposition.registerSessions` 装配独立会话 Interactor，再执行 `InitializeDiningUseCase`；等待身份和默认目录初始化后才完成，失败时释放连接、Store 与查询资源。原 `DiningDevice` 已删除。`Bootstrap.create` 为测试或无平台调用方提供核心装配，不负责启动 UI；`Buffet` 仅保留兼容导出。
+订阅支持应用层心跳协商：服务端每 10 秒发送带房间 ID 与序号的 `heartbeat`，客户端确认并重置 30 秒超时；服务端只接受同房间、相同序号的确认。任一端超时关闭连接，客户端采用最长 30 秒的指数退避重连，完成历史同步后再恢复周期补齐。恢复期间同房间的 `watch` 等待同一个恢复 Promise；退出、切后台、切房间会取消重试，并忽略旧连接迟到回调。心跳是传输消息，不进入领域事件或业务查询失效通知。
+
+result 页在单人结算或房主结束整桌后保留当前已结束会话与冻结结果，不自动进入 setup；用户仍可保存小票，主动返回首页时才执行离房及导航。
+
+`StorageDiningPreferences` 封装上次房间的存储键。`ReferenceDiningCatalog` 保存默认目录配置。异步 `Bootstrap.device` 注册 `RoomGateway`、`RoomConnection`、`DiningPreferences`，调用 `CoordinationComposition.registerSessions` 装配独立会话 Interactor，再执行 `InitializeDiningUseCase`；等待身份和默认目录初始化后才完成，失败时释放连接、Store 与查询资源。原 `DiningDevice` 已删除。`Bootstrap.create` 为测试或无平台调用方提供核心装配，不负责启动 UI；统一使用 `Bootstrap`，不再提供 `Buffet` 兼容导出。
 
 UniApp 要求 `createApp()` 同步返回 `{app}`，因此 `Bootstrap.start` 将框架生成的 `app.mount(...)` 调用延迟到异步初始化成功后执行，保留原挂载参数并防止重复挂载。初始化失败时不挂载业务页面，入口负责呈现错误。页面 setup、页面生命周期和用户动作均发生在初始化完成之后。启动门控有自动化测试，微信端仍需在开发者工具和真机验证原生启动时序。
 
 各 context 的 `composition/*Composition.ts` 注册本 context 的仓储、Query Port.Out、Interactor 和 Port.In，同时注册自己的事件投影。`coordination/composition/CoordinationComposition.ts` 委托 `DiningComposition`、`CatalogCoordinationComposition`、`DeviceComposition`、`SessionComposition` 按职责注册跨 context 流程。组合根通过传入的容器获取 Bootstrap 注册的事务、个人数据和房间目录发布能力。事务作用域注册这些组合根的工厂，按需创建实际依赖，并注入同一活动事务的 runner，保留嵌套调用读己之写与原子提交行为。每个作用域独立缓存已解析实例，不共享事务实例；事务作用域不创建 Vue App。
 
-`UniAppUseCaseScope` 通过 `InjectionToken<T>` 推断注册与解析的服务类型，调用方无需重复传泛型。例如 `scope.resolve(GetConsumptionUseCase.token)` 自动返回 `GetConsumptionUseCase`；`scope.provide(GetConsumptionUseCase.token, interactor)` 按 token 的契约检查实现。`scope.factory(token, () => implementation)` 同样检查返回契约并延迟创建；构造失败不缓存半成品，循环依赖明确报错。只有绑定 UI 的根容器会把显式提供或已解析的对象发布到 Vue；业务解析直接读取作用域容器。`UseCase.Token<T>` 是同一类型的兼容别名，Port.Out 与基础设施 token 也携带自己的类型。
+`UniAppUseCaseScope` 通过 `InjectionToken<T>` 推断注册与解析的服务类型，调用方无需重复传泛型。例如 `scope.resolve(GetConsumptionUseCase.token)` 自动返回 `GetConsumptionUseCase`；`scope.provide(GetConsumptionUseCase.token, interactor)` 按 token 的契约检查实现。`scope.factory(token, () => implementation)` 同样检查返回契约并延迟创建；构造失败不缓存半成品，循环依赖明确报错。只有绑定 UI 的根容器会把显式提供或已解析的对象发布到 Vue；业务解析直接读取作用域容器。输入端口、输出端口与基础设施统一直接使用 `InjectionToken<T>`。
 
 ## Page → Store → Port.In 与数据响应
 
@@ -54,7 +58,7 @@ UniApp 要求 `createApp()` 同步返回 `{app}`，因此 `Bootstrap.start` 将�
 - 每项写能力只有其所属 Store 的公开入口。页面和测试都已迁移，`DiningStore` 不保留旧写方法的兼容别名；Store 之间不直接调用。
 - 命令 Port.In 通过构造参数注入 Store；事务继续由已有 `TransactionalInteractor` / `TransactionRunner` 管理。命令响应保留，Store 不用响应写入查询缓存。
 - 所有业务命令 Store 共用 `stores/CommandState.ts` 管理并发命令计数、错误和查询订阅租约。每次命令独立获取租约，成功后等待查询刷新，最终释放；失败不自动重发写命令。Store 可按展示需要额外合并 QueryClient 的 fetching/error 状态。
-- Store 通过 `QueryClientProvider.activities()`、`restaurants(scopeId)`、`rooms()`、`consumption(activityId, restaurantId)`、`personal()` 和 `result(session, actor, restaurantId)` 读取类型化查询。QueryKey 和返回类型集中在查询适配器中，原有缓存键保持兼容。
+- Store 通过 `QueryClientProvider.activities()`、`restaurants(scopeId)`、`rooms()`、`consumption(activityId, restaurantId)`、`personal()` 和 `result(session, actor, restaurantId)` 读取类型化查询。QueryKey 和返回类型集中在查询适配器中，缓存键集中定义。
 - `QueryClientProvider` 由 Bootstrap 注入查询 Port.In，集中注册 queryFn。包含身份、会话、小票和历史的设备查询也经过 `GetPersonalDiningUseCase`，Store 不直接查询 Port.Out。
 - QueryClient 是每个应用根共享的唯一业务缓存，`staleTime: Infinity`、`retry: false`。查询读取已提交的本地投影，使用 `networkMode: always`，断网时仍可读取本地业务数据。现有 Query Port.In 同步返回 DTO，首次查询使用同步 initialData；后续刷新交给 Query Core。
 - 没有页面 observer 时提交也会使缓存失效。重新创建 observer 前先同步读取失效查询的本地投影并更新缓存，避免首次读取已保存小票等数据时暂时返回旧值。
@@ -84,11 +88,9 @@ UniApp 要求 `createApp()` 同步返回 `{app}`，因此 `Bootstrap.start` 将�
 
 切后台会使当前激活失效。旧连接延迟完成或失败时，底层 `ManagedRoomConnection` 释放旧订阅，生命周期忽略其过期错误，不影响新的前台连接；当前恢复失败会报告一次并允许下次激活重试。销毁后不再执行恢复。测试覆盖真实 App 脚本的钩子绑定、并发通知、切后台期间的延迟订阅及失败恢复；原生前后台时序仍需真机验证。
 
-## 目录保存与部分同步结果
+## 目录保存
 
-发布或删除原件先完成本地业务事务，再由 `RoomCatalogSynchronization` 同步有资格更新的房间。响应的 `value` 为 `{localCommitted: true, pendingRooms: [{roomId, code}]}`：本地失败仍抛错，房间失败则返回部分完成结果，不否定已完成的本地保存，也不阻止其他房间尝试同步。
-
-`GetPendingCatalogSync` 比较原件版本与房间副本的 sourceVersion，查询包括已删除原件。待同步项由持久化事实推导，不依赖内存任务队列，重启后仍可找回。`RetryCatalogSync` 只同步仍缺失的房间版本，不再次发布本地原件，也跳过已经同步的房间。`UNKNOWN_COMMIT_OUTCOME` 不自动重发，用户先回到房间核对；`SYNC_PENDING` 由权威日志补齐。创建者目录页面展示待同步项及重试入口，编辑页面将部分完成显示为“已保存，房间同步待恢复”。
+`CatalogStore` 直接调用 `PublishLocalRestaurantUseCase`、`DeleteLocalRestaurantUseCase`；保存返回当前餐厅记录，不再包装部分同步结果。已删除原件工作流、待同步查询、重试同步端口及其服务。私人餐厅编辑只保存本机，创建或本人重新加入房间时才发布所选私人菜单和图片。
 
 本地原件对账只遍历进行中的单人活动；房间目录对账直接定位房间关联的活动，避免逐活动反复扫描房间集合。领域不变量和独立的本地／远端提交边界保留。
 

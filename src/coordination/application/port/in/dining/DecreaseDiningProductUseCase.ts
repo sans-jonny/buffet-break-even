@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface DecreaseDiningProductUseCase extends UseCase<DecreaseDiningProd
 }
 
 export namespace DecreaseDiningProductUseCase {
-    export const token = Symbol('DecreaseDiningProductUseCase') as UseCase.Token<DecreaseDiningProductUseCase>;
+    export const token = Symbol('DecreaseDiningProductUseCase') as InjectionToken<DecreaseDiningProductUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly session: Dining.Session,

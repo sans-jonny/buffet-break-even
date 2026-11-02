@@ -71,6 +71,7 @@ export namespace CategoryDiningSpec {
             await guest.whenEating(2, 'room:buffet', 'room:buffet:shrimp');
             guest.thenValueIs(3000, 'room:buffet');
             await host.givenRestaurant({version: 2, products: [{id: 'shrimp', name: '虾', categoryId: 'seafood', priceMinor: 2000}]});
+            await host.joinRoom('room');
             await guest.app.runtime.synchronize('room');
             guest.thenValueIs(4000, 'room:buffet');
             await guest.app.runtime.rebuild('room');
@@ -111,11 +112,11 @@ export namespace CategoryDiningSpec {
                 const url = `/rooms/${room.roomId}/private-restaurants`, records = [DiningScenario.restaurant()];
                 assert.equal((await app.inject({method: 'POST', url, payload: {restaurants: records}})).statusCode, 204);
                 assert.equal((await app.inject({method: 'POST', url, payload: {restaurants: records}})).statusCode, 204);
-                assert.deepEqual((await app.inject({url})).json(), records);
+                assert.deepEqual((await app.inject({url: `/rooms/${room.roomId}/catalog`})).json().restaurants, records);
                 assert.equal(await fixture.db.roomEvent.count(), 0);
                 assert.equal((await fixture.db.roomStream.findUniqueOrThrow({where: {roomId: room.roomId}})).version, 0);
                 const store = new RoomEventStore.Store(fixture.db);
-                await store.append(room.roomId, 0, [RelaySpec.opaque()]);
+                await store.append(room.roomId, 0, [RelaySpec.opaque()], 'test-submission');
                 assert.equal((await app.inject({method: 'POST', url, payload: {restaurants: records}})).statusCode, 204);
                 assert.equal((await app.inject({method: 'POST', url, payload: {restaurants: [DiningScenario.restaurant({version: 2})]}})).statusCode, 400);
                 await fixture.db.$disconnect();

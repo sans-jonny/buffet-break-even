@@ -12,7 +12,7 @@ import {ProductQuantityIncreased} from '../../src/contexts/accounting/domain/eve
 import {Domain} from '../../src/kernel/domain/Domain'
 import {InvalidRequestError} from '../../src/kernel/application/InvalidRequestError'
 import {createSSRApp,inject} from 'vue'
-import {Buffet} from '../../src/composition/Buffet'
+import {Bootstrap} from '../../src/composition/Bootstrap'
 import {TransactionalInteractor} from '../../src/kernel/application/TransactionalInteractor'
 import {IncreaseProductInteractor} from '../../src/contexts/accounting/application/use-case/IncreaseProductInteractor'
 
@@ -20,7 +20,7 @@ export namespace TransactionalInteractorSpec {
     export function verify():void {
         test('UniApp 原生容器将 UseCase 绑定到 Interactor；事务是可选的基类实现',()=>{
             const nativeApp=createSSRApp({}),storage=new DiningScenario.Storage();let sequence=0
-            const application=Buffet.create({storage,id:()=>String(++sequence),now:()=>new Date().toISOString()},nativeApp)
+            const application=Bootstrap.create({storage,id:()=>String(++sequence),now:()=>new Date().toISOString()},nativeApp)
             const increase=application.resolve(IncreaseProductUseCase.token)
             assert.equal(nativeApp.runWithContext(()=>inject<IncreaseProductUseCase>(IncreaseProductUseCase.token)),increase)
             assert.ok(increase instanceof IncreaseProductInteractor)
@@ -120,7 +120,7 @@ export namespace TransactionalInteractorSpec {
             assert.ok(meal.storage.values.get('buffet:v3:app:head'))
             const {EventBatch}=await import('../../protocol/EventBatch')
             for (const schemaVersion of [1, 2]) {
-                const batch=EventBatch.commit({scopeId:'old',roomId:'old',expectedVersion:0,events:[{type:'DiningStarted',schemaVersion,key:'accounting/activity/old',payload:{}}]},'legacy')
+                const batch=EventBatch.commit({submissionId: 'test-submission', scopeId:'old',roomId:'old',expectedVersion:0,events:[{type:'DiningStarted',schemaVersion,key:'accounting/activity/old',payload:{}}]},'legacy')
                 await assert.rejects(meal.app.runtime.projectCommitted(batch),/BLOCKED_UNKNOWN_EVENT/)
                 assert.equal(meal.app.runtime.get('cursor/old'),undefined)
             }

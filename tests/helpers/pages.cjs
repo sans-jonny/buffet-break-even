@@ -77,7 +77,7 @@ function pageHarness(options = {}) {
                 module: target, exports: target.exports, require: requireModule, uni: platform,
                 // This loader bypasses Vite; use the same export configured for auto-import.
                 useRequired: token => requireModule('@/ui/useRequired').useRequired(token),
-                getCurrentPages: () => [], setTimeout, clearTimeout, setInterval, clearInterval, console
+                getCurrentPages: () => options.pages?.() || [], setTimeout, clearTimeout, setInterval, clearInterval, console
             }, {filename})
         }
 

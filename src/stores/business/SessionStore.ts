@@ -71,7 +71,7 @@ export namespace SessionStore {
                         return response;
                     } finally { selecting = false; }
                 }),
-                startSingle: (total: number, categoryId?: string, replaceActivityId?: string) => transition(() => startSingleDining.execute(new StartSingleDiningUseCase.Request(total, categoryId, replaceActivityId))),
+                startSingle: (total: number, categoryId: string, replaceActivityId?: string) => transition(() => startSingleDining.execute(new StartSingleDiningUseCase.Request(total, categoryId, replaceActivityId))),
                 resumeSingle: (session: Dining.Session) => transition(() => resumeSingleDining.execute(new ResumeSingleDiningUseCase.Request(session))),
                 createRoom: (total: number, categoryId: string) => transition(() => createDiningRoom.execute(new CreateDiningRoomUseCase.Request(total, categoryId))),
                 joinRoom: (code?: string) => transition(() => joinDiningRoom.execute(new JoinDiningRoomUseCase.Request(code))),
@@ -79,6 +79,10 @@ export namespace SessionStore {
                 exitMenu: () => transition(async () => {
                     const {session, identity} = queries.personal();
                     if (!session || !identity) return;
+                    if (session.roomId) {
+                        await leaveDiningSession.execute(new LeaveDiningSessionUseCase.Request());
+                        return;
+                    }
                     let empty: boolean;
                     try {
                         empty = (await abandonEmpty.execute(new AbandonEmptyDiningUseCase.Request(session, identity.id))).empty;
@@ -87,8 +91,7 @@ export namespace SessionStore {
                         empty = true;
                     }
                     if (empty) {
-                        if (session.roomId) await leaveDiningSession.execute(new LeaveDiningSessionUseCase.Request());
-                        else await clearSession.execute(new ClearDiningSessionUseCase.Request());
+                        await clearSession.execute(new ClearDiningSessionUseCase.Request());
                     }
                 }),
                 acknowledgeSubmission: () => command(() => acknowledgeDiningSubmission.execute(new AcknowledgeDiningSubmissionUseCase.Request())),

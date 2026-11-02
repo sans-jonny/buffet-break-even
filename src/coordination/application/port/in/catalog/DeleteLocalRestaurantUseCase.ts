@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface DeleteLocalRestaurantUseCase extends UseCase<DeleteLocalRestaur
 }
 
 export namespace DeleteLocalRestaurantUseCase {
-    export const token = Symbol('DeleteLocalRestaurantUseCase') as UseCase.Token<DeleteLocalRestaurantUseCase>;
+    export const token = Symbol('DeleteLocalRestaurantUseCase') as InjectionToken<DeleteLocalRestaurantUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly restaurantId: string) {

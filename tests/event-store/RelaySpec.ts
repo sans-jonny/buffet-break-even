@@ -33,23 +33,13 @@ export namespace RelaySpec {
     })
 
     export function verify(): void {
-        test('旧房间迁移的 SQL 时间戳转换为 Prisma 毫秒时间，仍能按期回收', async () => {
-            const fixture = await database()
-            try {
-                await fixture.db.$executeRawUnsafe("INSERT INTO RoomStream(roomId, code, emptySince) VALUES ('legacy', '123456', '2026-11-02 00:00:00')")
-                await fixture.db.$executeRawUnsafe(readFileSync(join(process.cwd(), 'server/prisma/migrations/20261102000100_normalize_room_expiry/migration.sql'), 'utf8'))
-                const store = new RoomEventStore.Store(fixture.db, () => new Date('2026-11-02T00:10:00Z'))
-                await store.removeExpired()
-                await assert.rejects(store.head('legacy'), /STREAM_NOT_FOUND/)
-            } finally { await fixture.dispose() }
-        })
         test('空房十分钟销毁全部数据；重新进入取消计时，最后连接离开重新计时', async () => {
             const fixture = await database()
             let time = Date.now()
             const app = await RelayServer.create(fixture.db, {now: () => new Date(time)})
             try {
                 const room = (await app.inject({method: 'POST', url: '/rooms'})).json()
-                await app.inject({method: 'POST', url: `/rooms/${room.roomId}/events`, payload: {expectedVersion: 0, events: [opaque()]}})
+                await app.inject({method: 'POST', url: `/rooms/${room.roomId}/events`, payload: {submissionId: 'test-submission', expectedVersion: 0, events: [opaque()]}})
                 time += 9 * 60 * 1000
                 const connect = async () => {
                     let acknowledge!: () => void
@@ -118,7 +108,7 @@ export namespace RelaySpec {
             try {
                 const store = new RoomEventStore.Store(fixture.db), room = await store.create(),
                     other = await store.create()
-                const results = await Promise.allSettled([store.append(room.roomId, 0, [opaque(), opaque()]), store.append(room.roomId, 0, [opaque()])])
+                const results = await Promise.allSettled([store.append(room.roomId, 0, [opaque(), opaque()], 'test-submission'), store.append(room.roomId, 0, [opaque()], 'test-submission')])
                 assert.equal(results.filter(r => r.status === 'fulfilled').length, 1)
                 assert.ok((results.find(r => r.status === 'rejected') as PromiseRejectedResult).reason instanceof RoomEventStore.Conflict)
                 const committed = (results.find(r => r.status === 'fulfilled') as PromiseFulfilledResult<any>).value
@@ -135,7 +125,7 @@ export namespace RelaySpec {
             try {
                 const store = new RoomEventStore.Store(fixture.db), room = await store.create()
                 await fixture.db.$executeRawUnsafe("CREATE TRIGGER reject_third BEFORE INSERT ON RoomEvent WHEN NEW.batchIndex = 2 BEGIN SELECT RAISE(ABORT, 'FAULT_INJECTED'); END")
-                await assert.rejects(store.append(room.roomId, 0, [opaque(), opaque(), opaque()]))
+                await assert.rejects(store.append(room.roomId, 0, [opaque(), opaque(), opaque()], 'test-submission'))
                 assert.equal(await store.head(room.roomId), 0)
                 assert.equal(await fixture.db.roomBatch.count(), 0);
                 assert.equal(await fixture.db.roomEvent.count(), 0)
@@ -160,12 +150,12 @@ export namespace RelaySpec {
                 assert.equal((await app.inject({
                     method: 'POST',
                     url,
-                    payload: {expectedVersion: 0, events: []}
+                    payload: {submissionId: 'test-submission', expectedVersion: 0, events: []}
                 })).statusCode, 400)
                 const first = await app.inject({
                     method: 'POST',
                     url,
-                    payload: {expectedVersion: 0, events: [opaque(), opaque()]}
+                    payload: {submissionId: 'test-submission', expectedVersion: 0, events: [opaque(), opaque()]}
                 })
                 assert.equal(first.statusCode, 200)
                 await new Promise<void>(resolve => setImmediate(resolve))
@@ -173,16 +163,16 @@ export namespace RelaySpec {
                 assert.ok(notices.some(notice => notice.latestVersion === 2));
                 assert.deepEqual(notices.find(notice => notice.batch)!.batch!.events.map(e => e.streamVersion), [1, 2])
                 socket.terminate()
-                const conflict = await app.inject({method: 'POST', url, payload: {expectedVersion: 0, events: [opaque()]}})
+                const conflict = await app.inject({method: 'POST', url, payload: {submissionId: 'test-submission', expectedVersion: 0, events: [opaque()]}})
                 assert.equal(conflict.statusCode, 409)
                 assert.equal(conflict.json().batches.length, 1)
                 assert.equal(conflict.json().batches[0].toVersion, 2)
                 assert.equal(conflict.json().latestVersion, 2)
-                assert.equal((await app.inject({method: 'POST', url, payload: {expectedVersion: 2, events: [{...opaque(), streamVersion: 99}]}})).statusCode, 400)
+                assert.equal((await app.inject({method: 'POST', url, payload: {submissionId: 'test-submission', expectedVersion: 2, events: [{...opaque(), streamVersion: 99}]}})).statusCode, 400)
                 assert.equal((await app.inject({
                     method: 'POST',
                     url,
-                    payload: {expectedVersion: 2, events: [opaque()]}
+                    payload: {submissionId: 'test-submission', expectedVersion: 2, events: [opaque()]}
                 })).statusCode, 200)
                 const page = (await app.inject({url: url + '?afterVersion=0&limitBatches=1'})).json()
                 assert.equal(page.batches.length, 1);

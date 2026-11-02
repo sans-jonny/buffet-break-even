@@ -23,7 +23,7 @@ export class LeaveDiningSessionInteractor implements LeaveDiningSessionUseCase {
                 await this.leave.execute(new LeaveDiningRoomUseCase.Request(session, identity.id));
             } catch (error) {
                 // A destroyed room cannot accept a leave event; its local session can still be cleared.
-                if ((error as Error).message !== 'REJECTED_404') throw error;
+                if (!['REJECTED_404', 'UNKNOWN_COMMIT_OUTCOME', 'SYNC_PENDING'].includes((error as Error).message)) throw error;
             }
         }
         await this.clear.execute(new ClearDiningSessionUseCase.Request());

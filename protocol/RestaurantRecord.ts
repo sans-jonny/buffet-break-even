@@ -1,5 +1,8 @@
 /** Transport/persistence document only. No aggregate construction or business commands. */
 export namespace RestaurantRecord {
+    /** Presentation metadata belongs to the transport envelope, never individual records. */
+    export type Image = {restaurantId: string; productId: string; url: string};
+    export type Catalog = {restaurants: readonly Document[]; images: readonly Image[]};
     export type Document = Readonly<{
         id: string;
         name: string;

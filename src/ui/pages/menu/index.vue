@@ -3,6 +3,11 @@
     <app-navbar :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" :title="isPreview ? '菜单预览' : '菜单'" centered
                 fallback @back="goBack" @fallback="returnToSetup"/>
     <view v-if="!isPreview" class="progress-area">
+      <view v-if="submissionPending" class="submission-recovery">
+        <text>上次提交结果待核对，请先核对房间记录，避免重复点菜。</text>
+        <button :disabled="sessions.loading" @tap="recoverSubmission">核对房间记录并恢复</button>
+        <button :disabled="sessions.loading" @tap="returnToSetup">退出房间</button>
+      </view>
       <progress-panel :editable="!isPreview && (!hasRoom || room.hostId === dining.identityData?.id)" :percent="percent"
                       :target="ticketPrice"
                       :tips="progressTips" :value="displayValue" @edit-price="editPrice">
@@ -14,7 +19,7 @@
       </progress-panel>
     </view>
 
-    <scroll-view :scroll-x="true" :show-scrollbar="false" class="dining-level-tabs">
+    <scroll-view v-if="!isPreview" :scroll-x="true" :show-scrollbar="false" class="dining-level-tabs">
       <view
           v-for="restaurant in restaurants"
           :key="restaurant.id"
@@ -37,7 +42,7 @@
       <scroll-view :scroll-y="true" :show-scrollbar="false" class="product-list">
         <product-card v-for="product in filteredProducts" :key="product.id"
                       :count="isPreview ? undefined : selected[product.id]"
-                      :product="product" :readonly="isPreview" @add="addItem"/>
+                      :product="product" :readonly="isPreview || submissionPending" @add="addItem"/>
         <view v-if="!filteredProducts.length" class="empty-products flex-center">
           <text>🍽️</text>
           <text>此餐厅暂无此类菜品</text>
@@ -98,9 +103,21 @@ const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restau
 const catalog = useCatalogStore()
 const accounting = useAccountingStore()
 const isPreview = ref(false)
+const previewRestaurantId = ref('')
+const submissionPending = computed(() => !!dining.sessionData?.roomId &&
+    ['UNKNOWN_COMMIT_OUTCOME', 'SYNC_PENDING'].includes((dining.error as Error | null)?.message || ''))
+const hasValidActivity = computed(() => {
+  const session = dining.sessionData, activity = dining.activityData
+  if (!session || !activity || activity.status === 'ABANDONED') return false
+  if (activity.mode === 'SINGLE') return !session.roomId && session.scopeId === activity.id
+  const room = dining.roomData, actorId = dining.identityData?.id
+  return !!room && room.id === session.roomId && room.activityId === activity.id && session.scopeId === room.id &&
+      room.status !== 'ABANDONED' && (room.members.some(member => member.id === actorId && member.present) ||
+          (room.status === 'ENDED' && room.eligibleIds.includes(actorId || '')))
+})
 // 展示数据
 const restaurants = computed(() => {
-  return isPreview.value ? catalog.restaurants : dining.restaurantsData
+  return isPreview.value ? catalog.restaurants.filter(r => r.id === previewRestaurantId.value) : hasValidActivity.value ? dining.restaurantsData : []
 })
 const restaurantId = ref(selectedRestaurant.value)
 const pageState = computed(() => menuPageState.state(JSON.stringify([
@@ -123,8 +140,9 @@ const products = computed(() => (currentRestaurant.value?.products || []).map(p 
 })))
 const filteredProducts = computed(() => products.value.filter(p => !activeCategory.value || p.category === activeCategory.value))
 const consumption = computed(() => {
+  if (isPreview.value || !hasValidActivity.value || !currentRestaurant.value) return undefined
   const activityId = dining.sessionData?.activityId
-  return activityId ? accounting.consumption(activityId, restaurantId.value) : undefined
+  return activityId ? accounting.consumption(activityId, currentRestaurant.value.id) : undefined
 })
 const selected = computed(() => consumption.value?.rounds.find(r => r.status === 'ACTIVE')?.items || {})
 const selectedLines = computed(() => products.value.filter(p => selected.value[p.id]).map(product => ({
@@ -133,7 +151,7 @@ const selectedLines = computed(() => products.value.filter(p => selected.value[p
 })))
 const totalSelectedCount = computed(() => Object.values(selected.value).reduce((a, b) => a + b, 0))
 const displayValue = computed(() => {
-  if (!dining.sessionData || !currentRestaurant.value) return 0
+  if (isPreview.value || !hasValidActivity.value || !currentRestaurant.value) return 0
   return dining.preview(restaurantId.value).foodValueMinor / 100
 })
 const ticketPrice = computed(() => {
@@ -150,7 +168,7 @@ const room = computed(() => {
   return r ? {...r, members: r.members.filter(m => m.present)} : {code: '', hostId: null, status: '', members: []}
 })
 const canEditRoom = computed(() => !hasRoom.value || !!room.value.members.find(m => m.id === dining.identityData?.id && m.online))
-const canCommitRound = computed(() => !isPreview.value && (!hasRoom.value ||
+const canCommitRound = computed(() => !isPreview.value && !submissionPending.value && (!hasRoom.value ||
     (room.value.status === 'ACTIVE' && room.value.hostId === dining.identityData?.id && canEditRoom.value)))
 watch(restaurants, list => {
   if (!list.some(r => r.id === restaurantId.value)) restaurantId.value = list[0]?.id || ''
@@ -172,12 +190,20 @@ const showCart = computed({get: () => pageState.value.showCart, set: value => { 
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 const menuVisible = ref(false)
 let redirectedActivity = ''
-const stopEndedRedirect = watch(() => menuVisible.value && !isPreview.value && dining.activityData?.status === 'ENDED'
-    ? dining.activityData.id : '', activityId => {
-  if (!activityId || redirectedActivity === activityId) return
-  redirectedActivity = activityId
+const stopEndedRedirect = watch(() => {
+  if (!menuVisible.value || isPreview.value) return ''
+  if (navigation.isNavigating?.()) return ''
+  const pages = getCurrentPages(), current = pages[pages.length - 1]
+  if (current?.route && current.route.replace(/^\//, '') !== 'pages/menu/index') return ''
+  const activity = dining.activityData
+  if (!hasValidActivity.value || !activity) return 'setup'
+  return activity.status === 'ENDED' ? `result:${activity.id}` : ''
+}, target => {
+  if (!target || redirectedActivity === target) return
+  redirectedActivity = target
   showCart.value = false
-  void navigation.toResult(undefined, 'replace').catch(error => {
+  const redirect = target === 'setup' ? navigation.open('setup', 'replace') : navigation.toResult(undefined, 'replace')
+  void redirect.catch(error => {
     redirectedActivity = ''
     PageFeedback.report(error)
   })
@@ -186,39 +212,46 @@ const stopEndedRedirect = watch(() => menuVisible.value && !isPreview.value && d
 const openOrderSlip = () => {
   if (!canCommitRound.value || !selectedLines.value.length) return
   showCart.value = false
-  return navigation.toOrderSlip()
+  return navigateAway(() => navigation.toOrderSlip())
 }
 
-const finish = async () => {
-  menuPageState.selectedRestaurants[dining.sessionData?.activityId || ''] = restaurantId.value
-  // Stop reacting before navigation; onHide can arrive after the result page opens.
+async function navigateAway(action: () => Promise<void>) {
+  // Stop route guards before cleanup changes the session; onHide can arrive later.
   menuVisible.value = false
   try {
-    await navigation.toResult()
+    await action()
   } catch (error) {
     menuVisible.value = true
     throw error
   }
 }
 
-const openTab = async (tab: 'menu' | 'mine') => {
-  if (tab === 'menu') return
-  await sessions.exitMenu()
-  await navigation.open(tab, 'replace')
+const finish = () => {
+  menuPageState.selectedRestaurants[dining.sessionData?.activityId || ''] = restaurantId.value
+  return navigateAway(() => navigation.toResult())
 }
 
-const returnToSetup = async () => {
+const openTab = (tab: 'menu' | 'mine') => {
+  if (tab === 'menu') return
+  return navigateAway(async () => {
+    await sessions.exitMenu()
+    await navigation.open(tab, 'replace')
+  })
+}
+
+const returnToSetup = () => navigateAway(async () => {
   if (!isPreview.value) await sessions.exitMenu()
   await navigation.open('setup', 'reset')
-}
+})
 
-const goBack = async () => {
+const goBack = () => navigateAway(async () => {
   if (!isPreview.value) await sessions.exitMenu()
   await navigation.back(isPreview.value ? 'creator' : 'setup')
-}
+})
 
 onBackPress(event => {
   if (isPreview.value || event.from === 'navigateBack') return false
+  if (navigation.isNavigating?.()) return true
   void goBack().catch(PageFeedback.report)
   return true
 })
@@ -233,9 +266,10 @@ function editPrice() {
 }
 
 function selectRestaurant(id: string) {
+  if (isPreview.value || !restaurants.value.some(r => r.id === id)) return
   restaurantId.value = id;
   if (!isPreview.value) menuPageState.selectedRestaurants[dining.sessionData?.activityId || ''] = id
-  activeCategory.value = categories.value[0] || '';
+  activeCategory.value = '';
   showCart.value = false
 }
 
@@ -250,11 +284,26 @@ async function savePrice() {
 }
 
 async function addItem(id: string) {
-  if (!isPreview.value) await dining.edit(restaurantId.value, 'add', id)
+  if (isPreview.value || submissionPending.value) return
+  await editItem(() => dining.edit(restaurantId.value, 'add', id))
 }
 
 async function removeItem(id: string) {
-  await dining.edit(restaurantId.value, 'reduce', id)
+  if (submissionPending.value) return
+  await editItem(() => dining.edit(restaurantId.value, 'reduce', id))
+}
+
+async function editItem(action: () => Promise<unknown>) {
+  try { await action() } catch (error) {
+    if (!['UNKNOWN_COMMIT_OUTCOME', 'SYNC_PENDING'].includes((error as Error).message)) throw error
+    PageFeedback.report(error)
+  }
+}
+
+async function recoverSubmission() {
+  await sessions.acknowledgeSubmission()
+  dining.dismissError()
+  uni.showToast({title: '已核对房间记录，请确认数量后继续', icon: 'none'})
 }
 
 async function transferHost(member: { id: string }) {
@@ -263,6 +312,7 @@ async function transferHost(member: { id: string }) {
 
 // 生命周期与动画监听
 onLoad(async query => {
+  previewRestaurantId.value = query?.previewId || ''
   isPreview.value = Boolean(query?.previewId)
   restaurantId.value = query?.previewId || selectedRestaurant.value
   menuVisible.value = true
@@ -270,6 +320,8 @@ onLoad(async query => {
 </script>
 
 <style scoped>
+.submission-recovery {padding:20rpx;border-radius:20rpx;background:#fff0d5;color:#946511;font-size:25rpx}
+.submission-recovery button {margin-top:12rpx;font-size:25rpx}
 .menu-page.preview-mode {
   padding-bottom: 0
 }

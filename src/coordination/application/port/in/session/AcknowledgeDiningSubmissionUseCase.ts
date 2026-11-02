@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface AcknowledgeDiningSubmissionUseCase extends UseCase<AcknowledgeDiningSubmissionUseCase.Request, AcknowledgeDiningSubmissionUseCase.Response> {
@@ -5,7 +6,7 @@ export interface AcknowledgeDiningSubmissionUseCase extends UseCase<AcknowledgeD
 }
 
 export namespace AcknowledgeDiningSubmissionUseCase {
-    export const token = Symbol('AcknowledgeDiningSubmissionUseCase') as UseCase.Token<AcknowledgeDiningSubmissionUseCase>;
+    export const token = Symbol('AcknowledgeDiningSubmissionUseCase') as InjectionToken<AcknowledgeDiningSubmissionUseCase>;
     export class Request extends UseCase.Request {
 
     }

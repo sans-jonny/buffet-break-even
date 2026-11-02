@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface JoinMultiplayerDiningUseCase extends UseCase<JoinMultiplayerDin
 }
 
 export namespace JoinMultiplayerDiningUseCase {
-    export const token = Symbol('JoinMultiplayerDiningUseCase') as UseCase.Token<JoinMultiplayerDiningUseCase>;
+    export const token = Symbol('JoinMultiplayerDiningUseCase') as InjectionToken<JoinMultiplayerDiningUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly roomId: string, readonly member: Dining.Identity) {

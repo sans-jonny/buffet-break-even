@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface AuthorizeRoomUseCase extends UseCase<AuthorizeRoomUseCase.Request, AuthorizeRoomUseCase.Response> {
@@ -5,7 +6,7 @@ export interface AuthorizeRoomUseCase extends UseCase<AuthorizeRoomUseCase.Reque
 }
 
 export namespace AuthorizeRoomUseCase {
-    export const token = Symbol('AuthorizeRoomUseCase') as UseCase.Token<AuthorizeRoomUseCase>;
+    export const token = Symbol('AuthorizeRoomUseCase') as InjectionToken<AuthorizeRoomUseCase>;
 
     export class Request extends UseCase.Request {
         constructor(readonly roomId: string, readonly memberId: string, readonly hostOnly = false) {

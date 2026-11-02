@@ -22,10 +22,7 @@
       <text>保存后即可在「我的餐厅」中使用</text>
     </view>
     <button :hover-stay-time="0" class="restaurant-add" @tap="editRestaurant()">＋ 新建餐厅</button>
-    <view v-for="pending in catalog.pendingSyncData" :key="pending.restaurantId" class="restaurant-card">
-      <text>{{ pending.name }} 已保存本地，{{ pending.roomIds.length }} 个房间待同步</text>
-      <button :disabled="catalog.loading" @tap="retrySync(pending.restaurantId)">重试房间同步</button>
-    </view>
+    <text class="editor-note">私人菜单修改仅保存本机，重新加入原房间时更新该房间中已共享的菜单。</text>
     <app-confirm-dialog :controller="confirmation"/>
   </view>
 </template>
@@ -70,15 +67,7 @@ function remove(id: string) {
 
 // 业务操作
 async function deleteRestaurant(id: string) {
-  const response = await catalog.remove(id)
-  if (response.value.pendingRooms.length)
-    uni.showToast({title: '本地已删除，房间同步待恢复', icon: 'none'})
-}
-
-async function retrySync(id: string) {
-  const response = await catalog.retrySync(id)
-  const unknown = response.value.pendingRooms.some(room => room.code === 'UNKNOWN_COMMIT_OUTCOME')
-  uni.showToast({title: unknown ? '请先返回房间核对上次提交' : response.value.pendingRooms.length ? '尚未同步，请稍后重试' : '房间同步完成', icon: 'none'})
+  await catalog.remove(id)
 }
 </script>
 

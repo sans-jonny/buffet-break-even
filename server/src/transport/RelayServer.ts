@@ -5,9 +5,13 @@ import {PrismaClient} from '../../generated/client'
 import {RoomEventStore} from '../event-store/RoomEventStore'
 import {EventBatch} from '../../../protocol/EventBatch'
 import {ProductImages} from './ProductImages'
+import {RoomHeartbeat} from '../../../protocol/RoomHeartbeat'
 
 export namespace RelayServer {
-    export async function create(db = new PrismaClient(), options: {now?: () => Date; legacyImageDirectory?: string} = {}) {
+    export async function create(db = new PrismaClient(), options: {now?: () => Date; heartbeat?: RoomHeartbeat.Settings} = {}) {
+        const heartbeatSettings = options.heartbeat || RoomHeartbeat.defaults
+        if (!Number.isSafeInteger(heartbeatSettings.intervalMs) || heartbeatSettings.intervalMs <= 0 ||
+            !Number.isSafeInteger(heartbeatSettings.timeoutMs) || heartbeatSettings.timeoutMs <= heartbeatSettings.intervalMs) throw new Error('INVALID_HEARTBEAT_SETTINGS')
         const app = Fastify({bodyLimit: 2000000}), store = new RoomEventStore.Store(db, options.now)
         const subscriptions = new Map<string, Set<{ send(data: string): void }>>()
         let presenceQueue: Promise<unknown> = Promise.resolve()
@@ -18,11 +22,22 @@ export namespace RelayServer {
         }
         await store.resetConnections()
         await store.removeExpired()
-        await app.register(cors, {origin: true});
+        await app.register(cors, {origin: true, methods: ['GET', 'HEAD', 'POST', 'PUT', 'OPTIONS']});
         await app.register(websocket)
-        await ProductImages.register(app, db, options.legacyImageDirectory)
+        const catalog = async (roomId: string) => ({restaurants: await store.readRestaurants(roomId),
+            images: await ProductImages.manifest(db, roomId)})
+        await ProductImages.register(app, db, async roomId => {
+            if (!subscriptions.get(roomId)?.size) return
+            const notice = JSON.stringify({type: 'roomCatalogUpdated', roomId, catalog: await catalog(roomId)})
+            for (const socket of subscriptions.get(roomId) || []) {
+                try { socket.send(notice) } catch { /* Reconnect loads the current catalog. */ }
+            }
+        })
         // Request-time expiry enforces the deadline even between background sweeps.
-        app.addHook('onRequest', async () => { await presence(() => store.removeExpired()) })
+        app.addHook('onRequest', async request => {
+            const room = /^\/rooms\/([^/?]+)/.exec(request.url)
+            if (room) await store.requireAvailable(decodeURIComponent(room[1]))
+        })
         const cleanup = setInterval(() => { void presence(() => store.removeExpired()) }, 1000)
         cleanup.unref()
         const heartbeat = new Set<{alive: boolean; ping(): void; terminate(): void}>()
@@ -33,6 +48,11 @@ export namespace RelayServer {
             }
         }, 30000)
         heartbeatTimer.unref()
+        const applicationHeartbeats = new Set<() => void>()
+        const applicationHeartbeatTimer = setInterval(() => {
+            for (const pulse of applicationHeartbeats) pulse()
+        }, heartbeatSettings.intervalMs)
+        applicationHeartbeatTimer.unref()
         app.setErrorHandler((failure, _request, reply) => {
             const error = failure as Error & { statusCode?: number }
             const status = error instanceof RoomEventStore.Conflict ? 409 : error.message === 'STREAM_NOT_FOUND' ? 404
@@ -48,8 +68,7 @@ export namespace RelayServer {
                 await store.uploadRestaurants(request.params.roomId, request.body?.restaurants);
                 return reply.code(204).send();
             })
-        app.get<{Params: {roomId: string}}>('/rooms/:roomId/private-restaurants', request =>
-            store.readRestaurants(request.params.roomId))
+        app.get<{Params: {roomId: string}}>('/rooms/:roomId/catalog', request => catalog(request.params.roomId))
         app.get<{ Params: { code: string } }>('/room-codes/:code', request => store.locate(request.params.code))
         app.get<{ Params: { roomId: string } }>('/rooms/:roomId/head', async request => ({
             roomId: request.params.roomId,
@@ -58,26 +77,32 @@ export namespace RelayServer {
         app.get<{
             Params: { roomId: string };
             Querystring: { afterVersion?: string; limitBatches?: string }
-        }>('/rooms/:roomId/events', request =>
-            store.read(request.params.roomId, Number(request.query.afterVersion || 0), Number(request.query.limitBatches || 20)))
+        }>('/rooms/:roomId/events', async request => {
+            const history = await store.read(request.params.roomId, Number(request.query.afterVersion || 0), Number(request.query.limitBatches || 20))
+            return history.batches.some(batch => batch.events.some(event => ['RestaurantPublished', 'RestaurantDeleted'].includes(event.type)))
+                ? {...history, catalog: await catalog(request.params.roomId)} : history
+        })
         app.post<{
             Params: { roomId: string };
-            Body: { expectedVersion: number; events: EventBatch.Event[] }
+            Body: { expectedVersion: number; events: EventBatch.Event[]; submissionId: string }
         }>('/rooms/:roomId/events', async (request, reply) => {
             let batch: EventBatch.Committed
-            try { batch = await store.append(request.params.roomId, request.body?.expectedVersion, request.body?.events) }
+            try { batch = await store.append(request.params.roomId, request.body?.expectedVersion, request.body?.events, request.body?.submissionId) }
             catch (error) {
                 if (!(error instanceof RoomEventStore.Conflict)) throw error
                 const recovery = await store.read(request.params.roomId, request.body.expectedVersion)
                 return reply.code(409).send({error: 'VERSION_CONFLICT', currentVersion: recovery.latestVersion, ...recovery})
             }
+            const menu = batch.events.some(event => ['RestaurantPublished', 'RestaurantDeleted'].includes(event.type))
+                ? await catalog(request.params.roomId) : undefined
             for (const socket of subscriptions.get(request.params.roomId) || []) {
                 try {
                     socket.send(JSON.stringify({
                         type: 'roomBatchesCommitted',
                         roomId: batch.roomId,
                         latestVersion: batch.toVersion,
-                        batch
+                        batch,
+                        ...(menu ? {catalog: menu} : {})
                     }))
                 } catch { /* HTTP history remains authoritative. */
                 }
@@ -87,12 +112,31 @@ export namespace RelayServer {
         app.get<{ Params: { roomId: string } }>('/rooms/:roomId/subscribe', {websocket: true}, (socket, request) => {
             const roomId = request.params.roomId
             let closed = false
+            let sequence = 0, pending: {sequence: number; sentAt: number} | undefined
+            const pulse = () => {
+                if (closed) return
+                if (pending) {
+                    if (Date.now() - pending.sentAt >= heartbeatSettings.timeoutMs) socket.terminate()
+                    return
+                }
+                pending = {sequence: ++sequence, sentAt: Date.now()}
+                try { socket.send(JSON.stringify({type: 'heartbeat', roomId, sequence})) }
+                catch { socket.terminate() }
+            }
+            socket.on('message', (data: unknown) => {
+                if (closed || !pending) return
+                try {
+                    const notice = JSON.parse(String(data))
+                    if (notice.type === 'heartbeatAck' && notice.roomId === roomId && notice.sequence === pending.sequence) pending = undefined
+                } catch { /* Application heartbeats cannot modify room events. */ }
+            })
             const peer = {alive: true, ping: () => socket.ping(), terminate: () => socket.terminate()}
             heartbeat.add(peer)
             socket.on('pong', () => { peer.alive = true })
             socket.on('close', () => {
                 closed = true
                 heartbeat.delete(peer)
+                applicationHeartbeats.delete(pulse)
                 void presence(async () => {
                     const subscribers = subscriptions.get(roomId)
                     subscribers?.delete(socket)
@@ -109,7 +153,12 @@ export namespace RelayServer {
                 const subscribers = subscriptions.get(roomId) || new Set()
                 subscribers.add(socket)
                 subscriptions.set(roomId, subscribers)
-                if (!closed) socket.send(JSON.stringify({type: 'subscribed', roomId}))
+                const currentCatalog = await catalog(roomId)
+                if (!closed) {
+                    socket.send(JSON.stringify({type: 'subscribed', roomId, catalog: currentCatalog,
+                        heartbeat: heartbeatSettings}))
+                    applicationHeartbeats.add(pulse); pulse()
+                }
             }).catch(() => {
                 socket.close(1008, 'STREAM_NOT_FOUND')
             })
@@ -117,6 +166,8 @@ export namespace RelayServer {
         app.addHook('onClose', async () => {
             clearInterval(cleanup)
             clearInterval(heartbeatTimer)
+            clearInterval(applicationHeartbeatTimer)
+            applicationHeartbeats.clear()
             await presenceQueue
             // Graceful shutdown starts the grace period for remaining connections.
             for (const roomId of subscriptions.keys()) await store.empty(roomId)

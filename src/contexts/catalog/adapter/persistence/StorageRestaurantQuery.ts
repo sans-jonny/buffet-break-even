@@ -7,11 +7,19 @@ export class StorageRestaurantQuery implements RestaurantQuery {
     }
 
     getById(scope: string, id: string) {
+        if (scope !== 'local') {
+            const local = this.repository.findById('local', id);
+            if (local?.type === 'PUBLIC') return UseCase.dto(local.snapshot());
+        }
         const aggregate = this.repository.findById(scope, id);
-        return UseCase.dto(aggregate?.snapshot());
+        return UseCase.dto(scope !== 'local' && aggregate?.type === 'PUBLIC' ? undefined : aggregate?.snapshot());
     }
 
     list(scope: string) {
-        return UseCase.dto(this.repository.all(scope).map(a => a.snapshot()));
+        const stored = this.repository.all(scope);
+        return UseCase.dto((scope === 'local' ? stored : [
+            ...this.repository.all('local').filter(restaurant => restaurant.type === 'PUBLIC'),
+            ...stored.filter(restaurant => restaurant.type !== 'PUBLIC')
+        ]).map(a => a.snapshot()));
     }
 }

@@ -22,6 +22,6 @@ export namespace CommandState {
                 release?.();
             }
         }
-        return {run, loading: computed(() => pending.value > 0), error: computed(() => error.value)};
+        return {run, clearError: () => { error.value = null; }, loading: computed(() => pending.value > 0), error: computed(() => error.value)};
     }
 }

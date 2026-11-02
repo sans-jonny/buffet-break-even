@@ -24,9 +24,19 @@ async function fixture(t) {
     t.after(() => sessionStore.$dispose())
     await app.resolve(InitializeDiningUseCase.token).execute(new InitializeDiningUseCase.Request())
     await app.catalog.publish(DiningScenario.restaurant())
-    await sessionStore.startSingle(20000)
+    await sessionStore.startSingle(20000, 'My')
     return {app, storage, release, sessionStore}
 }
+
+test('退出页面时空消费查询返回空值，不创建无效 ID 的查询缓存', async t => {
+    const {app} = await fixture(t)
+    const before = app.queries.client.getQueryCache().getAll().length
+    for (const [activityId, restaurantId] of [['', 'buffet'], ['activity', ''], [' ', 'buffet'], ['activity', ' ']])
+        assert.equal(app.queries.consumption(activityId, restaurantId), undefined)
+    assert.equal(app.queries.client.getQueryCache().getAll().length, before)
+    await app.dining.edit('buffet', 'add', 'shrimp')
+    assert.equal(app.queries.consumption(app.dining.sessionData.activityId, 'buffet').rounds[0].items.shrimp, 1)
+})
 
 test('同一 Pinia 根共享业务 Store；Page 直接读取属性，提交后由查询订阅更新', async t => {
     const {app, sessionStore} = await fixture(t)
@@ -53,7 +63,7 @@ test('个人记录使用显式结果；无页面订阅时保存和删除后首�
     await app.dining.edit('buffet', 'add', 'shrimp', 2)
     const originalSession = app.dining.sessionData
     const result = app.dining.preview('buffet')
-    await sessionStore.startSingle(30000, undefined, originalSession.activityId)
+    await sessionStore.startSingle(30000, 'My', originalSession.activityId)
     assert.notEqual(app.dining.sessionData.activityId, result.activityId)
     release()
     assert.equal(app.personal.receipt(), undefined) // Prime an inactive personal query.
@@ -77,12 +87,12 @@ test('单人活动已创建但选择失败时保留恢复入口，仅重试选�
         if (fail) { fail = false; throw new Error('SELECTION_DISK_FAILED') }
         return select(...args)
     })
-    await assert.rejects(sessionStore.startSingle(25000, undefined, previous.activityId), /SESSION_SELECTION_PENDING/)
+    await assert.rejects(sessionStore.startSingle(25000, 'My', previous.activityId), /SESSION_SELECTION_PENDING/)
     const pending = sessionStore.selectionPending
     assert.notEqual(pending.activityId, previous.activityId)
     assert.equal(app.dining.sessionData.activityId, previous.activityId)
     const count = app.accounting.activities.length
-    await assert.rejects(sessionStore.startSingle(30000), /SESSION_SELECTION_PENDING/)
+    await assert.rejects(sessionStore.startSingle(30000, 'My'), /SESSION_SELECTION_PENDING/)
     assert.equal(app.accounting.activities.length, count)
     await sessionStore.recoverSelection()
     assert.equal(app.dining.sessionData.activityId, pending.activityId)
@@ -98,10 +108,10 @@ test('并发切换会话被拒绝，不会在第一次选择完成前创建第�
     const selecting = new Promise(resolve => { entered = resolve })
     const gate = new Promise(resolve => { release = resolve })
     t.mock.method(data, 'selectSession', async (...args) => { entered(); await gate; return select(...args) })
-    const first = sessionStore.startSingle(25000, undefined, app.dining.sessionData.activityId)
+    const first = sessionStore.startSingle(25000, 'My', app.dining.sessionData.activityId)
     try {
         await selecting
-        await assert.rejects(sessionStore.startSingle(30000), /SESSION_BUSY/)
+        await assert.rejects(sessionStore.startSingle(30000, 'My'), /SESSION_BUSY/)
     } finally { release() }
     await first
     assert.equal(app.accounting.activities.length, 2)
@@ -140,7 +150,7 @@ test('多活动查询按 ID 隔离；切换当前会话不会覆盖另一个页�
     await app.dining.edit('buffet', 'add', 'shrimp', 2)
     const previous = computed(() => app.accounting.consumption(oldId, 'buffet'))
     assert.equal(previous.value.rounds[0].items.shrimp, 2)
-    await sessionStore.startSingle(30000, undefined, oldId)
+    await sessionStore.startSingle(30000, 'My', oldId)
     const newId = app.dining.sessionData.activityId
     await app.dining.edit('buffet', 'add', 'shrimp', 5)
     assert.equal(app.accounting.consumption(newId, 'buffet').rounds[0].items.shrimp, 5)
@@ -218,7 +228,7 @@ test('断网时本地命令和已提交投影查询仍能完成', async t => {
 test('Store 返回 Port.In 的命令 Response，查询缓存仍通过提交失效刷新', async t => {
     const {app, sessionStore} = await fixture(t)
     const oldId = app.dining.sessionData.activityId
-    const response = await sessionStore.startSingle(25000, undefined, oldId)
+    const response = await sessionStore.startSingle(25000, 'My', oldId)
     assert.equal(response.value.activityId, app.dining.sessionData.activityId)
     assert.notEqual(response.value.activityId, oldId)
     assert.equal(app.dining.activityData.ticketPriceMinor, 25000)

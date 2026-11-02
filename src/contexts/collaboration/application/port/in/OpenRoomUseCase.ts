@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface OpenRoomUseCase extends UseCase<OpenRoomUseCase.Request, OpenRo
 }
 
 export namespace OpenRoomUseCase {
-    export const token = Symbol('OpenRoomUseCase') as UseCase.Token<OpenRoomUseCase>;
+    export const token = Symbol('OpenRoomUseCase') as InjectionToken<OpenRoomUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

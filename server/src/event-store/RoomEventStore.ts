@@ -42,23 +42,23 @@ export namespace RoomEventStore {
         }
 
         async removeExpired(): Promise<void> {
-            // Explicit deletion also supports legacy SQLite databases without cascading FKs.
-            await this.db.$transaction(async tx => {
-                const rooms = await tx.roomStream.findMany({
-                    where: {emptySince: {lte: new Date(this.now().getTime() - 10 * 60 * 1000)}}, select: {roomId: true}
-                })
-                if (!rooms.length) return
-                const roomId = {in: rooms.map(room => room.roomId)}
-                await tx.roomProductImage.deleteMany({where: {roomId}})
-                await tx.roomEvent.deleteMany({where: {roomId}})
-                await tx.roomBatch.deleteMany({where: {roomId}})
-                await tx.roomStream.deleteMany({where: {roomId}})
-            })
+            await this.db.roomStream.deleteMany({where: {emptySince: {lte: new Date(this.now().getTime() - 10 * 60 * 1000)}}})
+        }
+
+        async requireAvailable(roomId: string): Promise<void> {
+            const room = await this.db.roomStream.findUnique({where: {roomId}, select: {emptySince: true}})
+            if (!room) throw new Error('STREAM_NOT_FOUND')
+            const cutoff = new Date(this.now().getTime() - 10 * 60 * 1000)
+            if (room.emptySince && room.emptySince <= cutoff) {
+                const expired = await this.db.roomStream.deleteMany({where: {roomId, emptySince: {lte: cutoff}}})
+                if (expired.count) throw new Error('STREAM_NOT_FOUND')
+            }
         }
 
         async locate(code: string): Promise<{ roomId: string; code: string; version: number }> {
             const stream = await this.db.roomStream.findUnique({where: {code}})
             if (!stream) throw new Error('STREAM_NOT_FOUND');
+            await this.requireAvailable(stream.roomId);
             return {roomId: stream.roomId, code: stream.code, version: stream.version}
         }
 
@@ -88,9 +88,9 @@ export namespace RoomEventStore {
 
         async append(roomId: string,
                      expectedVersion: number,
-                     events: readonly EventBatch.Event[]): Promise<EventBatch.Committed> {
+                     events: readonly EventBatch.Event[], submissionId: string): Promise<EventBatch.Committed> {
             EventBatch.validate(events)
-            const batch = EventBatch.commit({roomId, scopeId: roomId, expectedVersion, events}, randomUUID())
+            const batch = EventBatch.commit({roomId, scopeId: roomId, expectedVersion, events, submissionId}, randomUUID())
             if (batch.toVersion > 100000) throw new Error('SIZE_LIMIT')
             return this.db.$transaction(async tx => {
                 const updated = await tx.roomStream.updateMany({
@@ -108,11 +108,11 @@ export namespace RoomEventStore {
                         fromVersion: batch.fromVersion, toVersion: batch.toVersion, document: JSON.stringify(batch)
                     }
                 })
-                for (const event of batch.events) await tx.roomEvent.create({
-                    data: {
+                await tx.roomEvent.createMany({
+                    data: batch.events.map(event => ({
                         roomId, version: event.version,
                         batchId: batch.batchId, batchIndex: event.batchIndex, document: JSON.stringify(event)
-                    }
+                    }))
                 })
                 return batch
             })

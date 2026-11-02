@@ -78,7 +78,7 @@ export namespace DiningSessionInteractorSpec {
             assert.equal(d.meal.relay.sent, 1);
         });
 
-        test('退出提交结果未知时保留当前会话和连接，事件补齐不会重发退出', async () => {
+        test('退出提交结果未知时仍清理本机会话和连接，保留歧义记录且不重复退出', async () => {
             const owner = device();
             await owner.sessions.initialize();
             await owner.sessions.createRoom(20000, 'My');
@@ -87,9 +87,10 @@ export namespace DiningSessionInteractorSpec {
             await guest.sessions.joinRoom('123456');
             const session = guest.meal.dining.session(), sent = guest.meal.relay.sent;
             guest.meal.relay.loseResponse = true;
-            await assert.rejects(guest.sessions.leaveRoom(), /UNKNOWN_COMMIT_OUTCOME/);
-            assert.deepEqual(guest.meal.dining.session(), session);
-            assert.equal(guest.calls.includes('stop'), false);
+            await guest.sessions.leaveRoom();
+            assert.equal(guest.meal.dining.session(), undefined);
+            assert.equal(guest.calls.includes('stop'), true);
+            assert.ok(guest.meal.app.runtime.get('outcome/room'));
             assert.equal(guest.meal.relay.sent, sent + 1);
             await guest.meal.app.runtime.synchronize('room');
             assert.equal(guest.meal.relay.sent, sent + 1);

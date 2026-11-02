@@ -9,8 +9,6 @@ import {GetDiningResultUseCase} from '../../coordination/application/port/in/din
 import {GetPersonalDiningUseCase} from '../../coordination/application/port/in/device/GetPersonalDiningUseCase';
 import type {Dining} from '../../coordination/application/dto/Dining';
 import type {Accounting} from '../../contexts/accounting/application/port/in/Accounting';
-import {GetPendingCatalogSyncUseCase} from '../../coordination/application/port/in/catalog/GetPendingCatalogSyncUseCase';
-import type {CatalogSynchronization} from '../../coordination/application/dto/CatalogSynchronization';
 
 /** Query functions receive input ports from the same application container as commands. */
 export class QueryClientProvider {
@@ -32,15 +30,13 @@ export class QueryClientProvider {
             this.fetching.value = this.client.isFetching() > 0;
             this.error.value = this.client.getQueryCache().getAll().find(query => query.state.error)?.state.error ?? null;
         });
-        const {activities, restaurants, rooms, consumption, result, personal, pendingCatalogSync} = ports;
+        const {activities, restaurants, rooms, consumption, result, personal} = ports;
         this.client.setQueryDefaults(['accounting', 'activities'], {queryFn: () => activities.execute(new ListDiningActivitiesUseCase.Request()).value});
         this.client.setQueryDefaults(['catalog'], {queryFn: ({queryKey}) => restaurants.execute(new ListRestaurantsUseCase.Request(queryKey[1] as string, true)).value});
         this.client.setQueryDefaults(['collaboration', 'rooms'], {queryFn: () => rooms.execute(new ListRoomsUseCase.Request()).value});
         this.client.setQueryDefaults(['accounting', 'consumption'], {queryFn: ({queryKey}) =>
             ({value: consumption.execute(new GetConsumptionUseCase.Request(queryKey[2] as string, queryKey[3] as string)).value})});
         this.client.setQueryDefaults(['coordination', 'personal'], {queryFn: () => personal.execute()});
-        this.client.setQueryDefaults(['coordination', 'catalog-sync'], {queryFn: ({queryKey}) =>
-            pendingCatalogSync.execute(new GetPendingCatalogSyncUseCase.Request(queryKey[2] as string)).value});
         this.client.setQueryDefaults(['coordination', 'result'], {queryFn: ({queryKey}) => result.execute(
             new GetDiningResultUseCase.Request(queryKey[2] as Dining.Session, queryKey[3] as Dining.Identity, queryKey[4] as string, this.now())).value});
     }
@@ -58,15 +54,13 @@ export class QueryClientProvider {
     }
 
     consumption(activityId: string, restaurantId: string): Accounting.Consumption | undefined {
+        // UI selections can be cleared before their outgoing page has finished rendering.
+        if (!activityId?.trim() || !restaurantId?.trim()) return undefined;
         return this.read<{value: Accounting.Consumption | undefined}>(['accounting', 'consumption', activityId, restaurantId]).value;
     }
 
     personal(): GetPersonalDiningUseCase.Response {
         return this.read(['coordination', 'personal']);
-    }
-
-    pendingCatalogSync(actorId: string): readonly CatalogSynchronization.Pending[] {
-        return this.read(['coordination', 'catalog-sync', actorId]);
     }
 
     result(session: Dining.Session, actor: Dining.Identity, restaurantId: string): Dining.Result {
@@ -139,6 +133,5 @@ export namespace QueryClientProvider {
         consumption: GetConsumptionUseCase;
         result: GetDiningResultUseCase;
         personal: GetPersonalDiningUseCase;
-        pendingCatalogSync: GetPendingCatalogSyncUseCase;
     };
 }

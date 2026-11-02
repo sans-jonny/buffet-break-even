@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface GetRoomUseCase extends UseCase<GetRoomUseCase.Request, GetRoomU
 }
 
 export namespace GetRoomUseCase {
-    export const token = Symbol('GetRoomUseCase') as UseCase.Token<GetRoomUseCase>;
+    export const token = Symbol('GetRoomUseCase') as InjectionToken<GetRoomUseCase>;
 
     export class Request extends UseCase.Request {
         constructor(readonly roomId: string) {

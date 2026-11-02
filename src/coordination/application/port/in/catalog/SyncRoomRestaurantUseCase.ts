@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface SyncRoomRestaurantUseCase extends UseCase<SyncRoomRestaurantUse
 }
 
 export namespace SyncRoomRestaurantUseCase {
-    export const token = Symbol('SyncRoomRestaurantUseCase') as UseCase.Token<SyncRoomRestaurantUseCase>;
+    export const token = Symbol('SyncRoomRestaurantUseCase') as InjectionToken<SyncRoomRestaurantUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly roomId: string, readonly actorId: string, readonly original: Dining.Restaurant) {

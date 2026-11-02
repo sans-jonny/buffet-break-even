@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface LeaveDiningRoomUseCase extends UseCase<LeaveDiningRoomUseCase.R
 }
 
 export namespace LeaveDiningRoomUseCase {
-    export const token = Symbol('LeaveDiningRoomUseCase') as UseCase.Token<LeaveDiningRoomUseCase>;
+    export const token = Symbol('LeaveDiningRoomUseCase') as InjectionToken<LeaveDiningRoomUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly session: Dining.Session, readonly actorId: string) {

@@ -1,11 +1,12 @@
 import {ref} from 'vue';
 import type {InjectionToken} from '../../kernel/application/InjectionToken';
 import {LocalProductImages} from './LocalProductImages';
+import type {RestaurantRecord} from '../../../protocol/RestaurantRecord';
 
 /** UI image associations never enter the restaurant domain or its events. */
 export class ProductImageClient {
     static readonly token = Symbol('ProductImageClient') as InjectionToken<ProductImageClient>;
-    private readonly roomImages = new Map<string, {restaurantId: string; productId: string; url: string}[]>();
+    private readonly roomImages = new Map<string, readonly RestaurantRecord.Image[]>();
     private readonly revision = ref(0);
     private readonly sharing = new Map<string, Promise<void>>();
     private readonly uploadedSources = new Map<string, string>();
@@ -14,7 +15,7 @@ export class ProductImageClient {
     initialize(): Promise<void> { return this.local.initialize(); }
 
     url(value?: string): string {
-        return /^\/(sample-images|rooms|product-images)\//.test(value || '') ? this.baseUrl.replace(/\/$/, '') + value : value || '';
+        return /^\/(sample-images|rooms)\//.test(value || '') ? this.baseUrl.replace(/\/$/, '') + value : value || '';
     }
 
     cover(restaurant: {id: string; type: string; sourceId?: string}, productId: string, roomId?: string): string {
@@ -28,7 +29,7 @@ export class ProductImageClient {
         return this.url(this.local.get(restaurant.id, productId));
     }
 
-    async chooseLocal(): Promise<string | undefined> {
+    async chooseLocal(normalize?: (source: string) => Promise<string>): Promise<string | undefined> {
         const path = await new Promise<string | undefined>((resolve, reject) => uni.chooseImage({
             count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'],
             success: result => {
@@ -39,7 +40,7 @@ export class ProductImageClient {
             fail: error => /cancel/i.test(error.errMsg) ? resolve(undefined) : reject(new Error('选择图片失败，请重试'))
         }));
         if (!path) return;
-        const data = await this.local.dataUrl(path);
+        const data = await this.local.dataUrl(normalize ? await normalize(path) : path);
         this.validate(data);
         return data;
     }
@@ -52,17 +53,21 @@ export class ProductImageClient {
             if (source.length > 4 * 1024 * 1024 + 100) throw new Error('图片不能超过 3MB');
             return;
         }
-        if (/^\/(sample-images|product-images)\//.test(source)) return;
+        if (/^\/sample-images\//.test(source)) return;
         // Native durable file paths are app-owned and never accepted from the URL input.
         if (this.localPath(source)) return;
         if (source.length <= 2048 && /^https?:\/\/[^/?#@\s]+(?:[/?#][^\s]*)?$/.test(source)) return;
         throw new Error('请输入有效的 HTTP 或 HTTPS 图片 URL');
     }
 
-    async saveRestaurant(restaurantId: string, products: readonly {id: string; coverUrl?: string}[]): Promise<void> {
+    async saveRestaurant(restaurantId: string, products: readonly {id: string; coverUrl?: string}[], normalize?: (source: string) => Promise<string>): Promise<void> {
         await this.initialize();
         for (const product of products) {
-            const source = product.coverUrl || '';
+            let source = product.coverUrl || '';
+            if (source && normalize) {
+                const prepared = await normalize(source);
+                source = this.isLocal(prepared) ? prepared : await this.local.dataUrl(prepared);
+            }
             this.validate(source);
             if (source !== this.local.get(restaurantId, product.id)) await this.local.set(restaurantId, product.id, source);
         }
@@ -81,66 +86,28 @@ export class ProductImageClient {
                 const imageKey = JSON.stringify([roomId, restaurantId, productId]);
                 if (this.uploadedSources.get(imageKey) === source &&
                     this.roomImages.get(roomId)?.some(image => image.restaurantId === restaurantId && image.productId === productId)) continue;
-                const body = /^(https?:|\/(?:sample-images|product-images)\/)/.test(source)
+                const body = /^(https?:|\/sample-images\/)/.test(source)
                     ? {url: this.url(source)} : {dataUrl: await this.local.dataUrl(source)};
-                await this.request(`/rooms/${encodeURIComponent(roomId)}/product-images/${encodeURIComponent(restaurantId)}/${encodeURIComponent(productId)}`, 'POST', body);
+                const image = await this.request<RestaurantRecord.Image>(`/rooms/${encodeURIComponent(roomId)}/product-images/${encodeURIComponent(restaurantId)}/${encodeURIComponent(productId)}`, 'POST', body);
+                this.accept(roomId, [...(this.roomImages.get(roomId) || []).filter(item => item.restaurantId !== restaurantId || item.productId !== productId), image]);
                 this.uploadedSources.set(imageKey, source);
             }
             await this.request(`/rooms/${encodeURIComponent(roomId)}/product-images/${encodeURIComponent(restaurantId)}`, 'PUT', {productIds: entries.map(entry => entry.productId)});
-            await this.refresh(roomId);
+            this.accept(roomId, (this.roomImages.get(roomId) || []).filter(image => image.restaurantId !== restaurantId || entries.some(entry => entry.productId === image.productId)));
         });
         this.sharing.set(key, work);
         try { await work; } finally { if (this.sharing.get(key) === work) this.sharing.delete(key); }
     }
 
     async refresh(roomId: string): Promise<void> {
-        const images = await this.request<{restaurantId: string; productId: string; url: string}[]>(`/rooms/${encodeURIComponent(roomId)}/product-images`);
+        const catalog = await this.request<RestaurantRecord.Catalog>(`/rooms/${encodeURIComponent(roomId)}/catalog`);
+        this.accept(roomId, catalog.images);
+    }
+
+    accept(roomId: string, images: readonly RestaurantRecord.Image[]): void {
         if (JSON.stringify(this.roomImages.get(roomId)) !== JSON.stringify(images)) {
             this.roomImages.set(roomId, images);
             this.revision.value++;
-        }
-    }
-
-    async importLegacy(records: readonly {id: string; type: string; products: readonly {id: string; coverUrl?: string}[]}[]): Promise<void> {
-        await this.initialize();
-        const migrationKey = 'buffet:product-images:legacy-imports';
-        const migrated: Record<string, boolean> = uni.getStorageSync(migrationKey) || {};
-        const legacy = new Map<string, {restaurantId: string; productId: string; original: string; marker: string}[]>();
-        for (const record of records) {
-            if (record.type !== 'PRIVATE') continue;
-            for (const product of record.products) {
-                if (!product.coverUrl) continue;
-                const source = product.coverUrl.startsWith(this.baseUrl) ? product.coverUrl.slice(this.baseUrl.length) : product.coverUrl;
-                if (/^\/product-images\/[^/]+\/[a-f0-9]{64}\.webp$/.test(source)) {
-                    const entries = legacy.get(source) || [];
-                    entries.push({restaurantId: record.id, productId: product.id, original: product.coverUrl,
-                        marker: JSON.stringify([record.id, product.id, source])});
-                    legacy.set(source, entries);
-                } else if (!this.local.get(record.id, product.id)) await this.local.set(record.id, product.id, product.coverUrl);
-            }
-        }
-        for (const [source, entries] of legacy) {
-            const pending = entries.filter(entry => !migrated[entry.marker]);
-            if (pending.length) {
-                try {
-                    const dataUrl = await new Promise<string>((resolve, reject) => uni.request({url: this.url(source), responseType: 'arraybuffer',
-                        success: result => result.statusCode === 200 ? resolve('data:image/webp;base64,' + uni.arrayBufferToBase64(result.data as ArrayBuffer))
-                            : reject(new Error('LEGACY_IMAGE_NOT_FOUND')), fail: reject}));
-                    // Every association is saved locally before the shared legacy file can be deleted.
-                    for (const entry of pending) {
-                        if (!this.local.get(entry.restaurantId, entry.productId) || this.local.get(entry.restaurantId, entry.productId) === entry.original)
-                            await this.local.set(entry.restaurantId, entry.productId, dataUrl);
-                        migrated[entry.marker] = true;
-                        uni.setStorageSync(migrationKey, migrated);
-                    }
-                } catch {
-                    for (const entry of pending) if (!this.local.get(entry.restaurantId, entry.productId))
-                        await this.local.set(entry.restaurantId, entry.productId, entry.original);
-                    continue;
-                }
-            }
-            // An older server may not support release yet; retry safely at the next startup.
-            await this.request(source + '/release', 'POST', {}).catch(() => {});
         }
     }
 

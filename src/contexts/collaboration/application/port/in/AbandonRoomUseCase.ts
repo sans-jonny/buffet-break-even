@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface AbandonRoomUseCase extends UseCase<AbandonRoomUseCase.Request, 
 }
 
 export namespace AbandonRoomUseCase {
-    export const token = Symbol('AbandonRoomUseCase') as UseCase.Token<AbandonRoomUseCase>;
+    export const token = Symbol('AbandonRoomUseCase') as InjectionToken<AbandonRoomUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope, readonly roomId: string, readonly actorId: string) {

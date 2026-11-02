@@ -2,12 +2,14 @@
 export namespace EventBatch {
     export type Event = Readonly<{ type: string; schemaVersion: number; key: string; payload: unknown; streamVersion?: number }>
     export type Candidate = Readonly<{
+        submissionId?: string;
         scopeId: string;
         roomId: string | null;
         expectedVersion: number;
         events: readonly Event[]
     }>
     export type Committed = Readonly<{
+        submissionId?: string;
         scopeId: string;
         roomId: string | null;
         batchId: string;
@@ -33,11 +35,14 @@ export namespace EventBatch {
 
     export function commit(candidate: Candidate, batchId: string): Committed {
         validate(candidate.events)
+        if (candidate.roomId && !candidate.submissionId) throw new Error('INVALID_SUBMISSION_ID')
+        if (candidate.submissionId !== undefined && (typeof candidate.submissionId !== 'string' || !candidate.submissionId || candidate.submissionId.length > 200)) throw new Error('INVALID_SUBMISSION_ID')
         if (!Number.isSafeInteger(candidate.expectedVersion) || candidate.expectedVersion < 0 || !Number.isSafeInteger(candidate.expectedVersion + candidate.events.length)) throw new Error('INVALID_VERSION')
         candidate.events.forEach((event, index) => {
             if (event.streamVersion !== undefined && event.streamVersion !== candidate.expectedVersion + index + 1) throw new Error('INVALID_STREAM_VERSION')
         })
         return {
+            ...(candidate.submissionId ? {submissionId: candidate.submissionId} : {}),
             scopeId: candidate.scopeId, roomId: candidate.roomId, batchId, previousVersion: candidate.expectedVersion,
             fromVersion: candidate.expectedVersion + 1, toVersion: candidate.expectedVersion + candidate.events.length,
             events: candidate.events.map((event, index) => ({
@@ -53,6 +58,8 @@ export namespace EventBatch {
 
     export function complete(batch: Committed): void {
         validate(batch.events)
+        if (batch.roomId && !batch.submissionId) throw new Error('INCOMPLETE_BATCH')
+        if (batch.submissionId !== undefined && (typeof batch.submissionId !== 'string' || !batch.submissionId || batch.submissionId.length > 200)) throw new Error('INCOMPLETE_BATCH')
         if (typeof batch.batchId !== 'string' || !batch.batchId || typeof batch.scopeId !== 'string' || !batch.scopeId || (batch.roomId !== null && batch.roomId !== batch.scopeId)
             || !Number.isSafeInteger(batch.previousVersion) || batch.previousVersion < 0
             || !Number.isSafeInteger(batch.toVersion)

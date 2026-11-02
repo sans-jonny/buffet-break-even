@@ -13,8 +13,7 @@ export class RoomRestaurantPersistence implements RoomRestaurantPublisher {
         const records = restaurantIds.map(id => {
             const record = this.storage.get<RestaurantRecord.Document>(`catalog/local/restaurant/${id}`);
             if (!record) throw new Error('RESTAURANT_NOT_FOUND');
-            // Legacy private records predate the restaurantCategory persistence field.
-            return {...record, restaurantCategory: record.restaurantCategory || {id: 'My', name: '我的餐厅'},
+            return {...record,
                 products: record.products.map(({id, name, categoryId, priceMinor}) => ({id, name, categoryId, priceMinor}))};
         });
         RestaurantRecord.validate(records);

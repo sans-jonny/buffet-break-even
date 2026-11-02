@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface PublishLocalRestaurantUseCase extends UseCase<PublishLocalResta
 }
 
 export namespace PublishLocalRestaurantUseCase {
-    export const token = Symbol('PublishLocalRestaurantUseCase') as UseCase.Token<PublishLocalRestaurantUseCase>;
+    export const token = Symbol('PublishLocalRestaurantUseCase') as InjectionToken<PublishLocalRestaurantUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly restaurant: Dining.Restaurant) {

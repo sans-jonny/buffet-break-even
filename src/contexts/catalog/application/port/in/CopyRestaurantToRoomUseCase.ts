@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Catalog} from './Catalog';
 
@@ -6,7 +7,7 @@ export interface CopyRestaurantToRoomUseCase extends UseCase<CopyRestaurantToRoo
 }
 
 export namespace CopyRestaurantToRoomUseCase {
-    export const token = Symbol('CopyRestaurantToRoomUseCase') as UseCase.Token<CopyRestaurantToRoomUseCase>;
+    export const token = Symbol('CopyRestaurantToRoomUseCase') as InjectionToken<CopyRestaurantToRoomUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope, readonly roomId: string, readonly original: Catalog.RestaurantView) {

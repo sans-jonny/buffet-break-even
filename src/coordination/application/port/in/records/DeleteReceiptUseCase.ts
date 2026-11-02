@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface DeleteReceiptUseCase extends UseCase<DeleteReceiptUseCase.Request, DeleteReceiptUseCase.Response> {
@@ -5,7 +6,7 @@ export interface DeleteReceiptUseCase extends UseCase<DeleteReceiptUseCase.Reque
 }
 
 export namespace DeleteReceiptUseCase {
-    export const token = Symbol('DeleteReceiptUseCase') as UseCase.Token<DeleteReceiptUseCase>;
+    export const token = Symbol('DeleteReceiptUseCase') as InjectionToken<DeleteReceiptUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor() {

@@ -6,7 +6,7 @@ import {renderReceiptWeb} from '@/ui/receipt/renderReceiptWeb'
 import {receiptImageBounds} from '@/ui/receipt/receiptImageBounds'
 import {receiptImageFilename} from '@/ui/receipt/receiptImageFilename'
 
-export function useReceiptAlbum(readReceipt: () => ReceiptImage.ReceiptImageData, renderWeb = renderReceiptWeb) {
+export function useReceiptAlbum(readReceipt: () => ReceiptImage.ReceiptImageData & {date: string}, renderWeb = renderReceiptWeb) {
     const owner = getCurrentInstance()?.proxy
     const busy = ref(false), previewPath = ref('')
     const filename = ref('')
@@ -48,7 +48,7 @@ export function useReceiptAlbum(readReceipt: () => ReceiptImage.ReceiptImageData
         busy.value = true
         try {
             const receipt = readReceipt()
-            const name = receiptImageFilename(receipt.restaurant, receipt.date || receipt.dateTime, receipt.typeName)
+            const name = receiptImageFilename(receipt.restaurant, receipt.date, receipt.typeName)
             filename.value = name
             const layout = ReceiptImage.layoutReceiptImage(receipt)
             const appInfo = typeof uni.getAppBaseInfo === 'function' ? uni.getAppBaseInfo() : uni.getSystemInfoSync()

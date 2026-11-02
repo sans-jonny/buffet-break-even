@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface ClearDiningSessionUseCase extends UseCase<ClearDiningSessionUseCase.Request, ClearDiningSessionUseCase.Response> {
@@ -5,7 +6,7 @@ export interface ClearDiningSessionUseCase extends UseCase<ClearDiningSessionUse
 }
 
 export namespace ClearDiningSessionUseCase {
-    export const token = Symbol('ClearDiningSessionUseCase') as UseCase.Token<ClearDiningSessionUseCase>;
+    export const token = Symbol('ClearDiningSessionUseCase') as InjectionToken<ClearDiningSessionUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor() {

@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface TransferHostUseCase extends UseCase<TransferHostUseCase.Request
 }
 
 export namespace TransferHostUseCase {
-    export const token = Symbol('TransferHostUseCase') as UseCase.Token<TransferHostUseCase>;
+    export const token = Symbol('TransferHostUseCase') as InjectionToken<TransferHostUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

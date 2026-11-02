@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Accounting} from './Accounting';
 
@@ -6,7 +7,7 @@ export interface ClearRoundUseCase extends UseCase<ClearRoundUseCase.Request, Cl
 }
 
 export namespace ClearRoundUseCase {
-    export const token = Symbol('ClearRoundUseCase') as UseCase.Token<ClearRoundUseCase>;
+    export const token = Symbol('ClearRoundUseCase') as InjectionToken<ClearRoundUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

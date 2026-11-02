@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../kernel/application/InjectionToken';
 import {PersonalStore} from '../stores/business/PersonalStore';
 import {ProductImageClient} from '../infrastructure/media/ProductImageClient';
 import {InitializeDiningUseCase} from '../coordination/application/port/in/initialization/InitializeDiningUseCase';
@@ -36,8 +37,8 @@ import {CatalogStore} from '../stores/business/CatalogStore';
 import {AccountingStore} from '../stores/business/AccountingStore';
 import {CollaborationStore} from '../stores/business/CollaborationStore';
 import {MenuPageStateStore} from '../stores/page-state/MenuPageStateStore';
-import {PublishRestaurantOriginalUseCase} from '../coordination/application/port/in/catalog/PublishRestaurantOriginalUseCase';
-import {DeleteRestaurantOriginalUseCase} from '../coordination/application/port/in/catalog/DeleteRestaurantOriginalUseCase';
+import {PublishLocalRestaurantUseCase} from '../coordination/application/port/in/catalog/PublishLocalRestaurantUseCase';
+import {DeleteLocalRestaurantUseCase} from '../coordination/application/port/in/catalog/DeleteLocalRestaurantUseCase';
 import {ListDiningActivitiesUseCase} from '../contexts/accounting/application/port/in/ListDiningActivitiesUseCase';
 import {ListRestaurantsUseCase} from '../contexts/catalog/application/port/in/ListRestaurantsUseCase';
 import {ListRoomsUseCase} from '../contexts/collaboration/application/port/in/ListRoomsUseCase';
@@ -47,17 +48,16 @@ import {GetPersonalDiningUseCase} from '../coordination/application/port/in/devi
 import {SessionStore} from '../stores/business/SessionStore';
 import {DiningAppLifecycle} from '../infrastructure/lifecycle/DiningAppLifecycle';
 import {RefreshDiningSessionUseCase} from '../coordination/application/port/in/session/RefreshDiningSessionUseCase';
-import {GetPendingCatalogSyncUseCase} from '../coordination/application/port/in/catalog/GetPendingCatalogSyncUseCase';
-import {RetryCatalogSyncUseCase} from '../coordination/application/port/in/catalog/RetryCatalogSyncUseCase';
 
 export namespace Bootstrap {
-    const personalRunner = Symbol('PersonalTransactionRunner') as UseCase.Token<TransactionRunner>;
+    const personalRunner = Symbol('PersonalTransactionRunner') as InjectionToken<TransactionRunner>;
     export type Options = {
         storage: ManifestStorage.Adapter;
         id: () => string;
         now: () => string;
         remote?: BatchRuntime.Remote;
         media?: RoomRestaurantPersistence.Media;
+        confirmationTimeoutMs?: number;
     };
 
     export function create(options: Options, app?: App) {
@@ -68,7 +68,7 @@ export namespace Bootstrap {
             remove: key => options.storage.remove(prefix + key),
             keys: () => options.storage.keys?.().filter(k => k.startsWith(prefix)).map(k => k.slice(prefix.length)) || []
         };
-        const runtime = new BatchRuntime.Runtime(new ManifestStorage.Store(adapter, options.id), options.id, options.remote);
+        const runtime = new BatchRuntime.Runtime(new ManifestStorage.Store(adapter, options.id), options.id, options.remote, options.confirmationTimeoutMs);
         AccountingComposition.registerRuntime(runtime);
         CatalogComposition.registerRuntime(runtime);
         CollaborationComposition.registerRuntime(runtime);
@@ -109,8 +109,7 @@ export namespace Bootstrap {
             rooms: root.resolve(ListRoomsUseCase.token),
             consumption: root.resolve(GetConsumptionUseCase.token),
             result: root.resolve(GetDiningResultUseCase.token),
-            personal: root.resolve(GetPersonalDiningUseCase.token),
-            pendingCatalogSync: root.resolve(GetPendingCatalogSyncUseCase.token)
+            personal: root.resolve(GetPersonalDiningUseCase.token)
         }, options.now, app ? 5 * 60 * 1000 : Infinity);
         const releaseHeadless = app ? undefined : queries.acquire();
         root.provide(QueryClientProvider.token, queries);
@@ -119,8 +118,8 @@ export namespace Bootstrap {
         const pinia = createPinia();
         if (app) app.use(pinia);
         const dining = DiningStore.create(root, queries, pinia);
-        const catalog = CatalogStore.create(queries, root.resolve(PublishRestaurantOriginalUseCase.token),
-            root.resolve(DeleteRestaurantOriginalUseCase.token), root.resolve(RetryCatalogSyncUseCase.token), pinia);
+        const catalog = CatalogStore.create(queries, root.resolve(PublishLocalRestaurantUseCase.token),
+            root.resolve(DeleteLocalRestaurantUseCase.token), pinia);
         const accounting = AccountingStore.create(queries, pinia);
         const collaboration = CollaborationStore.create(root, queries, pinia);
         const personal = PersonalStore.create(root, queries, pinia);
@@ -132,17 +131,18 @@ export namespace Bootstrap {
         root.provide(PersonalStore.token, personal);
         root.provide(MenuPageStateStore.token, menuPageState);
         return {runtime, dining, catalog, accounting, collaboration, personal, menuPageState, queries, pinia,
-            provide: <T>(token: UseCase.Token<T>, implementation: NoInfer<T>) => root.provide(token, implementation),
-            resolve: <T>(token: UseCase.Token<T>) => root.resolve(token), scope: scoped,
+            provide: <T>(token: InjectionToken<T>, implementation: NoInfer<T>) => root.provide(token, implementation),
+            resolve: <T>(token: InjectionToken<T>) => root.resolve(token), scope: scoped,
             dispose: () => { releaseHeadless?.(); unsubscribe(); dining.$dispose(); catalog.$dispose(); accounting.$dispose(); collaboration.$dispose(); personal.$dispose(); menuPageState.$dispose(); queries.dispose(); }};
     }
 
     export async function device(baseUrl: string, id: () => string, report: (error: unknown) => void, app?: App) {
-        const relay = new UniRoomRelay.Client(baseUrl);
         const media = new ProductImageClient(baseUrl);
+        const relay = new UniRoomRelay.Client(baseUrl, (roomId, catalog) => media.accept(roomId, catalog.images));
         const core = create({storage: uniStorage(), id, now: () => new Date().toISOString(), remote: relay, media}, app);
         const preferences = new StorageDiningPreferences(core.runtime);
-        const connection = new ManagedRoomConnection(relay, core.runtime, core.runtime, report, roomId => media.refresh(roomId));
+        const connection = new ManagedRoomConnection(relay, core.runtime, core.runtime, report,
+            roomId => core.runtime.sync.get(roomId) === 'UNKNOWN' || !!core.runtime.get(`outcome/${roomId}`));
         core.provide(RoomGateway.token, relay);
         core.provide(RoomConnection.token, connection);
         core.provide(DiningPreferences.token, preferences);
@@ -154,7 +154,6 @@ export namespace Bootstrap {
         core.provide(DiningAppLifecycle.token, lifecycle);
         try {
             await media.initialize();
-            await media.importLegacy(core.runtime.entries('catalog/local/restaurant/'));
             await core.resolve(InitializeDiningUseCase.token).execute(new InitializeDiningUseCase.Request(ReferenceDiningCatalog.restaurants()));
             return {...core, sessionStore, lifecycle,
                 dispose: () => { lifecycle.dispose(); sessionStore.$dispose(); core.dispose(); }};

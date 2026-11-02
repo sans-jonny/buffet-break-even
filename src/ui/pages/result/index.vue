@@ -59,6 +59,7 @@
 
 <script lang="ts" setup>
 import {usePersonalStore} from '@/stores/business/usePersonalStore'
+import {useSessionStore} from '@/stores/business/useSessionStore'
 import {useDiningStore} from '@/stores/business/useDiningStore'
 import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
@@ -79,6 +80,7 @@ const menuPageState = useMenuPageStateStore()
 
 
 const personal = usePersonalStore()
+const sessions = useSessionStore()
 const dining = useDiningStore()
 const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
 const finalRestaurantId = computed(() => selectedRestaurant.value)
@@ -138,7 +140,15 @@ const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 
 const goBack = () => viewMode.value === 'room-ended' || viewMode.value === 'single-ended' ? finishShared() : navigation.back(isSavedView.value ? 'receipts' : 'menu')
 
-const finishShared = () => navigation.open('setup', 'reset')
+let returningHome: Promise<void> | undefined
+const finishShared = () => {
+  if (returningHome) return returningHome
+  returningHome = (async () => {
+    if (dining.sessionData?.roomId) await sessions.leaveRoom()
+    await navigation.open('setup', 'reset')
+  })().finally(() => { returningHome = undefined })
+  return returningHome
+}
 
 // UI 交互方法
 const secondaryAction = computed(() => {
@@ -204,7 +214,6 @@ async function save() {
 
 async function completeDining() {
   await dining.finish(finalRestaurantId.value)
-  await finishShared()
 }
 
 async function completeRoom() {

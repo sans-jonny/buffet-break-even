@@ -12,8 +12,8 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
     readonly mode: 'SINGLE' | 'SHARED';
     readonly status: 'ACTIVE' | 'ENDED' | 'ABANDONED';
     readonly ticketPriceMinor: number;
-    readonly restaurantIds?: readonly string[];
-    readonly restaurantCategoryId?: string;
+    readonly restaurantIds: readonly string[];
+    readonly restaurantCategoryId: string;
     readonly result?: DiningResult.Snapshot;
 
     private constructor(state: DiningActivity.State) {
@@ -29,19 +29,21 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
     static reconstitute(state: DiningActivity.State): DiningActivity {
         Domain.require(Money.isTicket(state.ticketPriceMinor) && ['ACTIVE', 'ENDED', 'ABANDONED'].includes(state.status), 'INVALID_ACTIVITY_SNAPSHOT');
         Domain.require(state.status !== 'ENDED' || !!state.result, 'INVALID_ACTIVITY_SNAPSHOT');
-        Domain.require(!state.restaurantIds || (state.restaurantIds.length > 0 && state.restaurantIds.every(id => !!id.trim())
-            && new Set(state.restaurantIds).size === state.restaurantIds.length), 'INVALID_ACTIVITY_RESTAURANTS');
+        Domain.require(Array.isArray(state.restaurantIds) && state.restaurantIds.length > 0 && state.restaurantIds.every(id => !!id.trim())
+            && new Set(state.restaurantIds).size === state.restaurantIds.length, 'INVALID_ACTIVITY_RESTAURANTS');
+        Domain.require(typeof state.restaurantCategoryId === 'string' && !!state.restaurantCategoryId.trim(), 'INVALID_RESTAURANT_CATEGORY');
         return new DiningActivity(state);
     }
 
     static create(id: string,
                   ticketPrice: Money.Amount,
                   mode: 'SINGLE' | 'SHARED',
-                  restaurantIds?: readonly string[], restaurantCategoryId?: string): DiningStarted | DiningActivityRejected {
+                  restaurantIds: readonly string[], restaurantCategoryId: string): DiningStarted | DiningActivityRejected {
         if (!id.trim() || !Money.isTicket(ticketPrice.minor))
             return new DiningActivityRejected('INVALID_TICKET_PRICE');
-        if (restaurantIds && (!restaurantIds.length || restaurantIds.some(id => !id.trim()) || new Set(restaurantIds).size !== restaurantIds.length))
+        if (!Array.isArray(restaurantIds) || !restaurantIds.length || restaurantIds.some(id => !id.trim()) || new Set(restaurantIds).size !== restaurantIds.length)
             return new DiningActivityRejected('INVALID_ACTIVITY_RESTAURANTS');
+        if (typeof restaurantCategoryId !== 'string' || !restaurantCategoryId.trim()) return new DiningActivityRejected('INVALID_RESTAURANT_CATEGORY');
         return new DiningStarted(id, 0, {mode, ticketPriceMinor: ticketPrice.minor, restaurantIds, restaurantCategoryId});
     }
 
@@ -59,7 +61,7 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
     }
 
     authorizeRestaurant(restaurantId: string): void {
-        Domain.require(!this.restaurantIds || this.restaurantIds.includes(restaurantId), 'RESTAURANT_NOT_IN_ACTIVITY');
+        Domain.require(this.restaurantIds.includes(restaurantId), 'RESTAURANT_NOT_IN_ACTIVITY');
     }
 
     changeTicketPrice(ticketPrice: Money.Amount): TicketPriceChanged | DiningActivityRejected {
@@ -75,7 +77,7 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
             return new DiningActivityRejected('ALREADY_ENDED');
         if (result.snapshot.activityId !== this.id || result.snapshot.ticketPriceMinor !== this.ticketPriceMinor)
             return new DiningActivityRejected('INCONSISTENT_RESULT');
-        if (this.restaurantIds && !this.restaurantIds.includes(result.restaurantId))
+        if (!this.restaurantIds.includes(result.restaurantId))
             return new DiningActivityRejected('RESTAURANT_NOT_IN_ACTIVITY');
         return new DiningEnded(this.id, this.version, {result: result.snapshot});
     }
@@ -95,8 +97,8 @@ export namespace DiningActivity {
         mode: 'SINGLE' | 'SHARED';
         status: 'ACTIVE' | 'ENDED' | 'ABANDONED';
         ticketPriceMinor: number;
-        restaurantIds?: readonly string[];
-        restaurantCategoryId?: string;
+        restaurantIds: readonly string[];
+        restaurantCategoryId: string;
         result?: DiningResult.Snapshot;
     }>;
 }

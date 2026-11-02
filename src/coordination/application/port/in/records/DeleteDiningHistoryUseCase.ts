@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface DeleteDiningHistoryUseCase extends UseCase<DeleteDiningHistoryUseCase.Request, DeleteDiningHistoryUseCase.Response> {
@@ -5,7 +6,7 @@ export interface DeleteDiningHistoryUseCase extends UseCase<DeleteDiningHistoryU
 }
 
 export namespace DeleteDiningHistoryUseCase {
-    export const token = Symbol('DeleteDiningHistoryUseCase') as UseCase.Token<DeleteDiningHistoryUseCase>;
+    export const token = Symbol('DeleteDiningHistoryUseCase') as InjectionToken<DeleteDiningHistoryUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly activityId: string) {

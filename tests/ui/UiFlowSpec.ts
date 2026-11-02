@@ -42,7 +42,7 @@ export namespace UiFlowSpec {
         test('当前查看的餐厅直接成为今日战果及保存小票的餐厅', async t => {
             const app = pageHarness();
             await app.ready;
-            await app.services.sessionStore.startSingle(10000);
+            await app.services.sessionStore.startSingle(10000, 'sukiyaki');
             const menu = app.setup('menu');
             t.after(menu.dispose);
             await menu.ready;
@@ -60,12 +60,11 @@ export namespace UiFlowSpec {
             await result.state.confirmation.confirm();
             assert.equal(app.services.dining.activity()!.result!.restaurant, restaurant.name);
         });
-        test('setup 先提示继续旧单人活动，跨分类及旧版活动都恢复原记录，不解析新票价', async t => {
+        test('setup 先提示继续旧单人活动，跨分类恢复原记录，不解析新票价', async t => {
             const app = pageHarness(), setup = app.setup('setup');
             t.after(setup.dispose);
             await setup.ready;
-            // Simulate a legacy activity with no restaurantCategoryId.
-            await app.services.sessionStore.startSingle(18000);
+            await app.services.sessionStore.startSingle(18000, 'sukiyaki');
             await app.services.dining.edit('niuniu', 'add', 'beef', 2);
             const previous = app.services.dining.session();
             await app.services.sessionStore.resumeSingle({scopeId: 'other', activityId: 'other', roomId: null});
@@ -153,17 +152,22 @@ export namespace UiFlowSpec {
             await order.ready
             await order.state.completeRound()
             assert.equal(app.services.dining.consumption('niuniu').rounds.length, 2)
+            await menu.state.finish()
             const result = app.setup('result');
             t.after(result.dispose);
             await result.ready
             await result.state.save();
             assert.equal(app.services.personal.receipt().foodValueMinor, 2000)
             assert.equal(result.state.finalRestaurantId.value, 'niuniu')
+            const navigationCount = app.calls.length
             result.state.endDining();
             assert.ok(result.state.confirmation.dialog.value.content.includes('牛牛'))
             await result.state.confirmation.confirm()
             assert.equal(app.services.personal.history().length, 1);
             assert.equal(app.services.dining.activity().status, 'ENDED')
+            assert.equal(app.calls.length, navigationCount)
+            assert.equal(result.state.secondaryAction.value.label, '返回首页')
+            await result.state.secondaryAction.value.run()
             assert.deepEqual(app.calls[app.calls.length - 1], ['open', 'setup', 'reset'])
         })
         test('私人目录创建与级联删除保存真实版本；离开提示保留', async t => {

@@ -2,34 +2,13 @@ import type {FastifyInstance} from 'fastify';
 import type {PrismaClient} from '../../generated/client';
 import sharp from 'sharp';
 import {createHash} from 'node:crypto';
-import {readFile, unlink} from 'node:fs/promises';
+import {readFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 
 /** Public assets are permanent; private image bytes belong only to their temporary room. */
 export namespace ProductImages {
-    export async function register(app: FastifyInstance, db: PrismaClient, legacyDirectory?: string) {
+    export async function register(app: FastifyInstance, db: PrismaClient, updated: (roomId: string) => Promise<void>) {
         const samples = resolve(__dirname, '../../public/sample-images');
-        const legacy = resolve(legacyDirectory || resolve(__dirname, '../../uploads/product-images'));
-        function legacyPath(productId: string, filename: string): string | undefined {
-            if (!/^[a-f0-9]{64}\.webp$/.test(filename)) return;
-            return resolve(legacy, createHash('sha256').update(productId).digest('hex'), filename);
-        }
-        // Compatibility is read/export only: no new personal image is written to the old directory.
-        app.get<{Params: {productId: string; filename: string}}>('/product-images/:productId/:filename', async (request, reply) => {
-            const path = legacyPath(request.params.productId, request.params.filename);
-            if (!path) return reply.code(404).send({error: 'IMAGE_NOT_FOUND'});
-            try { return reply.type('image/webp').header('Cache-Control', 'private, no-store').send(await readFile(path)); }
-            catch (error) {
-                if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-                return reply.code(404).send({error: 'IMAGE_NOT_FOUND'});
-            }
-        });
-        app.post<{Params: {productId: string; filename: string}}>('/product-images/:productId/:filename/release', async (request, reply) => {
-            const path = legacyPath(request.params.productId, request.params.filename);
-            if (!path) return reply.code(400).send({error: 'INVALID_IMAGE_ID'});
-            await unlink(path).catch(error => { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; });
-            return reply.code(204).send();
-        });
         const params = '/rooms/:roomId/product-images/:restaurantId/:productId';
         app.post<{Params: {roomId: string; restaurantId: string; productId: string}; Body: {dataUrl?: string; url?: string}}>(
             params, {bodyLimit: 4 * 1024 * 1024 + 4096}, async (request, reply) => {
@@ -60,14 +39,6 @@ export namespace ProductImages {
                 });
                 return reply.code(201).send({restaurantId, productId, url: externalUrl || imagePath(roomId, restaurantId, productId, digest!)});
             });
-        app.get<{Params: {roomId: string}}>('/rooms/:roomId/product-images', async (request, reply) => {
-            reply.header('Cache-Control', 'private, no-store');
-            const {roomId} = request.params;
-            if (!await db.roomStream.findUnique({where: {roomId}})) throw new Error('STREAM_NOT_FOUND');
-            const rows = await db.roomProductImage.findMany({where: {roomId}, select: {restaurantId: true, productId: true, digest: true, externalUrl: true}});
-            return rows.map(row => ({restaurantId: row.restaurantId, productId: row.productId,
-                url: row.externalUrl || imagePath(roomId, row.restaurantId, row.productId, row.digest!)}));
-        });
         app.get<{Params: {roomId: string; restaurantId: string; productId: string; filename: string}}>(params + '/:filename', async (request, reply) => {
             const {filename, ...key} = request.params;
             if (!/^[a-f0-9]{64}\.webp$/.test(filename)) return reply.code(404).send({error: 'IMAGE_NOT_FOUND'});
@@ -83,6 +54,7 @@ export namespace ProductImages {
                     return reply.code(400).send({error: 'INVALID_IMAGE_IDS'});
                 if (!await db.roomStream.findUnique({where: {roomId}})) throw new Error('STREAM_NOT_FOUND');
                 await db.roomProductImage.deleteMany({where: {roomId, restaurantId, productId: {notIn: request.body.productIds}}});
+                await updated(roomId);
                 return reply.code(204).send();
             });
         app.get<{Params: {filename: string}}>('/sample-images/:filename', async (request, reply) => {
@@ -95,6 +67,13 @@ export namespace ProductImages {
                 return reply.code(404).send({error: 'IMAGE_NOT_FOUND'});
             }
         });
+    }
+
+    export async function manifest(db: PrismaClient, roomId: string) {
+        const rows = await db.roomProductImage.findMany({where: {roomId}, orderBy: [{restaurantId: 'asc'}, {productId: 'asc'}],
+            select: {restaurantId: true, productId: true, digest: true, externalUrl: true}});
+        return rows.map(row => ({restaurantId: row.restaurantId, productId: row.productId,
+            url: row.externalUrl || imagePath(roomId, row.restaurantId, row.productId, row.digest!)}));
     }
 
     function imagePath(roomId: string, restaurantId: string, productId: string, digest: string): string {

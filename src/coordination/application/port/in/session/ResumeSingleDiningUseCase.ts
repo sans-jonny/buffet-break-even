@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import type {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface ResumeSingleDiningUseCase extends UseCase<ResumeSingleDiningUse
 }
 
 export namespace ResumeSingleDiningUseCase {
-    export const token = Symbol('ResumeSingleDiningUseCase') as UseCase.Token<ResumeSingleDiningUseCase>;
+    export const token = Symbol('ResumeSingleDiningUseCase') as InjectionToken<ResumeSingleDiningUseCase>;
     export class Request extends UseCase.Request {
         constructor(readonly session: Dining.Session) { super(); UseCase.id(session.activityId); this.session = UseCase.dto(session); }
     }

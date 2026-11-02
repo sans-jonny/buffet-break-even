@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import type {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface InitializeDiningUseCase extends UseCase<InitializeDiningUseCase
 }
 
 export namespace InitializeDiningUseCase {
-    export const token = Symbol('InitializeDiningUseCase') as UseCase.Token<InitializeDiningUseCase>;
+    export const token = Symbol('InitializeDiningUseCase') as InjectionToken<InitializeDiningUseCase>;
     export class Request extends UseCase.Request {
         constructor(readonly referenceCatalog: readonly Dining.Restaurant[] = []) { super(); this.referenceCatalog = UseCase.dto(referenceCatalog); }
     }

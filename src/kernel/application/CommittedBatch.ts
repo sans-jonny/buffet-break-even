@@ -1,6 +1,7 @@
 import type {SerializedEvent} from './SerializedEvent';
 
 export interface CommittedBatch {
+    readonly submissionId?: string;
     readonly scopeId: string;
     readonly roomId: string | null;
     readonly batchId: string;

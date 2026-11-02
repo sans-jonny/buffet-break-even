@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
 
@@ -6,7 +7,7 @@ export interface ListRoomsUseCase extends UseCase<ListRoomsUseCase.Request, List
 }
 
 export namespace ListRoomsUseCase {
-    export const token = Symbol('ListRoomsUseCase') as UseCase.Token<ListRoomsUseCase>;
+    export const token = Symbol('ListRoomsUseCase') as InjectionToken<ListRoomsUseCase>;
 
     export class Request extends UseCase.Request {
         constructor() {

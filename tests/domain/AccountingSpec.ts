@@ -18,8 +18,8 @@ export namespace AccountingSpec {
             assert.equal(Object.isFrozen(ticket), false)
         })
         test('总门票大于零且使用安全整数；领域失败不会改变对象', () => {
-            for (const price of [0, -1, 1.1, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => Domain.accepted(DiningActivity.create('meal', Money.ofMinor(price), 'SINGLE')), /INVALID_TICKET_PRICE|MONEY_OVERFLOW/)
-            const started = Domain.accepted(DiningActivity.create('meal', Money.ofMinor(20000), 'SINGLE'))
+            for (const price of [0, -1, 1.1, Number.MAX_SAFE_INTEGER + 1]) assert.throws(() => Domain.accepted(DiningActivity.create('meal', Money.ofMinor(price), 'SINGLE', ['buffet'], 'My')), /INVALID_TICKET_PRICE|MONEY_OVERFLOW/)
+            const started = Domain.accepted(DiningActivity.create('meal', Money.ofMinor(20000), 'SINGLE', ['buffet'], 'My'))
             const model = DiningActivity.reconstitute(DomainScenario.activity(started))
             assert.equal(Domain.accepted(model.changeTicketPrice(Money.ofMinor(30000))).facts.ticketPriceMinor, 30000)
             assert.equal(started.facts.ticketPriceMinor, 20000)

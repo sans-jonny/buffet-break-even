@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Domain} from '../../../../../kernel/domain/Domain';
 
@@ -6,7 +7,7 @@ export interface ChangeNicknameUseCase extends UseCase<ChangeNicknameUseCase.Req
 }
 
 export namespace ChangeNicknameUseCase {
-    export const token = Symbol('ChangeNicknameUseCase') as UseCase.Token<ChangeNicknameUseCase>;
+    export const token = Symbol('ChangeNicknameUseCase') as InjectionToken<ChangeNicknameUseCase>;
 
     export class Request extends UseCase.Request {
         constructor(readonly nickname: string) {

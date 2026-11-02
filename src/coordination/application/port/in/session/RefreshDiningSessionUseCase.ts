@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
 export interface RefreshDiningSessionUseCase extends UseCase<RefreshDiningSessionUseCase.Request, RefreshDiningSessionUseCase.Response> {
@@ -5,7 +6,7 @@ export interface RefreshDiningSessionUseCase extends UseCase<RefreshDiningSessio
 }
 
 export namespace RefreshDiningSessionUseCase {
-    export const token = Symbol('RefreshDiningSessionUseCase') as UseCase.Token<RefreshDiningSessionUseCase>;
+    export const token = Symbol('RefreshDiningSessionUseCase') as InjectionToken<RefreshDiningSessionUseCase>;
     export class Request extends UseCase.Request {
 
     }

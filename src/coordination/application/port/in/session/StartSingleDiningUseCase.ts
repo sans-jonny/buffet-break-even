@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import type {Dining} from '../../../dto/Dining';
 
@@ -6,11 +7,11 @@ export interface StartSingleDiningUseCase extends UseCase<StartSingleDiningUseCa
 }
 
 export namespace StartSingleDiningUseCase {
-    export const token = Symbol('StartSingleDiningUseCase') as UseCase.Token<StartSingleDiningUseCase>;
+    export const token = Symbol('StartSingleDiningUseCase') as InjectionToken<StartSingleDiningUseCase>;
     export class Request extends UseCase.Request {
-        constructor(readonly ticketPriceMinor: number, readonly categoryId?: string, readonly replaceActivityId?: string) {
+        constructor(readonly ticketPriceMinor: number, readonly categoryId: string, readonly replaceActivityId?: string) {
             super(); UseCase.amount(ticketPriceMinor, true);
-            if (categoryId !== undefined) UseCase.id(categoryId);
+            UseCase.id(categoryId);
             if (replaceActivityId !== undefined) UseCase.id(replaceActivityId);
         }
     }

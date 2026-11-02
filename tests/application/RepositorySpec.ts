@@ -110,7 +110,7 @@ export namespace RepositorySpec {
             assert.equal(meal.app.runtime.get('cursor/room'), meal.relay.streams.get('room')!.slice(-1)[0].toVersion);
         });
         test('聚合字段直接公开 readonly 业务视图，导出快照和构造输入均与实例脱离', () => {
-            const snapshot: DiningActivity.State = {id: 'meal', version: 1, mode: 'SINGLE', status: 'ACTIVE', ticketPriceMinor: 20000};
+            const snapshot: DiningActivity.State = {id: 'meal', version: 1, mode: 'SINGLE', status: 'ACTIVE', ticketPriceMinor: 20000, restaurantIds: ['buffet'], restaurantCategoryId: 'My'};
             const activity = DiningActivity.reconstitute(snapshot);
             assert.equal('state' in activity, false); assert.equal(Object.isFrozen(activity), false);
             assert.equal(activity.ticketPriceMinor, 20000);

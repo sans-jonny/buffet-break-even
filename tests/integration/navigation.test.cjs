@@ -57,3 +57,30 @@ test('每次返回时读取当前页面栈', async () => {
     await nav.back('mine')
     assert.deepEqual(calls, [['navigateBack', undefined], ['redirectTo', '/pages/mine/index']])
 })
+
+test('重复返回首页共享同一次跳转，其他导航按顺序执行，失败后仍可重试', async () => {
+    const calls = [], pending = []
+    const platform = Object.fromEntries(['navigateTo', 'redirectTo', 'reLaunch', 'navigateBack'].map(method => [method, options => {
+        calls.push([method, options.url]); pending.push(options)
+    }]))
+    const {UniBuffetNavigation} = loadModule('ui/navigation/UniBuffetNavigation', platform)
+    const nav = new UniBuffetNavigation()
+    const first = nav.open('setup', 'reset'), duplicate = nav.open('setup', 'reset')
+    assert.equal(first, duplicate)
+    assert.equal(nav.isNavigating(), true)
+    const next = nav.open('menu')
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(calls.length, 1)
+    pending.shift().success()
+    await first
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(calls.length, 2)
+    pending.shift().fail(new Error('failed'))
+    await assert.rejects(next, /页面打开失败/)
+    assert.equal(nav.isNavigating(), false)
+    const retry = nav.open('menu')
+    await new Promise(resolve => setImmediate(resolve))
+    pending.shift().success()
+    await retry
+    assert.equal(nav.isNavigating(), false)
+})

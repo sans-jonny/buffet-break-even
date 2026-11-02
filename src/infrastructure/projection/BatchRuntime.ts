@@ -15,6 +15,7 @@ export namespace BatchRuntime {
     export type Projector = (event: SerializedEvent.Fact, state: Transaction.State) => void;
     export type Handler = (event: SerializedEvent.Fact, tx: Transaction.Context) => Promise<void>;
     export type Remote = RoomEventStream & Partial<RoomRestaurantPersistence.Remote>;
+    type Submission<T> = {response: T; candidate?: EventBatch.Candidate};
 
     export class Runtime implements Transaction.Runner, CommittedBatchProjector, RoomSynchronizer {
         readonly sync = new Map<string, 'READY' | 'CATCHING_UP' | 'UNKNOWN' | 'SYNC_PENDING' | 'BLOCKED'>();
@@ -26,6 +27,8 @@ export namespace BatchRuntime {
         }>();
         private roomBaseline?: (roomId: string, state: Transaction.State) => Promise<void>;
         private queue: Promise<unknown> = Promise.resolve();
+        private commands: Promise<unknown> = Promise.resolve();
+        private readonly confirmations = new Set<() => void>();
         private readonly listeners = new Set<(event: Transaction.Invalidation) => void>();
         private readonly handlers = new Map<string, Handler[]>();
         private readonly projectors = new Map<string, Projector>();
@@ -34,7 +37,8 @@ export namespace BatchRuntime {
 
         constructor(private readonly storage: ManifestStorage.Store,
                     private readonly id: () => string,
-                    private readonly remote?: Remote) {
+                    private readonly remote?: Remote,
+                    private readonly confirmationTimeoutMs = 5000) {
             this.localCommitter = new LocalEventCommitter(id);
             this.remoteCommitter = remote ? new RemoteEventCommitter(remote) : undefined;
         }
@@ -137,83 +141,122 @@ export namespace BatchRuntime {
         }
 
         run<T>(scopeId: string, roomId: string | null, work: (tx: Transaction.Context) => Promise<T>): Promise<T> {
-            return this.serial(async () => {
+            const submit = () => this.serial(async (): Promise<Submission<T>> => {
                 Domain.require(!roomId || roomId === scopeId, 'WRONG_STREAM');
                 if (roomId && (this.sync.get(roomId) === 'UNKNOWN' || this.get(`outcome/${roomId}`)))
                     throw new Error('UNKNOWN_COMMIT_OUTCOME');
+                if (roomId) await this.catchUp(roomId);
+                const base = this.storage.read(), prepared = this.prepare(Domain.copy(base), scopeId, roomId);
+                this.activeContexts.set(prepared.tx, {scopeId, roomId});
+                let response: T;
+                try {
+                    response = await work(prepared.tx);
+                    prepared.assertHealthy();
+                } finally {
+                    this.activeContexts.delete(prepared.tx);
+                    prepared.seal();
+                }
+                const candidate = Domain.freeze({
+                    ...(roomId ? {submissionId: this.id()} : {}),
+                    scopeId,
+                    roomId,
+                    expectedVersion: Number(base[`cursor/${scopeId}`] || 0),
+                    events: prepared.events.map((event, index) => ({
+                        ...event,
+                        streamVersion: Number(base[`cursor/${scopeId}`] || 0) + index + 1
+                    }))
+                });
+                if (!candidate.events.length) return {response};
+                EventBatch.validate(candidate.events);
+                if (roomId) return {response, candidate};
+                const committed = await this.localCommitter.commit(candidate);
+                await this.apply(committed, base);
+                this.publish(base);
+                return {response};
+            });
+            const execute = async () => {
                 for (let attempt = 0; attempt < 3; attempt++) {
-                    if (roomId)
-                        await this.catchUp(roomId);
-                    const base = this.storage.read(), prepared = this.prepare(Domain.copy(base), scopeId, roomId);
-                    this.activeContexts.set(prepared.tx, {scopeId, roomId});
-                    let response: T;
-                    try {
-                        response = await work(prepared.tx);
-                        prepared.assertHealthy();
-                    } finally {
-                        this.activeContexts.delete(prepared.tx);
-                        prepared.seal();
-                    }
-                    const candidate = Domain.freeze({
-                        scopeId,
-                        roomId,
-                        expectedVersion: Number(base[`cursor/${scopeId}`] || 0),
-                        events: prepared.events.map((event, index) => ({
-                            ...event,
-                            streamVersion: Number(base[`cursor/${scopeId}`] || 0) + index + 1
-                        }))
-                    });
-                    if (!candidate.events.length)
-                        return response;
-                    EventBatch.validate(candidate.events);
-                    let committed: EventBatch.Committed;
-                    if (!roomId)
-                        committed = await this.localCommitter.commit(candidate);
-                    else {
-                        // Persist uncertainty BEFORE sending: a process crash cannot make a non-idempotent
-                        // request look safe to resend. This marker is technical, not a business projection.
-                        this.publish({...base, [`outcome/${roomId}`]: 'UNKNOWN'});
+                    const submitted = await submit();
+                    if (submitted.candidate) {
+                        let receipt: EventBatch.Committed | undefined;
                         try {
-                            committed = await this.remoteCommitter!.commit(candidate);
+                            // Sending must also release the projection queue: a broadcast may arrive
+                            // before the HTTP reply and must be persisted immediately.
+                            receipt = await this.remoteCommitter!.commit(submitted.candidate);
+                            if (receipt.scopeId !== scopeId || receipt.roomId !== roomId || receipt.previousVersion !== submitted.candidate.expectedVersion)
+                                throw new Error('WRONG_STREAM');
+                            EventBatch.complete(receipt);
                         } catch (error) {
-                            if ((error as Error).message === 'VERSION_CONFLICT' || (error as Error).message.startsWith('REJECTED_')) {
-                                this.publish(base);
-                                if ((error as Error).message === 'VERSION_CONFLICT') {
-                                    if (error instanceof StreamConflictError && error.recovery.batches?.length) {
+                            receipt = undefined;
+                            if ((error as Error).message === 'VERSION_CONFLICT') {
+                                if (error instanceof StreamConflictError && error.recovery.batches?.length) {
+                                    await this.serial(async () => {
                                         const recovered = this.storage.read();
-                                        for (const batch of error.recovery.batches) {
-                                            if (batch.scopeId !== roomId || batch.roomId !== roomId)
-                                                throw new Error('WRONG_STREAM');
+                                        for (const batch of error.recovery.batches!) {
+                                            if (batch.scopeId !== roomId || batch.roomId !== roomId) throw new Error('WRONG_STREAM');
                                             await this.apply(batch, recovered);
                                         }
                                         this.publish(recovered);
-                                    }
-                                    if (attempt < 2)
-                                        continue;
+                                    });
                                 }
+                                if (attempt < 2) continue;
                                 throw error;
                             }
-                            this.sync.set(roomId, 'UNKNOWN');
-                            throw new Error('UNKNOWN_COMMIT_OUTCOME');
+                            if ((error as Error).message.startsWith('REJECTED_')) throw error;
+                            // Lost HTTP replies can still be confirmed by a received broadcast.
+                        }
+                        try {
+                            // Do not hold the projection queue while waiting for our own broadcast.
+                            await this.confirm(submitted.candidate, receipt);
+                            this.sync.set(roomId!, 'READY');
+                        } catch (error) {
+                            if (receipt) this.sync.set(roomId!, 'SYNC_PENDING');
+                            else {
+                                this.sync.set(roomId!, 'UNKNOWN');
+                                await this.local(state => { state[`outcome/${roomId}`] = 'UNKNOWN'; });
+                            }
+                            throw error;
                         }
                     }
-                    try {
-                        if (committed.scopeId !== scopeId || committed.roomId !== roomId || committed.previousVersion !== candidate.expectedVersion)
-                            throw new Error('WRONG_STREAM');
-                        await this.apply(committed, base);
-                        this.publish(base);
-                    } catch (error) {
-                        if (roomId) {
-                            this.sync.set(roomId, 'SYNC_PENDING');
-                            throw new Error('SYNC_PENDING');
-                        }
-                        throw error;
-                    }
-                    if (roomId)
-                        this.sync.set(roomId, 'READY');
-                    return response;
+                    return submitted.response;
                 }
                 throw new Error('VERSION_CONFLICT');
+            };
+            if (!roomId) return execute();
+            // Subsequent room commands must read the projection of the preceding confirmed batch.
+            const result = this.commands.then(execute);
+            this.commands = result.catch(() => {});
+            return result;
+        }
+
+        private confirm(candidate: EventBatch.Candidate, receipt?: EventBatch.Committed): Promise<void> {
+            const published = () => {
+                const batch = this.get<EventBatch.Committed>(`journal/${candidate.scopeId}/${candidate.expectedVersion + 1}`);
+                if (!batch) return false;
+                if (receipt) return batch.batchId === receipt.batchId;
+                return !!candidate.submissionId && batch.submissionId === candidate.submissionId;
+            };
+            if (published()) return Promise.resolve();
+            return new Promise<void>((resolve, reject) => {
+                let settled = false;
+                const finish = (error?: Error) => {
+                    if (settled) return;
+                    settled = true;
+                    clearTimeout(timer);
+                    this.confirmations.delete(check);
+                    if (error) reject(error); else resolve();
+                };
+                const check = () => { if (published()) finish(); };
+                const timer = setTimeout(() => {
+                    // A missing broadcast is recovered by receiving the authoritative history;
+                    // the HTTP submission payload is never used to publish local state.
+                    void (receipt ? this.synchronize(candidate.roomId!) : Promise.resolve()).then(() => {
+                        check();
+                        if (!settled) finish(new Error(receipt ? 'SYNC_PENDING' : 'UNKNOWN_COMMIT_OUTCOME'));
+                    }, () => finish(new Error(receipt ? 'SYNC_PENDING' : 'UNKNOWN_COMMIT_OUTCOME')));
+                }, this.confirmationTimeoutMs);
+                this.confirmations.add(check);
+                check();
             });
         }
 
@@ -241,6 +284,7 @@ export namespace BatchRuntime {
                 .filter(key => JSON.stringify(before[key]) !== JSON.stringify(state[key]));
             this.storage.publish(state);
             if (keys.length) this.notify(keys);
+            this.confirmations.forEach(check => check());
         }
 
         private notify(keys: readonly string[] = []): void {
@@ -321,7 +365,7 @@ export namespace BatchRuntime {
                 return false;
             if (cursor !== batch.previousVersion)
                 throw new Error(cursor > batch.previousVersion ? 'RECOVERY_REQUIRED' : 'EVENT_GAP');
-            if (batch.roomId) await this.roomBaseline?.(batch.roomId, state);
+            if (batch.roomId && cursor === 0) await this.roomBaseline?.(batch.roomId, state);
             state[`cursor/${batch.scopeId}`] = batch.toVersion;
             for (const event of batch.events) {
                 this.project(event, state);

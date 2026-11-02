@@ -24,7 +24,7 @@ import {DeleteReceiptInteractor} from '../application/use-case/records/DeleteRec
 import {DeleteReceiptUseCase} from '../application/port/in/records/DeleteReceiptUseCase';
 import {DeleteDiningHistoryInteractor} from '../application/use-case/records/DeleteDiningHistoryInteractor';
 import {DeleteDiningHistoryUseCase} from '../application/port/in/records/DeleteDiningHistoryUseCase';
-import {PublishRestaurantOriginalUseCase} from '../application/port/in/catalog/PublishRestaurantOriginalUseCase';
+import {PublishLocalRestaurantUseCase} from '../application/port/in/catalog/PublishLocalRestaurantUseCase';
 
 import {ChangeLocalNicknameUseCase} from '../application/port/in/device/ChangeLocalNicknameUseCase';
 import {ChangeLocalNicknameInteractor} from '../application/use-case/device/ChangeLocalNicknameInteractor';
@@ -52,9 +52,8 @@ export namespace DeviceComposition {
         scope.factory(DeleteDiningHistoryUseCase.token, () => new DeleteDiningHistoryInteractor(scope.resolve(personalRunner), scope.resolve(LocalDiningData.token)));
         scope.factory(InitializeDiningUseCase.token, () => new InitializeDiningInteractor(
             scope.resolve(InitializeIdentityUseCase.token),
-            scope.resolve(GetPersonalDiningUseCase.token),
             scope.resolve(ListRestaurantsUseCase.token),
-            scope.resolve(PublishRestaurantOriginalUseCase.token),
+            scope.resolve(PublishLocalRestaurantUseCase.token),
             options.id
         ));
     }

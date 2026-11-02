@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,7 +7,7 @@ export interface SubmitDiningRoundUseCase extends UseCase<SubmitDiningRoundUseCa
 }
 
 export namespace SubmitDiningRoundUseCase {
-    export const token = Symbol('SubmitDiningRoundUseCase') as UseCase.Token<SubmitDiningRoundUseCase>;
+    export const token = Symbol('SubmitDiningRoundUseCase') as InjectionToken<SubmitDiningRoundUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly session: Dining.Session, readonly actorId: string, readonly restaurantId: string) {

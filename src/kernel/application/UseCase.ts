@@ -2,14 +2,12 @@ import {Domain} from '../domain/Domain';
 import {DomainRejection} from '../domain/DomainRejection';
 import {InvalidRequestError} from './InvalidRequestError';
 import {BusinessRuleError} from './BusinessRuleError';
-import type {InjectionToken} from './InjectionToken';
 
 export interface UseCase<R extends UseCase.Request, S extends UseCase.Response> {
     execute(request: R): S | Promise<S>;
 }
 
 export namespace UseCase {
-    export type Token<T> = InjectionToken<T>;
     export type Scope = Readonly<{
         scopeId: string;
         roomId: string | null;

@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Accounting} from './Accounting';
 
@@ -6,7 +7,7 @@ export interface EndDiningActivityUseCase extends UseCase<EndDiningActivityUseCa
 }
 
 export namespace EndDiningActivityUseCase {
-    export const token = Symbol('EndDiningActivityUseCase') as UseCase.Token<EndDiningActivityUseCase>;
+    export const token = Symbol('EndDiningActivityUseCase') as InjectionToken<EndDiningActivityUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(scope: UseCase.Scope,

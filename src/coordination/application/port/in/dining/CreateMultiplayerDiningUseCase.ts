@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
 
@@ -6,18 +7,18 @@ export interface CreateMultiplayerDiningUseCase extends UseCase<CreateMultiplaye
 }
 
 export namespace CreateMultiplayerDiningUseCase {
-    export const token = Symbol('CreateMultiplayerDiningUseCase') as UseCase.Token<CreateMultiplayerDiningUseCase>;
+    export const token = Symbol('CreateMultiplayerDiningUseCase') as InjectionToken<CreateMultiplayerDiningUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly roomId: string,
                     readonly code: string,
                     readonly activityId: string,
                     readonly creator: Dining.Identity,
-                    readonly ticketPriceMinor: number, readonly categoryId?: string) {
+                    readonly ticketPriceMinor: number, readonly categoryId: string) {
             super({scopeId: roomId, roomId});
             UseCase.id(roomId);
             UseCase.id(activityId);
-            if (categoryId !== undefined) UseCase.id(categoryId);
+            UseCase.id(categoryId);
             UseCase.amount(ticketPriceMinor, true);
             this.creator = UseCase.dto(creator);
         }

@@ -1,3 +1,4 @@
+import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Catalog} from './Catalog';
 
@@ -6,7 +7,7 @@ export interface GetRestaurantUseCase extends UseCase<GetRestaurantUseCase.Reque
 }
 
 export namespace GetRestaurantUseCase {
-    export const token = Symbol('GetRestaurantUseCase') as UseCase.Token<GetRestaurantUseCase>;
+    export const token = Symbol('GetRestaurantUseCase') as InjectionToken<GetRestaurantUseCase>;
 
     export class Request extends UseCase.Request {
         constructor(readonly catalogScope: string, readonly restaurantId: string) {
