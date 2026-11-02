@@ -17,6 +17,11 @@ server/prisma/*.db*
 dist
 *.local
 
+# Presentation build artifacts and temporary test reports
+.ppt-build/
+.ppt-heartbeat-recheck.txt
+.ppt-test-results.txt
+
 # Editor directories and files
 .idea
 *.suo
