@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar centered fallback title="点餐明细" @back="goBack" @fallback="goBack"/>
     <view class="records-body">
       <records-overview :dishes="totalDishesSaved" :meals="records.length" :rounds="totalRoundsSaved"/>
@@ -10,7 +11,7 @@
             <view>
               <text class="label-chip inline-flex-center">第 {{ records.length - index }} 餐</text>
               <text class="restaurant">{{
-                  restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName)
+                  restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName, item.isMultiplayer)
                 }}
               </text>
             </view>
@@ -22,28 +23,7 @@
           </view>
         </view>
         <view v-if="expandedRecordId === item.id" class="record-details">
-          <view class="record-total" @tap="openDetail(item.id)">
-            <text>查看详情 / 删除 ›</text>
-          </view>
-          <view class="record-total">
-            <text>就餐价格 ¥{{ item.price }}</text>
-            <text>已吃价值 ¥{{ item.value }}</text>
-          </view>
-          <view v-if="item.participants?.length" class="record-total record-participants">
-            <text>用餐人：{{ item.participants.join('、') }}</text>
-          </view>
-          <view v-for="(round, roundIndex) in item.rounds" :key="roundIndex" class="round-box">
-            <view class="round-head">
-              <text>第 {{ roundIndex + 1 }} 轮</text>
-              <text>{{ time.formatRoundTime(round.time) }}</text>
-              <text>¥{{ round.value.toFixed(2) }}</text>
-            </view>
-            <view v-for="line in round.lines" :key="line.name" class="detail-line">
-              <text>{{ line.name }}</text>
-              <text>×{{ line.count }}</text>
-              <text>¥{{ (line.price * line.count).toFixed(2) }}</text>
-            </view>
-          </view>
+          <record-rounds :receipt="item" show-detail @detail="openDetail(item.id)"/>
         </view>
       </view>
       <view v-if="!records.length" class="empty-state flex-center">
@@ -56,18 +36,32 @@
 </template>
 
 <script lang="ts" setup>
-import {usePersonalStore} from '@/stores/business/usePersonalStore'
-import {ReceiptView} from '@/ui/presentation/ReceiptView'
-import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {computed, ref} from 'vue'
-import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {time} from '@/ui/format/time'
 import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {ReceiptView} from '@/ui/presentation/ReceiptView'
+import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
+import RecordRounds from '@/ui/components/record-rounds/record-rounds.vue'
+import {computed, ref} from 'vue'
+import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const personal = usePersonalStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].find(q => q.error.value)?.error.value)
+
+const personalHistory = () => (personalQuery.data.value?.history || []).slice();
+const personalHistoryData = computed(() => readonly(personalHistory()));
 // 展示数据
 const records = computed(() => {
-  return personal.historyData.map(ReceiptView.fromResult)
+  return personalHistoryData.value.map(result => ReceiptView.fromResult(result, {activities: activitiesQuery.data.value?.value, restaurants: restaurantsQuery.data.value?.value}))
 })
 const totalRoundsSaved = computed(() => records.value.reduce((sum, r) => sum + r.rounds.length, 0))
 const totalDishesSaved = computed(() => records.value.reduce((sum, r) => sum + r.lines.reduce((a,
@@ -89,6 +83,8 @@ function toggleRecord(id: string) {
 
 // 业务操作
 // 当前页面无此类方法。
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>
@@ -173,66 +169,6 @@ function toggleRecord(id: string) {
 .record-details {
   padding: 0 30rpx 30rpx;
   border-top: 1rpx solid #f1ebe5;
-}
-
-.record-total {
-  padding-top: 24rpx;
-  display: flex;
-  justify-content: space-between;
-  color: #ff7439;
-  font-size: 23rpx;
-  font-weight: 800;
-}
-
-.round-box {
-  margin-top: 24rpx;
-  padding: 20rpx;
-  border: 2rpx solid #ffe1cd;
-  border-radius: 18rpx;
-}
-
-.record-participants {
-  color: #9c8d80;
-  font-weight: 400;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
-
-.round-head {
-  padding-bottom: 16rpx;
-  border-bottom: 1rpx solid #eee;
-  display: grid;
-  grid-template-columns: 1fr 1fr auto;
-  color: #8f8074;
-  font-size: 22rpx;
-  font-weight: 800;
-}
-
-.round-head text:last-child {
-  color: #ff7439;
-  text-align: right;
-}
-
-.detail-line {
-  min-height: 54rpx;
-  display: grid;
-  grid-template-columns: 1fr 60rpx 100rpx;
-  align-items: center;
-  font-size: 23rpx;
-  font-weight: 700;
-}
-
-.detail-line text:nth-child(2), .detail-line text:nth-child(3) {
-  text-align: right;
-}
-
-.detail-line text:nth-child(2) {
-  color: #998b80;
-}
-
-.detail-line text:nth-child(3) {
-  color: #ff7439;
-  font-weight: 800;
 }
 
 .empty-state {

@@ -14,14 +14,8 @@ export class CreateDiningActivityInteractor extends TransactionalInteractor<Crea
 
     protected async executeInTransaction(r: CreateDiningActivityUseCase.Request,
                                          tx: Transaction.Context): Promise<CreateDiningActivityUseCase.Response> {
-        Domain.require(!this.activities.findById(r.activityId), 'ACTIVITY_ALREADY_EXISTS');
-        if (r.replaceActivityId) {
-            const previous = this.activities.findById(r.replaceActivityId);
-            Domain.require(r.single && previous?.mode === 'SINGLE' && previous.status === 'ACTIVE', 'INVALID_SINGLE_REPLACEMENT');
-            await this.activities.apply(previous.abandon());
-        }
-        if (r.single)
-            Domain.require(!this.activities.all().some(a => a.snapshot().mode === 'SINGLE' && a.snapshot().status === 'ACTIVE'), 'SINGLE_ACTIVITY_EXISTS');
+        const previous = DiningActivity.authorizeCreation(this.activities.all(), r.activityId, r.single, r.replaceActivityId);
+        if (previous) await this.activities.apply(previous.abandon());
         const event = DiningActivity.create(r.activityId, Money.ofMinor(r.ticketPriceMinor), r.single ? 'SINGLE' : 'SHARED', r.restaurantIds, r.restaurantCategoryId);
         const saved = await this.activities.apply(event);
         return new CreateDiningActivityUseCase.Response(saved!.snapshot());

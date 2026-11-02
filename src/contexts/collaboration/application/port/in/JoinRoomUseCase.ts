@@ -1,3 +1,4 @@
+import {InvalidRequestError} from '../../../../../kernel/application/InvalidRequestError';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
@@ -18,7 +19,8 @@ export namespace JoinRoomUseCase {
             super(scope);
             UseCase.id(roomId);
             UseCase.id(memberId);
-            UseCase.id(nickname);
+            UseCase.nickname(nickname);
+            if (Number.isNaN(Date.parse(joinedAt))) throw new InvalidRequestError('INVALID_MEMBER');
         }
     }
 

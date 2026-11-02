@@ -16,9 +16,7 @@ export class CreateSingleDiningInteractor extends TransactionalInteractor<Create
 
     protected async executeInTransaction(r: CreateSingleDiningUseCase.Request,
                                          tx: Transaction.Context): Promise<CreateSingleDiningUseCase.Response> {
-        const selected = this.restaurants.execute(new ListRestaurantsUseCase.Request('local')).value
-            .filter(restaurant => restaurant.restaurantCategory.id === r.categoryId);
-        Domain.require(selected.length, 'RESTAURANT_CATEGORY_EMPTY');
+        const selected = this.restaurants.execute(new ListRestaurantsUseCase.Request('local', false, r.categoryId)).value;
         await this.createDiningActivity.execute(new CreateDiningActivityUseCase.Request(r.scope, r.activityId, r.ticketPriceMinor, true, selected.map(restaurant => restaurant.id), r.categoryId, r.replaceActivityId));
         return new CreateSingleDiningUseCase.Response({...r.scope, activityId: r.activityId});
     }

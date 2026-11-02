@@ -1,3 +1,4 @@
+import {DefaultNickname} from '../../../service/DefaultNickname';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 
@@ -9,9 +10,10 @@ export namespace InitializeIdentityUseCase {
     export const token = Symbol('InitializeIdentityUseCase') as InjectionToken<InitializeIdentityUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
-        constructor(readonly identityId: string) {
+        constructor(readonly identityId: string, readonly nickname = DefaultNickname.generate()) {
             super({scopeId: 'local-personal', roomId: null});
             UseCase.id(identityId);
+            UseCase.nickname(nickname);
         }
     }
 

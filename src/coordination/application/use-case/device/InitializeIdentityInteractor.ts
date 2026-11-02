@@ -11,7 +11,7 @@ export class InitializeIdentityInteractor extends TransactionalInteractor<Initia
 
     protected async executeInTransaction(r: InitializeIdentityUseCase.Request,
                                          tx: Transaction.Context): Promise<InitializeIdentityUseCase.Response> {
-        await this.data.initialize(r.identityId, tx);
+        await this.data.initialize(r.identityId, r.nickname, tx);
         return new InitializeIdentityUseCase.Response();
     }
 }

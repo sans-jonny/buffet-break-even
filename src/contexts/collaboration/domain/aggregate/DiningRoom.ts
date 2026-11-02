@@ -44,7 +44,6 @@ export class DiningRoom extends AggregateRoot<DiningRoom.State> {
                   creatorId: string,
                   displayName: string,
                   privateSourceIds: readonly string[]): RoomOpened {
-        Domain.require(!!id.trim() && /^\d{6}$/.test(code) && !!activityId.trim() && !!creatorId.trim() && !!displayName.trim(), 'INVALID_ROOM');
         return new RoomOpened(id, 0, {code, activityId, creatorId, nickname: displayName, privateSourceIds});
     }
 
@@ -72,6 +71,17 @@ export class DiningRoom extends AggregateRoot<DiningRoom.State> {
         });
     }
 
+    authorizeContext(context: {activityId?: string; scopeId?: string; memberId?: string; access?: 'EDIT' | 'RECOVER' | 'RESULT' | 'HISTORY'}): void {
+        if (context.activityId !== undefined || context.scopeId !== undefined)
+            Domain.require((context.activityId === undefined || context.activityId === this.activityId)
+                && (context.scopeId === undefined || context.scopeId === this.id), 'ROOM_ACTIVITY_MISMATCH');
+        if (context.access === 'EDIT') this.authorize(context.memberId!);
+        if (context.access === 'RECOVER') Domain.require(this.members.some(m => m.id === context.memberId && m.present && m.online)
+            || (this.status === 'ENDED' && this.eligibleIds.includes(context.memberId!)), 'NOT_ELIGIBLE');
+        if (context.access === 'HISTORY' || (context.access === 'RESULT' && this.status === 'ENDED'))
+            Domain.require(this.eligibleIds.includes(context.memberId!), 'NOT_ELIGIBLE');
+    }
+
     authorize(memberId: string, hostOnly = false): void {
         Domain.require(this.status === 'ACTIVE', 'ALREADY_ENDED');
         Domain.require(this.members.some(m => m.id === memberId && m.present && m.online), 'ONLINE_MEMBER_REQUIRED');
@@ -80,7 +90,6 @@ export class DiningRoom extends AggregateRoot<DiningRoom.State> {
 
     join(memberId: string, displayName: string, joinedAt: string): MemberJoined | MemberRejoined | DiningRoomRejected {
         const member = {id: memberId, nickname: displayName};
-        Domain.require(!!memberId.trim() && !!displayName.trim() && !Number.isNaN(Date.parse(joinedAt)), 'INVALID_MEMBER');
         if (this.status === 'ABANDONED')
             return new DiningRoomRejected('ROOM_ABANDONED');
         if (this.status === 'ENDED')
@@ -108,7 +117,6 @@ export class DiningRoom extends AggregateRoot<DiningRoom.State> {
 
     changeNickname(memberId: string, nickname: string): MemberNicknameChanged {
         this.authorize(memberId);
-        Domain.require(!!nickname.trim() && nickname.trim().length <= 24, 'INVALID_NICKNAME');
         return new MemberNicknameChanged(this.id, this.version, {memberId, nickname: nickname.trim()});
     }
 

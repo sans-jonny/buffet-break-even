@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar centered fallback title="小票夹" @back="goBack" @fallback="goBack"/>
     <view v-if="receipts.length" class="receipt-grid">
       <view v-for="(item, index) in receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
@@ -12,7 +13,7 @@
           </view>
         </view>
         <view class="thumb-caption">
-          <text>{{ index + 1 }}. {{ restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
+          <text>{{ index + 1 }}. {{ restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName, item.isMultiplayer) }}</text>
           <text>{{ time.formatDateTime(item.date) }}</text>
         </view>
       </view>
@@ -26,19 +27,27 @@
 </template>
 
 <script lang="ts" setup>
-import {usePersonalStore} from '@/stores/business/usePersonalStore'
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {time} from '@/ui/format/time'
-import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-const personal = usePersonalStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].find(q => q.error.value)?.error.value)
+
 // 展示数据
-const receipts = computed(() => {
-  return personal.receiptData ? [ReceiptView.fromResult(personal.receiptData!)] : []
-})
+const receipts = computed(() => (personalQuery.data.value?.receipts || []).map(result => ReceiptView.fromResult(result, {activities: activitiesQuery.data.value?.value, restaurants: restaurantsQuery.data.value?.value})))
 // 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
 
@@ -48,6 +57,8 @@ const openReceipt = (id: string) => navigation.toResult(id)
 
 // 业务操作
 // 当前页面无此类方法。
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>

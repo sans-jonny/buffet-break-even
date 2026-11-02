@@ -4,6 +4,7 @@ export namespace ReceiptImage {
     export interface ReceiptImageData {
         restaurant: string
         typeName?: string
+        isMultiplayer?: boolean
         participants?: readonly string[]
         receiptId: string
         dateTime: string
@@ -46,7 +47,7 @@ export namespace ReceiptImage {
         function divider() {y += 14; dividers.push(y); y += 30}
         paragraph('PAGER MESSAGE', 30, true)
         y += 12
-        paragraph(restaurantTitle.formatRestaurantTitle(data.restaurant, data.typeName), 24, true)
+        paragraph(restaurantTitle.formatRestaurantTitle(data.restaurant, data.typeName, data.isMultiplayer), 24, true)
         divider()
         paragraph('ID: ' + data.receiptId, 20)
         paragraph(data.dateTime, 20)

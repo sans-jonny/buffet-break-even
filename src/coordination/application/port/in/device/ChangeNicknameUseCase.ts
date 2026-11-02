@@ -12,8 +12,7 @@ export namespace ChangeNicknameUseCase {
     export class Request extends UseCase.Request {
         constructor(readonly nickname: string) {
             super();
-            UseCase.id(nickname);
-            Domain.require(nickname.trim().length <= 24, 'INVALID_NICKNAME');
+            UseCase.nickname(nickname);
         }
     }
 

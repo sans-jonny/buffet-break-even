@@ -92,7 +92,7 @@ function pageHarness(options = {}) {
 
     function initialize() {
         if (!initialization) {
-            const {Bootstrap} = load(path.join(sourceRoot, 'composition/Bootstrap.ts'))
+            const {TestBootstrap: Bootstrap} = load(path.resolve(sourceRoot, '../tests/support/TestBootstrap.ts'))
             initialization = Bootstrap.device('http://relay.test', Bootstrap.id, error => { throw error }, application).then(result => {
                 services = result
                 services.queries.client.setDefaultOptions({queries: {...services.queries.client.getDefaultOptions().queries, gcTime: Infinity}})

@@ -1,3 +1,4 @@
+import {InvalidRequestError} from '../../../../../kernel/application/InvalidRequestError';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Dining} from '../../../dto/Dining';
@@ -14,9 +15,9 @@ export namespace EndDiningUseCase {
                     readonly actor: Dining.Identity,
                     readonly finalRestaurantId: string) {
             super(session);
+            UseCase.required(actor, 'IDENTITY_REQUIRED');
             UseCase.id(actor.id);
-            if (!finalRestaurantId)
-                throw new Error("FINAL_RESTAURANT_REQUIRED");
+            if (typeof finalRestaurantId !== 'string' || !finalRestaurantId.trim()) throw new InvalidRequestError('FINAL_RESTAURANT_REQUIRED');
             this.session = UseCase.dto(session);
             this.actor = UseCase.dto(actor);
         }

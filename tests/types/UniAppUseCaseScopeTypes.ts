@@ -4,6 +4,9 @@ import {InitializeIdentityUseCase} from '../../src/coordination/application/port
 import {TransactionRunner} from '../../src/kernel/application/TransactionRunner';
 import {UseCaseTransactionRunner} from '../../src/infrastructure/dependency-injection/UseCaseTransactionRunner';
 import type {Transaction} from '../../src/kernel/application/Transaction';
+import {ReactiveQueryFacade} from '../../src/infrastructure/query/ReactiveQueryFacade';
+import {DiningQueries} from '../../src/infrastructure/query/DiningQueries';
+import {GetConsumptionUseCase} from '../../src/contexts/accounting/application/port/in/GetConsumptionUseCase';
 
 /** Compiled by the scope specification, never executed. */
 export namespace UniAppUseCaseScopeTypes {
@@ -32,6 +35,19 @@ export namespace UniAppUseCaseScopeTypes {
         const expectedRunner: TransactionRunner = transactions;
         const scoped = runner.resolve(InitializeIdentityUseCase.token, tx);
         const expectedScoped: InitializeIdentityUseCase = scoped;
+        const root: UniAppUseCaseScope = scope.resolve(UniAppUseCaseScope.token);
+        const queries = scope.resolve(ReactiveQueryFacade.token);
+        const binding = queries.bind(DiningQueries.Consumption, () => ({activityId: 'a', restaurantId: 'r'}));
+        const response: GetConsumptionUseCase.Response | undefined = binding.data.value;
+        // @ts-expect-error Query parameters are inferred from the token.
+        queries.bind(DiningQueries.Consumption, () => ({activityId: 123, restaurantId: 'r'}));
+        // @ts-expect-error All required query parameters must be present.
+        queries.bind(DiningQueries.Consumption, () => ({activityId: 'a'}));
+        // @ts-expect-error Pages cannot replace the response projection.
+        binding.data.value = undefined;
+        // @ts-expect-error Pages cannot replace query status.
+        binding.status.value = 'success';
+        void [root, response];
         void [name, wrong, expectedUseCase, expectedRunner, expectedScoped];
     }
 }

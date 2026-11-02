@@ -31,32 +31,13 @@ export class Restaurant extends AggregateRoot<Restaurant.State> {
     }
 
     static publish(state: Restaurant.State): RestaurantPublished | RestaurantRejected {
-        if (!state.id.trim() || !state.name.trim() || !Domain.positive(state.version))
-            return new RestaurantRejected('INVALID_RESTAURANT');
-        if (new Set(state.products.map(p => p.id)).size !== state.products.length || new Set(state.categories.map(c => c.id)).size !== state.categories.length)
-            return new RestaurantRejected('DUPLICATE_CATALOG_ID');
-        try {
-            new RestaurantCategory(state.restaurantCategory?.id, state.restaurantCategory?.name);
-        } catch {
-            return new RestaurantRejected('INVALID_RESTAURANT_CATEGORY');
-        }
-        if (state.type === 'PRIVATE' && state.restaurantCategory.id !== 'My')
-            return new RestaurantRejected('PRIVATE_RESTAURANT_CATEGORY_REQUIRED');
-        try {
-            state.categories.forEach(c => new Category(c));
-            state.products.forEach(p => new Product(p));
-        } catch {
-            return new RestaurantRejected('INVALID_PRODUCT');
-        }
-        if (state.products.some(p => !state.categories.some(c => c.id === p.categoryId)))
-            return new RestaurantRejected('INVALID_PRODUCT');
         return new RestaurantPublished(state.id, state.version - 1, {
             name: state.name,
             restaurantCategory: state.restaurantCategory,
             type: state.type,
             deleted: state.deleted,
             categories: state.categories,
-            products: state.products.map(product => new Product(product).snapshot),
+            products: state.products.map(({id, categoryId, name, priceMinor}) => ({id, categoryId, name, priceMinor})),
             sourceId: state.sourceId,
             sourceVersion: state.sourceVersion
         });
@@ -85,6 +66,23 @@ export class Restaurant extends AggregateRoot<Restaurant.State> {
             sourceId: this.sourceId,
             sourceVersion: this.sourceVersion
         });
+    }
+
+    authorizeAvailable(productId?: string): void {
+        Domain.require(!this.deleted, 'RESTAURANT_UNAVAILABLE');
+        if (productId !== undefined) Domain.require(this.products.some(p => p.id === productId), 'PRODUCT_NOT_FOUND');
+    }
+
+    authorizePrivate(): void { Domain.require(this.type === 'PRIVATE', 'PRIVATE_ORIGINAL_REQUIRED'); }
+
+    static authorizeVersion(version: number, previous?: Restaurant): void {
+        Domain.require(!previous || version === previous.version + 1, 'STALE_CATALOG_VERSION');
+    }
+
+    static selectCategory<T extends {restaurantCategory: {id: string}}>(restaurants: readonly T[], categoryId: string): readonly T[] {
+        const selected = restaurants.filter(r => r.restaurantCategory.id === categoryId);
+        Domain.require(selected.length, 'RESTAURANT_CATEGORY_EMPTY');
+        return selected;
     }
 
     replaceProducts(products: readonly Restaurant.Product[],
@@ -139,6 +137,7 @@ export class Restaurant extends AggregateRoot<Restaurant.State> {
                productId: string,
                name: string,
                price: Money.Price): RestaurantPublished | RestaurantDeleted | RestaurantRejected {
+        if (!this.categories.some(category => category.id === categoryId)) return new RestaurantRejected('INVALID_PRODUCT');
         if (this.products.some(p => p.id === productId))
             return new RestaurantRejected('DUPLICATE_CATALOG_ID');
         return this.replaceProducts([...this.snapshot().products, {

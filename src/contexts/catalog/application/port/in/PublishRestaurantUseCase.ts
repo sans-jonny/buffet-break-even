@@ -1,3 +1,4 @@
+import {RestaurantInput} from './RestaurantInput';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Catalog} from './Catalog';
@@ -13,7 +14,7 @@ export namespace PublishRestaurantUseCase {
         constructor(scope: UseCase.Scope, readonly catalogScope: string, readonly restaurant: Catalog.RestaurantView) {
             super(scope);
             UseCase.id(catalogScope);
-            UseCase.id(restaurant.id);
+            RestaurantInput.validate(restaurant);
             this.restaurant = UseCase.dto(restaurant);
         }
     }

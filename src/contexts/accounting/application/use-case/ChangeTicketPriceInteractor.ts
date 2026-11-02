@@ -15,7 +15,7 @@ export class ChangeTicketPriceInteractor extends TransactionalInteractor<ChangeT
                                          tx: Transaction.Context): Promise<ChangeTicketPriceUseCase.Response> {
         const activity = this.activities.findById(r.activityId);
         Domain.require(activity, 'ACTIVITY_NOT_FOUND');
-        Domain.require(activity.snapshot().status === 'ACTIVE', 'ALREADY_ENDED');
+        activity.authorizeActive();
         const saved = await this.activities.apply(activity.changeTicketPrice(Money.ofMinor(r.ticketPriceMinor)));
         return new ChangeTicketPriceUseCase.Response(saved!.snapshot());
     }

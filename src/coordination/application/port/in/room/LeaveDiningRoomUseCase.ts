@@ -12,6 +12,7 @@ export namespace LeaveDiningRoomUseCase {
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly session: Dining.Session, readonly actorId: string) {
             super(session);
+            UseCase.id(session.roomId!);
             UseCase.id(actorId);
             this.session = UseCase.dto(session);
         }

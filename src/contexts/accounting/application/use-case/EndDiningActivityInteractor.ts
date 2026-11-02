@@ -19,7 +19,7 @@ export class EndDiningActivityInteractor extends TransactionalInteractor<EndDini
                                          tx: Transaction.Context): Promise<EndDiningActivityUseCase.Response> {
         const activity = this.activities.findById(r.activityId);
         Domain.require(activity, 'ACTIVITY_NOT_FOUND');
-        Domain.require(activity.snapshot().status === 'ACTIVE', 'ALREADY_ENDED');
+        activity.authorizeActive();
         const consumption = this.consumptions.findById(r.activityId + '/' + r.catalog.id);
         const result = ConsumptionCalculator.calculate(activity.snapshot(), consumption?.snapshot(), r.catalog, r.date, r.diners);
         if (consumption)

@@ -221,5 +221,5 @@ test('UI 封面单独保存和移除，餐厅领域快照与事件只保留业�
     const event = Restaurant.publish(dirty)
     assert.ok(!/coverUrl|emoji/.test(JSON.stringify(event)))
     const sample = page.state.productImages.cover({id: 'niuniu', type: 'PUBLIC'}, 'beef')
-    assert.equal(sample, 'http://relay.test/sample-images/steak.jpg')
+    assert.equal(sample, 'http://relay.test/sample-images/steak.jpg?v=100')
 })

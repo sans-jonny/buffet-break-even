@@ -6,7 +6,7 @@ import {DiningScenario} from '../support/DiningScenario'
 import {DiningRoom} from '../../src/contexts/collaboration/domain/aggregate/DiningRoom'
 import {Domain} from '../../src/kernel/domain/Domain'
 import {IncreaseDiningProductUseCase} from '../../src/coordination/application/port/in/dining/IncreaseDiningProductUseCase'
-import {SessionStore} from '../../src/stores/business/SessionStore'
+import {SessionStore} from '../support/legacy/SessionStore'
 
 export namespace CollaborationSpec {
     export function verify(): void {

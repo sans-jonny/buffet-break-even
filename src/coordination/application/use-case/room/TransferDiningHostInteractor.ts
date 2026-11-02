@@ -16,8 +16,8 @@ export class TransferDiningHostInteractor extends TransactionalInteractor<Transf
     protected async executeInTransaction(r: TransferDiningHostUseCase.Request,
                                          tx: Transaction.Context): Promise<TransferDiningHostUseCase.Response> {
         this.access.requireHost(r.session, r.actorId);
-        Domain.require(r.session.roomId, 'ROOM_REQUIRED');
-        await this.transferHost.execute(new TransferHostUseCase.Request(r.scope, r.session.roomId, r.actorId, r.targetId));
+
+        await this.transferHost.execute(new TransferHostUseCase.Request(r.scope, r.session.roomId!, r.actorId, r.targetId));
         return new TransferDiningHostUseCase.Response(undefined);
     }
 }

@@ -36,6 +36,7 @@
     "build:quickapp-webview-union": "node scripts/uni.cjs build -p quickapp-webview-union",
     "type-check": "vue-tsc --noEmit && npm --prefix server run type-check && tsc --project tsconfig.server.json",
     "test": "node --test",
+    "images:resize": "node scripts/resize-server-images.cjs",
     "server": "npm --prefix server start",
     "db:generate": "npm --prefix server run db:generate",
     "db:push": "npm --prefix server run db:push",

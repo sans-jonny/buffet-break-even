@@ -39,12 +39,15 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
                   ticketPrice: Money.Amount,
                   mode: 'SINGLE' | 'SHARED',
                   restaurantIds: readonly string[], restaurantCategoryId: string): DiningStarted | DiningActivityRejected {
-        if (!id.trim() || !Money.isTicket(ticketPrice.minor))
-            return new DiningActivityRejected('INVALID_TICKET_PRICE');
-        if (!Array.isArray(restaurantIds) || !restaurantIds.length || restaurantIds.some(id => !id.trim()) || new Set(restaurantIds).size !== restaurantIds.length)
-            return new DiningActivityRejected('INVALID_ACTIVITY_RESTAURANTS');
-        if (typeof restaurantCategoryId !== 'string' || !restaurantCategoryId.trim()) return new DiningActivityRejected('INVALID_RESTAURANT_CATEGORY');
         return new DiningStarted(id, 0, {mode, ticketPriceMinor: ticketPrice.minor, restaurantIds, restaurantCategoryId});
+    }
+
+    static authorizeCreation(activities: readonly DiningActivity[], id: string, single: boolean, replaceId?: string): DiningActivity | undefined {
+        Domain.require(!activities.some(activity => activity.id === id), 'ACTIVITY_ALREADY_EXISTS');
+        const previous = replaceId ? activities.find(activity => activity.id === replaceId) : undefined;
+        if (replaceId) Domain.require(single && previous?.mode === 'SINGLE' && previous.status === 'ACTIVE', 'INVALID_SINGLE_REPLACEMENT');
+        if (single) Domain.require(!activities.some(activity => activity.id !== replaceId && activity.mode === 'SINGLE' && activity.status === 'ACTIVE'), 'SINGLE_ACTIVITY_EXISTS');
+        return previous;
     }
 
     snapshot(): DiningActivity.State {
@@ -60,6 +63,13 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
         });
     }
 
+    authorizeActive(): void { Domain.require(this.status === 'ACTIVE', 'ALREADY_ENDED'); }
+
+    authorizeSingle(scopeId: string): void {
+        Domain.require(this.mode === 'SINGLE' && scopeId === this.id, 'SINGLE_ACTIVITY_REQUIRED');
+        this.authorizeActive();
+    }
+
     authorizeRestaurant(restaurantId: string): void {
         Domain.require(this.restaurantIds.includes(restaurantId), 'RESTAURANT_NOT_IN_ACTIVITY');
     }
@@ -67,9 +77,7 @@ export class DiningActivity extends AggregateRoot<DiningActivity.State> {
     changeTicketPrice(ticketPrice: Money.Amount): TicketPriceChanged | DiningActivityRejected {
         if (this.status !== 'ACTIVE')
             return new DiningActivityRejected('ALREADY_ENDED');
-        if (!Money.isTicket(ticketPrice.minor))
-            return new DiningActivityRejected('INVALID_TICKET_PRICE');
-        return new TicketPriceChanged(this.id, this.version, {ticketPriceMinor: ticketPrice.minor});
+return new TicketPriceChanged(this.id, this.version, {ticketPriceMinor: ticketPrice.minor});
     }
 
     end(result: DiningResult): DiningEnded | DiningActivityRejected {

@@ -19,8 +19,8 @@ export class DiningAccess {
 
     private require(session: Dining.Session, actorId: string, hostOnly: boolean): Dining.Room | undefined {
         if (!session.roomId) return undefined;
-        const room = this.rooms.execute(new GetRoomUseCase.Request(session.roomId)).value;
-        Domain.require(room && room.activityId === session.activityId, 'ROOM_ACTIVITY_MISMATCH');
+        const room = this.rooms.execute(new GetRoomUseCase.Request(session.roomId, {activityId: session.activityId, scopeId: session.scopeId})).value;
+        Domain.require(room, 'ROOM_NOT_FOUND');
         this.authorize.execute(new AuthorizeRoomUseCase.Request(session.roomId, actorId, hostOnly));
         return room;
     }

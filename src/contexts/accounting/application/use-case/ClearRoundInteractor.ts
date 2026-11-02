@@ -17,7 +17,7 @@ export class ClearRoundInteractor extends TransactionalInteractor<ClearRoundUseC
                                          tx: Transaction.Context): Promise<ClearRoundUseCase.Response> {
         const activity = this.activities.findById(r.activityId);
         Domain.require(activity, 'ACTIVITY_NOT_FOUND');
-        Domain.require(activity.snapshot().status === 'ACTIVE', 'ALREADY_ENDED');
+        activity.authorizeActive();
         const consumption = this.consumptions.findById(r.activityId + '/' + r.restaurantId);
         Domain.require(consumption, 'EMPTY_ROUND');
         const saved = await this.consumptions.apply(consumption.clearRound(r.roundId));

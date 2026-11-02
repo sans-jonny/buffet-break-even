@@ -21,9 +21,7 @@ export class CreateMultiplayerDiningInteractor extends TransactionalInteractor<C
 
     protected async executeInTransaction(r: CreateMultiplayerDiningUseCase.Request,
                                          tx: Transaction.Context): Promise<CreateMultiplayerDiningUseCase.Response> {
-        const originals = this.listRestaurants.execute(new ListRestaurantsUseCase.Request('local')).value
-            .filter(restaurant => restaurant.restaurantCategory.id === r.categoryId);
-        Domain.require(originals.length, 'RESTAURANT_CATEGORY_EMPTY');
+        const originals = this.listRestaurants.execute(new ListRestaurantsUseCase.Request('local', false, r.categoryId)).value;
         await this.openRoom.execute(new OpenRoomUseCase.Request(r.scope, r.roomId, r.code, r.activityId, r.creator.id, r.creator.nickname, originals.filter(a => a.type === 'PRIVATE').map(a => a.id)));
         await this.createDiningActivity.execute(new CreateDiningActivityUseCase.Request(r.scope, r.activityId, r.ticketPriceMinor, false, originals.map(restaurant => restaurant.type === 'PRIVATE' ? `${r.roomId}:${restaurant.id}` : restaurant.id), r.categoryId));
         await this.roomRestaurants.publish(r.roomId, originals.filter(restaurant => restaurant.type === 'PRIVATE').map(restaurant => restaurant.id));

@@ -14,7 +14,7 @@ export class PublishRestaurantInteractor extends TransactionalInteractor<Publish
     protected async executeInTransaction(r: PublishRestaurantUseCase.Request,
                                          tx: Transaction.Context): Promise<PublishRestaurantUseCase.Response> {
         const previous = this.restaurants.findById(r.catalogScope, r.restaurant.id);
-        Domain.require(!previous || r.restaurant.version === previous.version + 1, 'STALE_CATALOG_VERSION');
+        Restaurant.authorizeVersion(r.restaurant.version, previous);
         const saved = await this.restaurants.apply(r.catalogScope, Restaurant.publish(r.restaurant));
         return new PublishRestaurantUseCase.Response(saved!.snapshot());
     }

@@ -11,7 +11,7 @@ export class DeleteReceiptInteractor extends TransactionalInteractor<DeleteRecei
 
     protected async executeInTransaction(r: DeleteReceiptUseCase.Request,
                                          tx: Transaction.Context): Promise<DeleteReceiptUseCase.Response> {
-        await this.data.deleteReceipt(tx);
+        await this.data.deleteReceipt(r.activityId, tx);
         return new DeleteReceiptUseCase.Response();
     }
 }

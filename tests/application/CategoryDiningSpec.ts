@@ -1,3 +1,4 @@
+import {DiningQueries} from '../../src/infrastructure/query/DiningQueries';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {DiningScenario} from '../support/DiningScenario';
@@ -39,7 +40,10 @@ export namespace CategoryDiningSpec {
             assert.deepEqual(meal.dining.activity()!.restaurantIds, ['buffet', 'second']);
             assert.deepEqual(meal.dining.restaurants().map(r => r.id), ['buffet', 'second']);
             await assert.rejects(meal.dining.edit('barbecue', 'add', 'shrimp'), /RESTAURANT_NOT_IN_ACTIVITY/);
-            assert.throws(() => meal.dining.preview('barbecue'), /RESTAURANT_NOT_IN_ACTIVITY/);
+            const invalid = meal.app.queries.bind(DiningQueries.Result, () => ({session: meal.dining.session()!, actor: meal.dining.identity(), restaurantId: 'barbecue'}));
+            await new Promise(resolve => setImmediate(resolve));
+            assert.match((invalid.error.value as Error).message, /RESTAURANT_NOT_IN_ACTIVITY/);
+            invalid.dispose();
             await meal.whenEating();
             meal.thenValueIs(1500);
         });

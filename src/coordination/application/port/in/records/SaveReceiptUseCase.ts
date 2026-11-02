@@ -12,6 +12,8 @@ export namespace SaveReceiptUseCase {
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly result: Dining.Result) {
             super({scopeId: 'local-personal', roomId: null});
+            UseCase.required(result, 'NO_FINISHED_RESULT');
+
             UseCase.id(result.activityId);
             this.result = UseCase.dto(result);
         }

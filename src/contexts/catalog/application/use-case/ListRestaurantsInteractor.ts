@@ -1,3 +1,4 @@
+import {Restaurant} from '../../domain/aggregate/Restaurant';
 import {ReadOnlyInteractor} from '../../../../kernel/application/ReadOnlyInteractor';
 import {TransactionRunner} from '../../../../kernel/application/TransactionRunner';
 import {Transaction} from '../../../../kernel/application/Transaction';
@@ -10,6 +11,7 @@ export class ListRestaurantsInteractor extends ReadOnlyInteractor<ListRestaurant
     }
 
     protected read(r: ListRestaurantsUseCase.Request, view?: Transaction.View): ListRestaurantsUseCase.Response {
-        return new ListRestaurantsUseCase.Response(this.restaurants.list(r.catalogScope).filter(a => r.includeDeleted || !a.deleted));
+        const restaurants = this.restaurants.list(r.catalogScope).filter(a => r.includeDeleted || !a.deleted);
+        return new ListRestaurantsUseCase.Response(r.categoryId === undefined ? restaurants : Restaurant.selectCategory(restaurants, r.categoryId));
     }
 }

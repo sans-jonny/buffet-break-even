@@ -14,8 +14,8 @@ export class LeaveDiningRoomInteractor extends TransactionalInteractor<LeaveDini
 
     protected async executeInTransaction(r: LeaveDiningRoomUseCase.Request,
                                          tx: Transaction.Context): Promise<LeaveDiningRoomUseCase.Response> {
-        Domain.require(r.session.roomId, 'ROOM_REQUIRED');
-        await this.leaveRoom.execute(new LeaveRoomUseCase.Request(r.scope, r.session.roomId, r.actorId, this.now()));
+
+        await this.leaveRoom.execute(new LeaveRoomUseCase.Request(r.scope, r.session.roomId!, r.actorId, this.now()));
         return new LeaveDiningRoomUseCase.Response(undefined);
     }
 }

@@ -1,3 +1,4 @@
+import {InvalidRequestError} from '../../../../../kernel/application/InvalidRequestError';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Collaboration} from './Collaboration';
@@ -21,7 +22,10 @@ export namespace OpenRoomUseCase {
             UseCase.id(roomId);
             UseCase.id(activityId);
             UseCase.id(memberId);
-            UseCase.id(nickname);
+            UseCase.nickname(nickname);
+            if (!/^\d{6}$/.test(code)) throw new InvalidRequestError('INVALID_ROOM');
+            if (!Array.isArray(sourceIds)) throw new InvalidRequestError('INVALID_ID');
+            sourceIds.forEach(UseCase.id);
             this.sourceIds = UseCase.dto(sourceIds);
         }
     }

@@ -12,8 +12,7 @@ export namespace ChangeLocalNicknameUseCase {
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly nickname: string) {
             super({scopeId: 'local-personal', roomId: null});
-            UseCase.id(nickname);
-            Domain.require(nickname.trim().length <= 24, 'INVALID_NICKNAME');
+            UseCase.nickname(nickname);
         }
     }
 

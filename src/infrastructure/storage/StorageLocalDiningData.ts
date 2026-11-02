@@ -16,8 +16,11 @@ export class StorageLocalDiningData implements LocalDiningData {
         return UseCase.dto(this.storage.get<Dining.Session>('personal/session'));
     }
 
-    receipt() {
-        return UseCase.dto(this.storage.get<Dining.Result>('personal/receipt'));
+    receipts() {
+        const receipts = this.storage.entries<Dining.Result>('personal/receipts/').slice();
+        const previous = this.storage.get<Dining.Result>('personal/receipt');
+        if (previous && !receipts.some(receipt => receipt.activityId === previous.activityId)) receipts.push(previous);
+        return UseCase.dto(receipts.sort((a, b) => b.date.localeCompare(a.date) || a.activityId.localeCompare(b.activityId)));
     }
 
     history() {
@@ -25,11 +28,11 @@ export class StorageLocalDiningData implements LocalDiningData {
                                                                                                   b) => b.date.localeCompare(a.date)));
     }
 
-    async initialize(id: string, tx: Transaction.Context) {
+    async initialize(id: string, nickname: string, tx: Transaction.Context) {
         const s = this.local.state(tx);
         {
             if (!s['personal/identity'])
-                s['personal/identity'] = {id, nickname: '饭搭子'};
+                s['personal/identity'] = {id, nickname};
         }
     }
 
@@ -61,7 +64,11 @@ export class StorageLocalDiningData implements LocalDiningData {
     async saveReceipt(result: Dining.Result, tx: Transaction.Context) {
         const s = this.local.state(tx);
         {
-            s['personal/receipt'] = result;
+            const previous = s['personal/receipt'] as Dining.Result | undefined;
+            if (previous && !s[`personal/receipts/${previous.activityId}`])
+                s[`personal/receipts/${previous.activityId}`] = previous;
+            s[`personal/receipts/${result.activityId}`] = result;
+            delete s['personal/receipt'];
         }
     }
 
@@ -73,10 +80,12 @@ export class StorageLocalDiningData implements LocalDiningData {
         }
     }
 
-    async deleteReceipt(tx: Transaction.Context) {
+    async deleteReceipt(activityId: string, tx: Transaction.Context) {
         const s = this.local.state(tx);
         {
-            delete s['personal/receipt'];
+            delete s[`personal/receipts/${activityId}`];
+            if ((s['personal/receipt'] as Dining.Result | undefined)?.activityId === activityId)
+                delete s['personal/receipt'];
         }
     }
 

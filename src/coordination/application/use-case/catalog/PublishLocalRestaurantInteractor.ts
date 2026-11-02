@@ -21,7 +21,7 @@ export class PublishLocalRestaurantInteractor extends TransactionalInteractor<Pu
 
     protected async executeInTransaction(r: PublishLocalRestaurantUseCase.Request,
                                          tx: Transaction.Context): Promise<PublishLocalRestaurantUseCase.Response> {
-        Domain.require(r.restaurant.type === 'PRIVATE' || r.restaurant.type === 'PUBLIC', 'ORIGINAL_REQUIRED');
+
         const updated = (await this.publishRestaurant.execute(new PublishRestaurantUseCase.Request(r.scope, 'local', r.restaurant))).value;
         for (const activity of this.listDiningActivities.execute(new ListDiningActivitiesUseCase.Request()).value) {
             if (activity.mode === 'SINGLE' && activity.status === 'ACTIVE')

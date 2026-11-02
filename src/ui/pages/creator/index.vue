@@ -1,5 +1,6 @@
 <template>
   <view class="restaurant-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar :subtitle="restaurants.length + ' 个本地餐厅'" class="restaurant-navbar" fallback inset
                 subtitle-color="#a18765"
                 title="创造者模式" title-color="#ff4f0a" @back="goBack" @fallback="goBack"/>
@@ -27,17 +28,34 @@
   </view>
 </template>
 <script lang="ts" setup>
-import {useCatalogStore} from '@/stores/business/useCatalogStore'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {ref} from 'vue'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {DeleteLocalRestaurantUseCase} from '@/coordination/application/port/in/catalog/DeleteLocalRestaurantUseCase'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 
-const catalog = useCatalogStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [restaurantsQuery].find(q => q.error.value)?.error.value)
+
+const catalogRemovePort = scope.resolve(DeleteLocalRestaurantUseCase.token);
+const catalogCommands = CommandState.create();
+const catalogCommand = catalogCommands.run;
+const catalogRestaurants = computed(() => readonly((restaurantsQuery.data.value?.value || []).filter(r => !r.deleted)));
+const catalogRemove = (id: string) => catalogCommand(() => catalogRemovePort.execute(new DeleteLocalRestaurantUseCase.Request(id)));
 // 展示数据
 const restaurants = computed(() => {
-  return catalog.restaurants.filter(r => r.type === 'PRIVATE').map(r => ({
+  return catalogRestaurants.value.filter(r => r.type === 'PRIVATE').map(r => ({
     id: r.id,
     name: r.name,
     productCount: r.products.length
@@ -67,8 +85,10 @@ function remove(id: string) {
 
 // 业务操作
 async function deleteRestaurant(id: string) {
-  await catalog.remove(id)
+  await catalogRemove(id)
 }
+
+async function refreshQueries() { await Promise.all([restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped src="@/ui/styles/restaurants.css"></style>

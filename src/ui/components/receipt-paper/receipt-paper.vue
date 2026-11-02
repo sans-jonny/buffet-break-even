@@ -6,7 +6,7 @@
     </view>
     <text class="receipt-title">PAGER MESSAGE</text>
     <text v-if="restaurant" class="receipt-restaurant">{{
-        restaurantTitle.formatRestaurantTitle(restaurant, typeName)
+        restaurantTitle.formatRestaurantTitle(restaurant, typeName, isMultiplayer)
       }}
     </text>
     <view class="receipt-dash"/>
@@ -61,6 +61,7 @@ const props = defineProps<{
   restaurant?: string
   detached?: boolean
   typeName?: string
+  isMultiplayer?: boolean
   participants?: readonly string[]
   receiptId: string
   dateTime: string

@@ -8,6 +8,7 @@ export namespace ConsumptionCalculator {
     export type Catalog = Readonly<{
         id: string;
         name: string;
+        restaurantCategory?: Readonly<{name: string}>;
         version: number;
         deleted: boolean;
         products: readonly {
@@ -44,6 +45,8 @@ export namespace ConsumptionCalculator {
             activityId: activity.id,
             restaurantId: catalog.id,
             restaurant: catalog.name,
+            restaurantCategoryName: catalog.restaurantCategory?.name,
+            mode: activity.mode,
             catalogVersion: catalog.version,
             date,
             ticketPriceMinor: activity.ticketPriceMinor,

@@ -1,0 +1,362 @@
+[
+  {
+    "filename": "sushi-salmon.jpg",
+    "photoId": "5677125",
+    "sourceUrl": "https://www.pexels.com/photo/fresh-salmon-sashimi-on-a-plate-5677125/",
+    "downloadUrl": "https://images.pexels.com/photos/5677125/pexels-photo-5677125.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "niuniu/salmon"
+  },
+  {
+    "filename": "sushi-assorted.jpg",
+    "photoId": "28559534",
+    "sourceUrl": "https://www.pexels.com/photo/assorted-sushi-platter-with-fresh-ingredients-28559534/",
+    "downloadUrl": "https://images.pexels.com/photos/28559534/pexels-photo-28559534.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/eel-sushi"
+  },
+  {
+    "filename": "sushi-rolls.jpg",
+    "photoId": "7029254",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-of-delicious-maki-rolls-and-sashimi-7029254/",
+    "downloadUrl": "https://images.pexels.com/photos/7029254/pexels-photo-7029254.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/tuna-sushi"
+  },
+  {
+    "filename": "sushi-tempura.jpg",
+    "photoId": "39885029",
+    "sourceUrl": "https://www.pexels.com/photo/delicious-tempura-shrimp-sushi-roll-with-soy-sauce-39885029/",
+    "downloadUrl": "https://images.pexels.com/photos/39885029/pexels-photo-39885029.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/suki-avocado-sushi"
+  },
+  {
+    "filename": "sashimi-ice.jpg",
+    "photoId": "34675395",
+    "sourceUrl": "https://www.pexels.com/photo/fresh-salmon-sashimi-plated-on-ice-with-garnish-34675395/",
+    "downloadUrl": "https://images.pexels.com/photos/34675395/pexels-photo-34675395.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "yixu/salmon"
+  },
+  {
+    "filename": "grilled-fish.jpg",
+    "photoId": "3276145",
+    "sourceUrl": "https://www.pexels.com/photo/photo-of-tray-of-shrimps-3276145/",
+    "downloadUrl": "https://images.pexels.com/photos/3276145/pexels-photo-3276145.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "spicy-pot/fish"
+  },
+  {
+    "filename": "steak-plated.jpg",
+    "photoId": "27305265",
+    "sourceUrl": "https://www.pexels.com/photo/a-steak-on-a-plate-with-a-knife-and-fork-27305265/",
+    "downloadUrl": "https://images.pexels.com/photos/27305265/pexels-photo-27305265.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "charcoal/bbq-ribeye"
+  },
+  {
+    "filename": "steak-slices.jpg",
+    "photoId": "7538073",
+    "sourceUrl": "https://www.pexels.com/photo/delicious-marbled-beef-steaks-on-plate-7538073/",
+    "downloadUrl": "https://images.pexels.com/photos/7538073/pexels-photo-7538073.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "flame/bbq-beef-cubes"
+  },
+  {
+    "filename": "beef-fries.jpg",
+    "photoId": "1352264",
+    "sourceUrl": "https://www.pexels.com/photo/grilled-beef-with-fries-and-sauce-on-black-ceramic-plate-1352264/",
+    "downloadUrl": "https://images.pexels.com/photos/1352264/pexels-photo-1352264.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "charcoal/skirt-steak"
+  },
+  {
+    "filename": "pork-ribs.jpg",
+    "photoId": "12648493",
+    "sourceUrl": "https://www.pexels.com/photo/delicious-marinated-pork-ribs-12648493/",
+    "downloadUrl": "https://images.pexels.com/photos/12648493/pexels-photo-12648493.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "charcoal/bbq-ribs"
+  },
+  {
+    "filename": "barbecue-ribs.jpg",
+    "photoId": "8250194",
+    "sourceUrl": "https://www.pexels.com/photo/ribs-grilling-on-barbecue-8250194/",
+    "downloadUrl": "https://images.pexels.com/photos/8250194/pexels-photo-8250194.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "flame/bbq-jowl"
+  },
+  {
+    "filename": "grilled-meats.jpg",
+    "photoId": "1327344",
+    "sourceUrl": "https://www.pexels.com/photo/shallow-focus-photography-of-grilled-meat-1327344/",
+    "downloadUrl": "https://images.pexels.com/photos/1327344/pexels-photo-1327344.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "charcoal/short-rib"
+  },
+  {
+    "filename": "chicken-wedges.jpg",
+    "photoId": "7169617",
+    "sourceUrl": "https://www.pexels.com/photo/fried-chicken-and-potato-wedges-on-brown-wooden-tray-7169617/",
+    "downloadUrl": "https://images.pexels.com/photos/7169617/pexels-photo-7169617.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "flame/bbq-spicy-chicken"
+  },
+  {
+    "filename": "grilled-steak.jpg",
+    "photoId": "18824021",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-of-meat-on-a-grill-18824021/",
+    "downloadUrl": "https://images.pexels.com/photos/18824021/pexels-photo-18824021.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/suki-chuck"
+  },
+  {
+    "filename": "spring-rolls.jpg",
+    "photoId": "8970163",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-shot-of-dumplings-on-a-plate-8970163/",
+    "downloadUrl": "https://images.pexels.com/photos/8970163/pexels-photo-8970163.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "niuniu/suki-spring-roll"
+  },
+  {
+    "filename": "fried-dumplings.jpg",
+    "photoId": "7287702",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-shot-of-fried-dumplings-7287702/",
+    "downloadUrl": "https://images.pexels.com/photos/7287702/pexels-photo-7287702.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "yixu/suki-gyoza"
+  },
+  {
+    "filename": "salad-bowl.jpg",
+    "photoId": "1555814",
+    "sourceUrl": "https://www.pexels.com/photo/vegetable-salad-1555814/",
+    "downloadUrl": "https://images.pexels.com/photos/1555814/pexels-photo-1555814.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "niuniu/vegetables"
+  },
+  {
+    "filename": "salad-plated.jpg",
+    "photoId": "11213742",
+    "sourceUrl": "https://www.pexels.com/photo/vegetable-salad-on-a-plate-on-the-table-11213742/",
+    "downloadUrl": "https://images.pexels.com/photos/11213742/pexels-photo-11213742.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/caesar"
+  },
+  {
+    "filename": "vegetable-salad.jpg",
+    "photoId": "406152",
+    "sourceUrl": "https://www.pexels.com/photo/bowl-of-vegetable-salad-406152/",
+    "downloadUrl": "https://images.pexels.com/photos/406152/pexels-photo-406152.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/pizza-avocado-salad"
+  },
+  {
+    "filename": "creamy-risotto.jpg",
+    "photoId": "28292002",
+    "sourceUrl": "https://www.pexels.com/photo/a-plate-of-food-with-mushrooms-and-sauce-on-it-28292002/",
+    "downloadUrl": "https://images.pexels.com/photos/28292002/pexels-photo-28292002.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/risotto"
+  },
+  {
+    "filename": "mushroom-pasta.jpg",
+    "photoId": "29012712",
+    "sourceUrl": "https://www.pexels.com/photo/chef-plating-creamy-mushroom-pasta-dish-29012712/",
+    "downloadUrl": "https://images.pexels.com/photos/29012712/pexels-photo-29012712.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/carbonara"
+  },
+  {
+    "filename": "tofu-soy.jpg",
+    "photoId": "4518582",
+    "sourceUrl": "https://www.pexels.com/photo/sliced-tofu-with-soy-sauce-on-white-ceramic-plate-4518582/",
+    "downloadUrl": "https://images.pexels.com/photos/4518582/pexels-photo-4518582.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/tofu"
+  },
+  {
+    "filename": "crispy-tofu.jpg",
+    "photoId": "11783323",
+    "sourceUrl": "https://www.pexels.com/photo/a-close-up-shot-of-fried-tofu-11783323/",
+    "downloadUrl": "https://images.pexels.com/photos/11783323/pexels-photo-11783323.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "garden-pot/pot-tofu-puff"
+  },
+  {
+    "filename": "orange-juice.jpg",
+    "photoId": "8679396",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-photo-of-orange-juice-8679396/",
+    "downloadUrl": "https://images.pexels.com/photos/8679396/pexels-photo-8679396.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "niuniu/orange-juice"
+  },
+  {
+    "filename": "orange-juice-glass.jpg",
+    "photoId": "6829918",
+    "sourceUrl": "https://www.pexels.com/photo/a-glass-of-fresh-orange-juice-6829918/",
+    "downloadUrl": "https://images.pexels.com/photos/6829918/pexels-photo-6829918.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/pizza-mango-juice"
+  },
+  {
+    "filename": "green-tea.jpg",
+    "photoId": "7565502",
+    "sourceUrl": "https://www.pexels.com/photo/cup-of-green-tea-with-mint-7565502/",
+    "downloadUrl": "https://images.pexels.com/photos/7565502/pexels-photo-7565502.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "yixu/oolong"
+  },
+  {
+    "filename": "tea-teapot.jpg",
+    "photoId": "4390018",
+    "sourceUrl": "https://www.pexels.com/photo/green-tea-and-teapot-on-white-background-4390018/",
+    "downloadUrl": "https://images.pexels.com/photos/4390018/pexels-photo-4390018.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "flame/bbq-honey-tea"
+  },
+  {
+    "filename": "fries.jpg",
+    "photoId": "4109234",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-photo-of-french-fries-4109234/",
+    "downloadUrl": "https://images.pexels.com/photos/4109234/pexels-photo-4109234.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/fries"
+  },
+  {
+    "filename": "fries-dips.jpg",
+    "photoId": "5695616",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-of-french-fries-and-dips-5695616/",
+    "downloadUrl": "https://images.pexels.com/photos/5695616/pexels-photo-5695616.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/pizza-potato-wedges"
+  },
+  {
+    "filename": "pasta-tomato.jpg",
+    "photoId": "35064873",
+    "sourceUrl": "https://www.pexels.com/photo/top-view-of-spaghetti-pasta-with-tomato-sauce-35064873/",
+    "downloadUrl": "https://images.pexels.com/photos/35064873/pexels-photo-35064873.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/bolognese"
+  },
+  {
+    "filename": "pasta-fork.jpg",
+    "photoId": "7440346",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-shot-of-pasta-on-a-fork-7440346/",
+    "downloadUrl": "https://images.pexels.com/photos/7440346/pexels-photo-7440346.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/pizza-seafood-pasta"
+  },
+  {
+    "filename": "penne-tomato.jpg",
+    "photoId": "31501714",
+    "sourceUrl": "https://www.pexels.com/photo/italian-pasta-with-tomato-and-pesto-sauce-overhead-31501714/",
+    "downloadUrl": "https://images.pexels.com/photos/31501714/pexels-photo-31501714.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/bolognese"
+  },
+  {
+    "filename": "pizza-neapolitan.jpg",
+    "photoId": "35760007",
+    "sourceUrl": "https://www.pexels.com/photo/delicious-neapolitan-pizza-on-plate-35760007/",
+    "downloadUrl": "https://images.pexels.com/photos/35760007/pexels-photo-35760007.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "oven/pizza-mushroom"
+  },
+  {
+    "filename": "pizza-table.jpg",
+    "photoId": "2918521",
+    "sourceUrl": "https://www.pexels.com/photo/pizza-on-plate-on-table-2918521/",
+    "downloadUrl": "https://images.pexels.com/photos/2918521/pexels-photo-2918521.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/pizza-bbq-chicken"
+  },
+  {
+    "filename": "fruit-skewers.jpg",
+    "photoId": "10831511",
+    "sourceUrl": "https://www.pexels.com/photo/a-delicious-cheesecake-on-a-plate-10831511/",
+    "downloadUrl": "https://images.pexels.com/photos/10831511/pexels-photo-10831511.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "niuniu/suki-pineapple"
+  },
+  {
+    "filename": "caramel-pudding.jpg",
+    "photoId": "13798154",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-shot-of-a-cheesecake-13798154/",
+    "downloadUrl": "https://images.pexels.com/photos/13798154/pexels-photo-13798154.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "yixu/pudding"
+  },
+  {
+    "filename": "ice-cream.jpg",
+    "photoId": "2586924",
+    "sourceUrl": "https://www.pexels.com/photo/close-up-photo-of-a-bowl-of-ice-cream-2586924/",
+    "downloadUrl": "https://images.pexels.com/photos/2586924/pexels-photo-2586924.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "flame/ice-cream"
+  },
+  {
+    "filename": "ice-cream-bowl.jpg",
+    "photoId": "16015237",
+    "sourceUrl": "https://www.pexels.com/photo/ice-cream-scoops-in-bowl-16015237/",
+    "downloadUrl": "https://images.pexels.com/photos/16015237/pexels-photo-16015237.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "daniu/dessert"
+  },
+  {
+    "filename": "pasta-salad.jpg",
+    "photoId": "31970822",
+    "sourceUrl": "https://www.pexels.com/photo/colorful-fruit-platter-with-sliced-watermelon-and-berries-31970822/",
+    "downloadUrl": "https://images.pexels.com/photos/31970822/pexels-photo-31970822.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "cheese/garden-salad"
+  },
+  {
+    "filename": "fruit-salad.jpg",
+    "photoId": "30731386",
+    "sourceUrl": "https://www.pexels.com/photo/vibrant-fresh-fruit-salad-close-up-30731386/",
+    "downloadUrl": "https://images.pexels.com/photos/30731386/pexels-photo-30731386.jpeg?auto=compress&cs=tinysrgb&w=640",
+    "licenseUrl": "https://www.pexels.com/license/",
+    "downloadedOn": "2026-11-02",
+    "assignedProduct": "spicy-pot/fruit-plate"
+  }
+]

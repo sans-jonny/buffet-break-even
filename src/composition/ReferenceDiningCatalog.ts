@@ -1,3 +1,5 @@
+import {ReferenceDiningAdditions} from './ReferenceDiningAdditions';
+import {ReferenceDiningVariants} from './ReferenceDiningVariants';
 import type {Dining} from '../coordination/application/dto/Dining';
 
 /** Bundled sample menus; prices are reference estimates, not official prices. */
@@ -5,13 +7,13 @@ export namespace ReferenceDiningCatalog {
     type Menu = [id: string, name: string, products: [id: string, name: string, priceMinor: number][]][];
 
     function create(categoryId: string, categoryName: string, names: [string, string][], menu: Menu): Dining.Restaurant[] {
-        return names.map(([id, name]) => ({
-            id, name, type: 'PUBLIC', version: 1, deleted: false,
+        return names.map(([restaurantId, name], restaurantIndex) => ({
+            id: restaurantId, name, type: 'PUBLIC', version: 1, deleted: false,
             restaurantCategory: {id: categoryId, name: categoryName},
             categories: menu.map(([id, name]) => ({id, name})),
-            products: menu.flatMap(([categoryId, , products]) => products.map(([id, name, priceMinor]) => ({
-                id, name, priceMinor, categoryId
-            })))
+            products: [...menu.flatMap(([categoryId, , products]) => products.map(([id, name, priceMinor]) => ({
+                ...ReferenceDiningVariants.product(restaurantId, id, name, priceMinor), categoryId
+            }))), ...ReferenceDiningAdditions.products(categoryId, restaurantIndex, names.length)]
         }));
     }
 

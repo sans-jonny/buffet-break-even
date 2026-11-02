@@ -1,5 +1,6 @@
 <template>
   <view :style="pageStyle" class="mine-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <view class="profile-card">
       <view class="avatar flex-center">🐑</view>
       <view class="profile-copy">
@@ -27,7 +28,7 @@
     <text class="section-title">我的资产</text>
     <view class="settings-card">
       <mine-setting-row :badge="receiptsCount" icon="🧾" icon-theme="orange" label="小票夹" @click="openReceipts"/>
-      <mine-setting-row :badge="totalRoundsSaved" icon="📋" icon-theme="green" label="点餐明细" @click="openRecords"/>
+      <mine-setting-row :badge="meals" icon="📋" icon-theme="green" label="用餐记录" @click="openRecords"/>
       <mine-setting-row icon="❤️" icon-theme="white" label="我的最爱"/>
       <mine-setting-row :divider="false" icon="🔥" icon-theme="peach" label="必吃榜"/>
     </view>
@@ -48,26 +49,40 @@
 </template>
 
 <script lang="ts" setup>
-import {usePersonalStore} from '@/stores/business/usePersonalStore'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {ChangeNicknameUseCase} from '@/coordination/application/port/in/device/ChangeNicknameUseCase'
 import MineSettingRow from '@/ui/components/mine-setting-row/mine-setting-row.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
 import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const personal = usePersonalStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const queryFetching = computed(() => [personalQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery].find(q => q.error.value)?.error.value)
+
+const personalChangeNickname = scope.resolve(ChangeNicknameUseCase.token);
+const personalCommands = CommandState.create();
+const personalHistory = () => (personalQuery.data.value?.history || []).slice();
+const personalIdentityData = computed(() => personalQuery.data.value?.identity);
+const personalHistoryData = computed(() => readonly(personalHistory()));
+const personalNickname = (name: string) => personalCommands.run(() => personalChangeNickname.execute(new ChangeNicknameUseCase.Request(name)));
 // 展示数据
 const history = computed(() => {
-  return personal.historyData
+  return personalHistoryData.value
 })
 const nickname = computed(() => {
-  return personal.identityData?.nickname || ''
+  return personalIdentityData.value?.nickname || ''
 })
 const lifetimeDifference = computed(() => history.value.reduce((sum, r) => sum + r.netMinor, 0) / 100)
 const meals = computed(() => history.value.length)
-const receiptsCount = computed(() => {
-  return personal.receiptData ? 1 : 0
-})
-const totalRoundsSaved = computed(() => history.value.reduce((sum, r) => sum + r.rounds.length, 0))
+const receiptsCount = computed(() => personalQuery.data.value?.receipts.length || 0)
 const achievement = computed(() => history.value.filter(r => r.netMinor >= 0).length + '/' + history.value.length)
 const statusBarHeight = (typeof uni.getWindowInfo === 'function' ? uni.getWindowInfo() : uni.getSystemInfoSync()).statusBarHeight || 0
 
@@ -93,9 +108,11 @@ function editNickname() {
 
 // 业务操作
 async function saveNickname() {
-  await personal.nickname(nicknameInput.value)
+  await personalNickname(nicknameInput.value)
   editingNickname.value = false
 }
+
+async function refreshQueries() { await Promise.all([personalQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>

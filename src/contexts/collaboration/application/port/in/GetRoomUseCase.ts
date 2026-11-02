@@ -9,9 +9,15 @@ export interface GetRoomUseCase extends UseCase<GetRoomUseCase.Request, GetRoomU
 export namespace GetRoomUseCase {
     export const token = Symbol('GetRoomUseCase') as InjectionToken<GetRoomUseCase>;
 
+    export type Context = Readonly<{activityId?: string; scopeId?: string; memberId?: string; access?: 'EDIT' | 'RECOVER' | 'RESULT' | 'HISTORY'}>;
+
     export class Request extends UseCase.Request {
-        constructor(readonly roomId: string) {
+        constructor(readonly roomId: string, readonly context?: GetRoomUseCase.Context) {
             super();
+            if (context?.activityId !== undefined) UseCase.id(context.activityId);
+            if (context?.scopeId !== undefined) UseCase.id(context.scopeId);
+            if (context?.memberId !== undefined) UseCase.id(context.memberId);
+            this.context = UseCase.dto(context);
             UseCase.id(roomId);
         }
     }

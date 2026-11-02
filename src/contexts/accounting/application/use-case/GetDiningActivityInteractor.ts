@@ -1,3 +1,5 @@
+import {Domain} from '../../../../kernel/domain/Domain';
+import {DiningActivity} from '../../domain/aggregate/DiningActivity';
 import {ReadOnlyInteractor} from '../../../../kernel/application/ReadOnlyInteractor';
 import {TransactionRunner} from '../../../../kernel/application/TransactionRunner';
 import {Transaction} from '../../../../kernel/application/Transaction';
@@ -10,6 +12,12 @@ export class GetDiningActivityInteractor extends ReadOnlyInteractor<GetDiningAct
     }
 
     protected read(r: GetDiningActivityUseCase.Request, view?: Transaction.View): GetDiningActivityUseCase.Response {
-        return new GetDiningActivityUseCase.Response(this.activities.getById(r.activityId));
+        const value = this.activities.getById(r.activityId);
+        if (r.context) {
+            Domain.require(value, 'ACTIVITY_NOT_FOUND');
+            const domain = DiningActivity.reconstitute(value);
+            if (r.context.singleScopeId) domain.authorizeSingle(r.context.singleScopeId);
+        }
+        return new GetDiningActivityUseCase.Response(value);
     }
 }

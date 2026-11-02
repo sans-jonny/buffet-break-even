@@ -1,5 +1,6 @@
 <template>
   <view class="setup-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar centered class="setup-navbar" inset subtitle="准备吃垮老板！" subtitle-color="#a18765"
                 title="自助餐回本神器" title-color="#ff4f16" @back="goBack"/>
 
@@ -20,29 +21,29 @@
         <text class="currency">¥</text>
         <input v-model="ticketInput" placeholder="输入总价" placeholder-style="color: #8f8d8a;" type="digit"/>
       </view>
-      <view v-if="sessions.selectionPending" class="selection-recovery">
+      <view v-if="sessionsSelectionPending" class="selection-recovery">
         <text>用餐已建立，恢复会话即可继续。</text>
         <view class="selection-recovery-actions">
-          <button :disabled="sessions.loading" @tap="recoverSelection">恢复会话</button>
-          <button :disabled="sessions.loading" @tap="sessions.dismissSelectionRecovery()">稍后处理</button>
+          <button :disabled="sessionsLoading" @tap="recoverSelection">恢复会话</button>
+          <button :disabled="sessionsLoading" @tap="sessionsDismissSelectionRecovery()">稍后处理</button>
         </view>
       </view>
       <view v-else class="mode-actions">
-        <depth-button :disabled="startingSingle || sessions.loading || !!sessions.selectionPending" class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
-        <depth-button :disabled="sessions.loading || !!sessions.selectionPending" class="mode-button" @click="openRoom">👥 多人模式</depth-button>
+        <depth-button :disabled="startingSingle || sessionsLoading || !!sessionsSelectionPending" class="mode-button deep" @click="startSingle">🚀 单人模式</depth-button>
+        <depth-button :disabled="sessionsLoading || !!sessionsSelectionPending" class="mode-button" @click="openRoom">👥 多人模式</depth-button>
       </view>
     </view>
     <app-dialog v-if="showRoomModal" :title="joining ? '加入房间' : '一起吃回本'" @close="closeRoomModal">
       <template v-if="!joining">
         <text class="room-dialog-note">创建房间将使用首页门票 ¥{{ ticketInput }}，昵称可在「我的」中设置。</text>
-        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-primary" @tap="createRoom">创建房间</button>
+        <button :disabled="sessionsLoading" :hover-stay-time="0" class="room-dialog-primary" @tap="createRoom">创建房间</button>
         <button :hover-stay-time="0" class="room-dialog-secondary" @tap="openJoinRoom">加入房间</button>
-        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-secondary" @tap="resumeRoom">加入上次房间</button>
+        <button :disabled="sessionsLoading" :hover-stay-time="0" class="room-dialog-secondary" @tap="resumeRoom">加入上次房间</button>
       </template>
       <template v-else>
         <text class="room-dialog-note">输入房主分享的六位房间号</text>
         <input v-model="roomCode" class="room-code-input" maxlength="6" placeholder="六位房间号" type="number"/>
-        <button :disabled="sessions.loading" :hover-stay-time="0" class="room-dialog-primary" @tap="joinRoom">进入房间</button>
+        <button :disabled="sessionsLoading" :hover-stay-time="0" class="room-dialog-primary" @tap="joinRoom">进入房间</button>
         <button :hover-stay-time="0" class="room-dialog-secondary" @tap="joining = false">返回</button>
       </template>
     </app-dialog>
@@ -51,9 +52,20 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
-import {useCatalogStore} from '@/stores/business/useCatalogStore'
-import {useSessionStore} from '@/stores/business/useSessionStore'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {SessionPageStateStore} from '@/stores/page-state/SessionPageStateStore'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {StartSingleDiningUseCase} from '@/coordination/application/port/in/session/StartSingleDiningUseCase'
+import {ResumeSingleDiningUseCase} from '@/coordination/application/port/in/session/ResumeSingleDiningUseCase'
+import {CreateDiningRoomUseCase} from '@/coordination/application/port/in/session/CreateDiningRoomUseCase'
+import {JoinDiningRoomUseCase} from '@/coordination/application/port/in/session/JoinDiningRoomUseCase'
+import {Dining} from '@/coordination/application/dto/Dining'
+import {DiningSelectionPendingError} from '@/coordination/application/service/DiningSelectionPendingError'
+import {RecoverDiningSelectionUseCase} from '@/coordination/application/port/in/session/RecoverDiningSelectionUseCase'
 import {PageAmount} from '@/ui/presentation/PageAmount'
 import DepthButton from '@/ui/components/depth-button/depth-button.vue'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
@@ -65,18 +77,64 @@ import {computed, ref, watch} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const sessions = useSessionStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].find(q => q.error.value)?.error.value)
 
+const sessionsStartSingleDining = scope.resolve(StartSingleDiningUseCase.token);
+const sessionsResumeSingleDining = scope.resolve(ResumeSingleDiningUseCase.token);
+const sessionsCreateDiningRoom = scope.resolve(CreateDiningRoomUseCase.token);
+const sessionsJoinDiningRoom = scope.resolve(JoinDiningRoomUseCase.token);
+const sessionsRecoverSelectionPort = scope.resolve(RecoverDiningSelectionUseCase.token);
+const sessionsCommands = CommandState.create();
+const sessionPageState = scope.resolve(SessionPageStateStore.token);
+const sessionsPendingSelection = computed({get: () => sessionPageState.pendingSelection, set: value => { sessionPageState.pendingSelection = value; }});
+async function sessionsCommand<T>(work: () => Promise<T>): Promise<T> {
+    return sessionsCommands.run(async () => {
+        try {
+            return await work();
+        }
+        catch (error) {
+            if (error instanceof DiningSelectionPendingError)
+                sessionsPendingSelection.value = error.session;
+            throw error;
+        }
+    });
+}
+function sessionsTransition<T>(work: () => Promise<T>): Promise<T> {
+    return sessionsCommand(async () => { const response = await work(); sessionsPendingSelection.value = undefined; return response; });
+}
+const sessionsLoading = sessionsCommands.loading;
+const sessionsSelectionPending = computed(() => sessionsPendingSelection.value);
+const sessionsDismissSelectionRecovery = () => { sessionsPendingSelection.value = undefined; };
+const sessionsRecoverSelection = () => sessionsCommand(async () => {
+    const response = await sessionsRecoverSelectionPort.execute(new RecoverDiningSelectionUseCase.Request(sessionsPendingSelection.value!));
+    sessionsPendingSelection.value = undefined;
+    return response;
+});
+const sessionsStartSingle = (total: number, categoryId: string, replaceActivityId?: string) => sessionsTransition(() => sessionsStartSingleDining.execute(new StartSingleDiningUseCase.Request(total, categoryId, replaceActivityId)));
+const sessionsResumeSingle = (session: Dining.Session) => sessionsTransition(() => sessionsResumeSingleDining.execute(new ResumeSingleDiningUseCase.Request(session)));
+const sessionsCreateRoom = (total: number, categoryId: string) => sessionsTransition(() => sessionsCreateDiningRoom.execute(new CreateDiningRoomUseCase.Request(total, categoryId)));
+const sessionsJoinRoom = (code?: string) => sessionsTransition(() => sessionsJoinDiningRoom.execute(new JoinDiningRoomUseCase.Request(code)));
 
-const dining = useDiningStore()
-const catalog = useCatalogStore()
+function diningUnfinishedSingle(): Dining.Session | undefined {
+    const a = (activitiesQuery.data.value?.value || []).find(a => a.mode === 'SINGLE' && a.status === 'ACTIVE');
+    return a ? { scopeId: a.id, activityId: a.id, roomId: null } : undefined;
+}
+
+const catalogRestaurants = computed(() => readonly((restaurantsQuery.data.value?.value || []).filter(r => !r.deleted)));
+const catalogCategories = computed(() => readonly([...new Map(catalogRestaurants.value.map(r => [r.restaurantCategory.id, r.restaurantCategory])).values()]));
 const confirmation = useAppDialog(), startingSingle = ref(false)
 // 分类名称来自 Catalog；图标属于页面展示配置。
 const cuisineEmoji: Record<string, string> = {
   sukiyaki: '🍲', barbecue: '🥩', hotpot: '🥘', pizza: '🍕', My: '👨‍🍳'
 }
 const cuisineTypes = computed(() => {
-  return catalog.categories.map(category => ({...category, emoji: cuisineEmoji[category.id] || '🍽️'}))
+  return catalogCategories.value.map(category => ({...category, emoji: cuisineEmoji[category.id] || '🍽️'}))
 })
 const drumItems = computed(() => [{id: 'creator', name: '创造者模式', emoji: '✏️'}, ...cuisineTypes.value])
 const ticketInput = ref('200'), typeId = ref(''), panelTypeId = ref('')
@@ -115,7 +173,7 @@ async function startSingle() {
   if (startingSingle.value || confirmation.dialog.value) return
   startingSingle.value = true
   try {
-    const existing = dining.unfinishedSingle()
+    const existing = diningUnfinishedSingle()
     const total = ticketInput.value, categoryId = typeId.value
     if (existing) {
       confirmation.open({
@@ -124,12 +182,12 @@ async function startSingle() {
         confirmText: '继续用餐',
         cancelText: '放弃旧用餐并新建',
         success: result => enterSingle(() => result.confirm
-          ? sessions.resumeSingle(existing)
-          : sessions.startSingle(PageAmount.minor(total), categoryId, existing.activityId))
+          ? sessionsResumeSingle(existing)
+          : sessionsStartSingle(PageAmount.minor(total), categoryId, existing.activityId))
       })
       return
     }
-    await sessions.startSingle(PageAmount.minor(total), categoryId)
+    await sessionsStartSingle(PageAmount.minor(total), categoryId)
     await navigation.open('menu')
   } finally {
     startingSingle.value = false
@@ -150,19 +208,19 @@ async function enterSingle(action: () => Promise<unknown>) {
 async function enterRoom(action: () => Promise<unknown>) {
   try { await action() }
   catch (error) {
-    if (sessions.selectionPending) closeRoomModal()
+    if (sessionsSelectionPending.value) closeRoomModal()
     throw error
   }
   closeRoomModal()
   await navigation.open('menu')
 }
 
-const createRoom = () => enterRoom(() => sessions.createRoom(PageAmount.minor(ticketInput.value), typeId.value))
-const joinRoom = () => enterRoom(() => sessions.joinRoom(roomCode.value))
-const resumeRoom = () => enterRoom(() => sessions.joinRoom())
+const createRoom = () => enterRoom(() => sessionsCreateRoom(PageAmount.minor(ticketInput.value), typeId.value))
+const joinRoom = () => enterRoom(() => sessionsJoinRoom(roomCode.value))
+const resumeRoom = () => enterRoom(() => sessionsJoinRoom())
 
 async function recoverSelection() {
-  await sessions.recoverSelection()
+  await sessionsRecoverSelection()
   closeRoomModal()
   await navigation.open('menu')
 }
@@ -174,6 +232,8 @@ onLoad(async query => {
     ? requested! : cuisineTypes.value[0]?.id || 'creator'
   panelTypeId.value = typeId.value
 })
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>

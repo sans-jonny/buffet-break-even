@@ -9,8 +9,9 @@ export namespace DeleteReceiptUseCase {
     export const token = Symbol('DeleteReceiptUseCase') as InjectionToken<DeleteReceiptUseCase>;
 
     export class Request extends UseCase.TransactionRequest {
-        constructor() {
+        constructor(readonly activityId: string) {
             super({scopeId: 'local-personal', roomId: null});
+            UseCase.id(activityId);
         }
     }
 

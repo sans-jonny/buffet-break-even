@@ -1,5 +1,6 @@
 <template>
   <view class="restaurant-page editor-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar :subtitle="restaurant.name || '新建餐厅'" class="restaurant-navbar" fallback inset
                 subtitle-color="#a18765"
                 title="创造者模式" title-color="#ff4f0a" @back="goBack" @fallback="goBack"/>
@@ -76,7 +77,16 @@
   </view>
 </template>
 <script lang="ts" setup>
-import {useCatalogStore} from '@/stores/business/useCatalogStore'
+import {RestaurantInput} from '@/contexts/catalog/application/port/in/RestaurantInput'
+import {GetRestaurantUseCase} from '@/contexts/catalog/application/port/in/GetRestaurantUseCase'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {PublishLocalRestaurantUseCase} from '@/coordination/application/port/in/catalog/PublishLocalRestaurantUseCase'
+import {Dining} from '@/coordination/application/dto/Dining'
 import {PageAmount} from '@/ui/presentation/PageAmount'
 import {PageIds} from '@/ui/presentation/PageIds'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
@@ -89,7 +99,21 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {useProductImages} from '@/ui/composables/useProductImages'
 import {useProductCover} from '@/ui/composables/useProductCover'
 
-const catalog = useCatalogStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [restaurantsQuery].find(q => q.error.value)?.error.value)
+
+const catalogPublishPort = scope.resolve(PublishLocalRestaurantUseCase.token);
+
+const catalogCommands = CommandState.create();
+const catalogCommand = catalogCommands.run;
+const catalogRestaurants = computed(() => readonly((restaurantsQuery.data.value?.value || []).filter(r => !r.deleted)));
+const catalogRestaurant = (id: string) => scope.resolve(GetRestaurantUseCase.token).execute(new GetRestaurantUseCase.Request('local', id, {available: true, privateOnly: true})).value!;
+const catalogPublish = (restaurant: Dining.Restaurant) => catalogCommand(async () => {
+    return catalogPublishPort.execute(new PublishLocalRestaurantUseCase.Request(restaurant));
+});
 const productImages = useProductImages()
 const productCover = useProductCover(), saving = ref(false)
 const uploadingCover = ref(false)
@@ -189,22 +213,21 @@ function applyForm() {
   if (uploadingCover.value) return
   const input = form.value
   if (!input) return
-  if (!input.name.trim()) throw new Error('名称不能为空')
   const id = input.draftId
   if (input.kind === 'category') {
-    const value = {id, name: input.name.trim()}
+    const value = new RestaurantInput.CategoryRequest({id, name: input.name.trim()}).value
     const index = restaurant.value.categories.findIndex(c => c.id === id)
     if (index < 0) restaurant.value.categories.push(value); else restaurant.value.categories[index] = value
   } else {
     const category = restaurant.value.categories[input.categoryIndex]
-    if (!category) throw new Error('请先选择分类')
     const coverUrl = input.coverUrl.trim()
     productImages.validate(coverUrl)
+    const validated = new RestaurantInput.ProductRequest({id, name: input.name.trim(), categoryId: category?.id!, priceMinor: PageAmount.minor(input.price)}).value
     const value = {
       id,
       name: input.name.trim(),
       price: PageAmount.minor(input.price) / 100,
-      category: category.id,
+      category: validated.categoryId,
       emoji: '🍽️',
       unit: '份',
       ...(coverUrl ? {coverUrl} : {})
@@ -236,7 +259,7 @@ async function saveAll() {
     const r = restaurant.value
     await productImages.saveRestaurant(r.id, r.products, productCover.render)
     r.products.forEach(product => { product.coverUrl = productImages.local.get(r.id, product.id) })
-    await catalog.publish({
+    await catalogPublish({
       id: r.id, name: r.name, type: 'PRIVATE', deleted: false, version: catalogVersion + 1, categories: r.categories,
       restaurantCategory: {id: 'My', name: '我的餐厅'},
       products: r.products.map(p => ({
@@ -266,8 +289,7 @@ async function discardAndLeave() {
 // 生命周期与动画监听
 onLoad(async query => {
   if (query?.restaurantId) {
-    const r = catalog.restaurant(query.restaurantId)
-    if (r.type !== 'PRIVATE' || r.deleted) throw new Error('餐厅不存在')
+    const r = catalogRestaurant(query.restaurantId)
     catalogVersion = r.version
     restaurant.value = {
       id: r.id,
@@ -291,6 +313,8 @@ onBackPress(() => {
   showLeaveDialog.value = true;
   return true
 })
+
+async function refreshQueries() { await Promise.all([restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped src="@/ui/styles/restaurants.css"></style>

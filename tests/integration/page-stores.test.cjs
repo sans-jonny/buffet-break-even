@@ -2,18 +2,16 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const {pageHarness} = require('../helpers/pages.cjs')
 
-test('页面 setup 开始时已完成初始化，useStore 直接返回同一个全局 Pinia Store', async t => {
-    const harness = pageHarness()
-    const setup = harness.setup('setup'), creator = harness.setup('creator')
+test('页面由同一个 scope 解析查询单例，并持有独立绑定', async t => {
+    const harness = pageHarness(), setup = harness.setup('setup'), creator = harness.setup('creator')
     t.after(setup.dispose); t.after(creator.dispose)
-    await Promise.all([setup.ready, creator.ready])
-    t.after(harness.services.dispose)
-    assert.ok(setup.state.dining.identityData.id)
-    assert.ok(setup.state.catalog.restaurants.length > 0)
-    assert.equal(setup.state.catalog, creator.state.catalog)
-    assert.equal(creator.state.catalog, harness.services.catalog)
-    assert.equal('ready' in setup.state.dining, false)
-    assert.equal('initialize' in setup.state.dining, false)
+    await Promise.all([setup.ready, creator.ready]); t.after(harness.services.dispose)
+    assert.ok(setup.state.personalQuery.data.value.identity.id)
+    assert.ok(setup.state.catalogRestaurants.value.length > 0)
+    assert.equal(setup.state.scope, creator.state.scope)
+    assert.equal(setup.state.queries, creator.state.queries)
+    assert.notEqual(setup.state.restaurantsQuery, creator.state.restaurantsQuery)
+    assert.equal('dining' in setup.state, false)
 })
 
 test('餐厅选择属于页面状态，菜单、轮次与结果页面共享该选择', async t => {
@@ -34,7 +32,7 @@ test('餐厅选择属于页面状态，菜单、轮次与结果页面共享该�
     assert.equal(harness.services.menuPageState.selectedRestaurants[harness.services.dining.sessionData.activityId], restaurantId)
 })
 
-test('同一页面使用多个 Store 只绑定一次生命周期，隐藏和卸载释放查询订阅', async t => {
+test('页面只绑定一次生命周期，隐藏和卸载释放查询订阅', async t => {
     const harness = pageHarness(), setup = harness.setup('setup')
     await setup.ready
     t.after(harness.services.dispose); t.after(setup.dispose)

@@ -59,9 +59,7 @@ export class RestaurantConsumption extends AggregateRoot<RestaurantConsumption.S
         const round = this.editable(roundId);
         if (round instanceof RestaurantConsumptionRejected)
             return round;
-        if (!productId.trim() || !Domain.positive(quantity))
-            return new RestaurantConsumptionRejected('INVALID_QUANTITY');
-        const total = (round.items[productId] || 0) + quantity;
+const total = (round.items[productId] || 0) + quantity;
         if (!Domain.positive(total))
             return new RestaurantConsumptionRejected('QUANTITY_OVERFLOW');
         return new ProductQuantityIncreased(this.id, this.version, {roundId, productId, quantity});
@@ -73,9 +71,7 @@ export class RestaurantConsumption extends AggregateRoot<RestaurantConsumption.S
         const round = this.editable(roundId);
         if (round instanceof RestaurantConsumptionRejected)
             return round;
-        if (!Domain.positive(quantity))
-            return new RestaurantConsumptionRejected('INVALID_QUANTITY');
-        if ((round.items[productId] || 0) < quantity)
+if ((round.items[productId] || 0) < quantity)
             return new RestaurantConsumptionRejected('INSUFFICIENT_QUANTITY');
         return new ProductQuantityDecreased(this.id, this.version, {roundId, productId, quantity});
     }
@@ -104,7 +100,7 @@ export class RestaurantConsumption extends AggregateRoot<RestaurantConsumption.S
     createNextRound(roundId: string): RoundCreated | RestaurantConsumptionRejected {
         if (this.finalized)
             return new RestaurantConsumptionRejected('CONSUMPTION_ENDED');
-        if (!roundId.trim() || this.rounds.some(r => r.status === 'ACTIVE' || r.id === roundId))
+        if (this.rounds.some(r => r.status === 'ACTIVE' || r.id === roundId))
             return new RestaurantConsumptionRejected('ROUND_ALREADY_EXISTS');
         return new RoundCreated(this.id, this.version, {roundId});
     }

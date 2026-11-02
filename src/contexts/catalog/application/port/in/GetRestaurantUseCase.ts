@@ -9,9 +9,13 @@ export interface GetRestaurantUseCase extends UseCase<GetRestaurantUseCase.Reque
 export namespace GetRestaurantUseCase {
     export const token = Symbol('GetRestaurantUseCase') as InjectionToken<GetRestaurantUseCase>;
 
+    export type Context = Readonly<{available?: boolean; privateOnly?: boolean; productId?: string}>;
+
     export class Request extends UseCase.Request {
-        constructor(readonly catalogScope: string, readonly restaurantId: string) {
+        constructor(readonly catalogScope: string, readonly restaurantId: string, readonly context?: GetRestaurantUseCase.Context) {
             super();
+            if (context?.productId !== undefined) UseCase.id(context.productId);
+            this.context = UseCase.dto(context);
             UseCase.id(catalogScope);
             UseCase.id(restaurantId);
         }

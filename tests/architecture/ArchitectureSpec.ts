@@ -40,12 +40,13 @@ export namespace ArchitectureSpec {
                 visit(source);
             }
         });
-        test('页面通过 useStore 访问业务，不保留客户端门面或等待初始化', () => {
+        test('页面通过 scope.resolve 取得查询门面与输入端口，不保留业务 Store', () => {
             assert.equal(existsSync(resolve('src/ui/DiningClient.ts')), false);
             assert.equal(existsSync(resolve('src/ui/useDining.ts')), false);
             for (const file of files(resolve('src/ui/pages'), true)) {
                 const text = readFileSync(file, 'utf8');
-                assert.ok(!/DiningClient|client\.ready|useDining\(\)/.test(text), file);
+                assert.ok(!/DiningClient|client\.ready|useDining\(\)|stores\/business|BusinessStore/.test(text), file);
+                assert.match(text, /scope.resolve\(ReactiveQueryFacade.token\)/, file);
             }
         });
         test('具体用例不再定义 TransactionPort 文件',()=>{
@@ -56,8 +57,7 @@ export namespace ArchitectureSpec {
             for (const file of ['workflow/DiningSessionWorkflow.ts', 'workflow/DiningSessionService.ts',
                 'port/in/DiningSessions.ts', 'port/in/DiningSessionActions.ts'])
                 assert.equal(existsSync(resolve('src/coordination/application', file)), false, file);
-            const store = readFileSync(resolve('src/stores/business/SessionStore.ts'), 'utf8');
-            assert.ok(!/DiningSessions|DiningSessionActions|Workflow|Service/.test(store));
+            assert.equal(existsSync(resolve('src/stores/business/SessionStore.ts')), false);
         });
         test('私人持久化对象上传不依赖 Domain 或业务事件编码', () => {
             const file = resolve('src/infrastructure/storage/RoomRestaurantPersistence.ts');
@@ -79,7 +79,7 @@ export namespace ArchitectureSpec {
                     ts.forEachChild(node,visit)
                 }
                 visit(source)
-                for(const dependency of dependencies(file))assert.ok(!/infrastructure|adapter\/|\bvue\b|@dcloudio|prisma/.test(dependency),`${name} -> ${dependency}`)
+                for(const dependency of dependencies(file))assert.ok(!/infrastructure|adapter\/|\bvue\b|@dcloudio|prisma|pinia|@tanstack/.test(dependency),`${name} -> ${dependency}`)
             }
         })
         test('Repository 契约不依赖事务；领域没有 state 包装、事件快照或冻结实例', () => {
@@ -142,7 +142,7 @@ export namespace ArchitectureSpec {
                     if (application) assert.ok(target.startsWith(`src/contexts/${application[1]}/`) && !target.includes('/adapter/') || target.startsWith('src/kernel/'), `${name} -> ${specifier}`)
                     if (name.startsWith('server/')) assert.ok(!target.startsWith('src/'), `${name} -> ${specifier}`)
                     if (name.startsWith('protocol/')) assert.equal(imports.length, 0)
-                    if (name.startsWith('src/ui/pages/')) assert.ok(!target.startsWith('src/') || target.startsWith('src/ui/') || /^src\/stores\/(business|page-state)\/use\w+Store(?:\.ts)?$/.test(target), `${name}: 页面通过 useStore 访问业务`)
+                    if (name.startsWith('src/ui/pages/')) assert.ok(!target.startsWith('src/') || target.startsWith('src/ui/') || target.startsWith('src/stores/page-state/') || /^src\/stores\/CommandState(?:\.ts)?$/.test(target) || /^src\/infrastructure\/query\/(ReactiveQueryFacade|DiningQueries)(?:\.ts)?$/.test(target) || target.startsWith('src/coordination/application/dto/') || /^src\/coordination\/application\/service\/DiningSelectionPendingError(?:\.ts)?$/.test(target) || /\/application\/port\/in\//.test(target), `${name}: 页面只依赖输入端口、查询入口与页面状态`)
                     assert.ok(!specifier.startsWith('@buffet/'), `${name}: 禁止旧的多 npm 包边界`)
                 }
             }

@@ -1,3 +1,4 @@
+import {PublishLocalRestaurantUseCase} from '../../src/coordination/application/port/in/catalog/PublishLocalRestaurantUseCase';
 import {DomainScenario} from '../support/DomainScenario'
 import {test} from 'node:test'
 import assert from 'node:assert/strict'
@@ -55,10 +56,7 @@ export namespace CatalogSpec {
             await meal.givenRestaurant({id: 'public', type: 'PUBLIC'})
             assert.deepEqual(meal.app.catalog.restaurants.map(r => r.name), ['同名餐厅', '同名餐厅'])
             const original = DiningScenario.restaurant()
-            assert.deepEqual({...Restaurant.publish({
-                ...original,
-                products: [original.products[0], original.products[0]]
-            })}, {rejected: 'DUPLICATE_CATALOG_ID'})
+            assert.throws(() => new PublishLocalRestaurantUseCase.Request({...original, products: [original.products[0], original.products[0]]}), /DUPLICATE_CATALOG_ID/)
         })
     }
 }

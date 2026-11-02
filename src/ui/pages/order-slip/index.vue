@@ -1,5 +1,6 @@
 <template>
   <view class="order-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar centered fallback title="本轮点单" @back="goBack" @fallback="goBack"/>
     <view v-if="!hasRoom || isHost" class="notebook">
       <view class="rings">
@@ -25,32 +26,83 @@
 </template>
 
 <script lang="ts" setup>
-import {useDiningStore} from '@/stores/business/useDiningStore'
-import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {Dining} from '@/coordination/application/dto/Dining'
+import {SubmitDiningRoundUseCase} from '@/coordination/application/port/in/dining/SubmitDiningRoundUseCase'
+import {MenuPageStateStore} from '@/stores/page-state/MenuPageStateStore'
 import {PageSelection} from '@/ui/presentation/PageSelection'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
 import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const menuPageState = useMenuPageStateStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const queryReady = ref(false)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const roomsQuery = queries.bind(DiningQueries.Rooms, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: personalQuery.data.value?.session?.roomId || 'local'}))
+const consumptionQuery = queries.bind(DiningQueries.Consumption, () => {
+ if (!queryReady.value) return undefined
+ const session = personalQuery.data.value?.session, restaurantId = selectedRestaurant.value
+ return session && restaurantId ? {activityId: session.activityId, restaurantId} : undefined
+})
+const queryFetching = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].find(q => q.error.value)?.error.value)
 
+const menuPageState = scope.resolve(MenuPageStateStore.token)
 
-const dining = useDiningStore()
-const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
+const diningSubmitDiningRound = scope.resolve(SubmitDiningRoundUseCase.token);
+const diningCommands = CommandState.create();
+const diningCommand = diningCommands.run;
+function diningIdentity(): Dining.Identity { return personalQuery.data.value?.identity!; }
+function diningSession(): Dining.Session | undefined { return personalQuery.data.value?.session; }
+function diningRestaurants(): Dining.Restaurant[] {
+    const ids = diningActivity()?.restaurantIds;
+    return ids ? (restaurantsQuery.data.value?.value || []).filter(a => !a.deleted && ids.includes(a.id)) : [];
+}
+function diningActivity() {
+    return (activitiesQuery.data.value?.value || []).find(a => a.id === diningSession()?.activityId);
+}
+function diningRoom() {
+    return (roomsQuery.data.value?.value || []).find(a => a.id === diningSession()?.roomId);
+}
+function diningConsumption(id: string) {
+    const activityId = diningSession()?.activityId;
+    return activityId ? consumptionQuery.data.value?.value : undefined;
+}
+async function diningSubmitWork(id: string) {
+    return await diningSubmitDiningRound.execute(new SubmitDiningRoundUseCase.Request(diningCurrent(), diningIdentity()?.id!, id));
+}
+function diningCurrent(): Dining.Session {
+    const s = diningSession();
+    return s!;
+}
+const diningIdentityData = computed(diningIdentity);
+const diningSessionData = computed(diningSession);
+const diningRestaurantsData = computed(() => readonly(diningRestaurants()));
+const diningRoomData = computed(diningRoom);
+const diningSubmit = (...args: Parameters<typeof diningSubmitWork>) => diningCommand(() => diningSubmitWork(...args));
+const selectedRestaurant = computed(() => PageSelection.restaurant(diningRestaurantsData.value, menuPageState.selectedRestaurants[diningSessionData.value?.activityId || '']))
 // 展示数据
 const selectedLines = computed(() => {
-  const id = selectedRestaurant.value, restaurant = dining.restaurants().find(r => r.id === id)
-  const items = dining.consumption(id)?.rounds.find(r => r.status === 'ACTIVE')?.items || {}
+  const id = selectedRestaurant.value, restaurant = diningRestaurants().find(r => r.id === id)
+  const items = diningConsumption(id)?.rounds.find(r => r.status === 'ACTIVE')?.items || {}
   return (restaurant?.products || []).filter(p => items[p.id]).map(p => ({
     product: {id: p.id, name: p.name},
     count: items[p.id]
   }))
 })
 const hasRoom = computed(() => {
-  return !!dining.roomData
+  return !!diningRoomData.value
 })
 const isHost = computed(() => {
-  return !dining.roomData || dining.roomData?.hostId === dining.identityData?.id
+  return !diningRoomData.value || diningRoomData.value?.hostId === diningIdentityData.value?.id
 })
 const date = ref(new Date().toLocaleDateString()), time = ref(new Date().toLocaleTimeString())
 
@@ -61,10 +113,13 @@ const goBack = () => navigation.back('menu')
 
 // 业务操作
 async function completeRound() {
-  await dining.submit(selectedRestaurant.value)
-  menuPageState.state(JSON.stringify([dining.sessionData?.activityId || 'no-session', selectedRestaurant.value])).showCart = false
+  await diningSubmit(selectedRestaurant.value)
+  menuPageState.state(JSON.stringify([diningSessionData.value?.activityId || 'no-session', selectedRestaurant.value])).showCart = false
   await navigation.back('menu')
 }
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].map(query => query.refresh())) }
+queryReady.value = true
 </script>
 
 <style scoped>

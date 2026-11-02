@@ -2,7 +2,7 @@ require('../../scripts/typescript.cjs')
 const test = require('node:test')
 const assert = require('node:assert/strict')
 const {DiningScenario} = require('../support/DiningScenario.ts')
-const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
+const {SessionStore} = require('../support/legacy/SessionStore.ts')
 const {RoomConnection} = require('../../src/coordination/application/port/out/session/RoomConnection.ts')
 const {pageHarness} = require('../helpers/pages.cjs')
 

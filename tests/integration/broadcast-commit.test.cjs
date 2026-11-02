@@ -87,12 +87,12 @@ test('广播缺失时只接收历史事件补齐，不重发原请求、不采�
 test('真实 SQLite/HTTP/WebSocket：创建、加入、两端并发加菜和提交轮次保持一致', {timeout: 10000}, async t => {
     const {RelaySpec} = require('../event-store/RelaySpec.ts')
     const {RelayServer} = require('../../server/src/transport/RelayServer.ts')
-    const {Bootstrap} = require('../../src/composition/Bootstrap.ts')
+    const {TestBootstrap: Bootstrap} = require('../support/TestBootstrap.ts')
     const {ManagedRoomConnection} = require('../../src/infrastructure/event-store/ManagedRoomConnection.ts')
     const {RoomConnection} = require('../../src/coordination/application/port/out/session/RoomConnection.ts')
     const {RoomGateway} = require('../../src/coordination/application/port/out/session/RoomGateway.ts')
     const {InitializeDiningUseCase} = require('../../src/coordination/application/port/in/initialization/InitializeDiningUseCase.ts')
-    const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
+    const {SessionStore} = require('../support/legacy/SessionStore.ts')
     const {loadModule} = require('../helpers/runtime.cjs')
     const database = await RelaySpec.database(), server = await RelayServer.create(database.db)
     const devices = [], failures = [], statuses = []

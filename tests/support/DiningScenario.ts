@@ -1,6 +1,6 @@
 import type {RestaurantRecord} from '../../protocol/RestaurantRecord';
 import assert from 'node:assert/strict'
-import {Bootstrap} from '../../src/composition/Bootstrap'
+import {TestBootstrap as Bootstrap} from './TestBootstrap'
 import {Dining} from '../../src/coordination/application/dto/Dining'
 import {EventBatch} from '../../protocol/EventBatch'
 import {ManifestStorage} from '../../src/infrastructure/storage/ManifestStorage'

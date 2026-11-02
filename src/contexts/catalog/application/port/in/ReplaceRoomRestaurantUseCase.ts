@@ -1,3 +1,4 @@
+import {RestaurantInput} from './RestaurantInput';
 import type {InjectionToken} from '../../../../../kernel/application/InjectionToken';
 import {UseCase} from '../../../../../kernel/application/UseCase';
 import {Catalog} from './Catalog';
@@ -13,7 +14,7 @@ export namespace ReplaceRoomRestaurantUseCase {
         constructor(scope: UseCase.Scope, readonly roomId: string, readonly original: Catalog.RestaurantView) {
             super(scope);
             UseCase.id(roomId);
-            UseCase.id(original.id);
+            RestaurantInput.validate(original);
             this.original = UseCase.dto(original);
         }
     }

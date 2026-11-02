@@ -23,8 +23,8 @@ export class DeleteLocalRestaurantInteractor extends TransactionalInteractor<Del
 
     protected async executeInTransaction(r: DeleteLocalRestaurantUseCase.Request,
                                          tx: Transaction.Context): Promise<DeleteLocalRestaurantUseCase.Response> {
-        const original = this.getRestaurant.execute(new GetRestaurantUseCase.Request('local', r.restaurantId)).value;
-        Domain.require(original?.type === 'PRIVATE', 'PRIVATE_ORIGINAL_REQUIRED');
+        const original = this.getRestaurant.execute(new GetRestaurantUseCase.Request('local', r.restaurantId, {privateOnly: true})).value;
+
         const updated = (await this.deleteRestaurant.execute(new DeleteRestaurantUseCase.Request(r.scope, 'local', r.restaurantId))).value;
         for (const activity of this.listDiningActivities.execute(new ListDiningActivitiesUseCase.Request()).value) {
             if (activity.mode === 'SINGLE' && activity.status === 'ACTIVE')

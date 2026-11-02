@@ -1,7 +1,16 @@
 import type {Dining} from '../../coordination/application/dto/Dining';
 
 export namespace ReceiptView {
-    export function fromResult(result: Dining.Result) {
+    export function fromResult(result: Dining.Result, context?: {
+        restaurants?: readonly Dining.Restaurant[];
+        activities?: readonly {id: string; mode: 'SINGLE' | 'SHARED'; restaurantCategoryId: string}[];
+    }) {
+        const activity = context?.activities?.find(activity => activity.id === result.activityId);
+        const restaurant = context?.restaurants?.find(restaurant => restaurant.id === result.restaurantId);
+        const typeName = result.restaurantCategoryName || restaurant?.restaurantCategory.name ||
+            context?.restaurants?.find(restaurant => restaurant.restaurantCategory.id === activity?.restaurantCategoryId)?.restaurantCategory.name || '';
+        const mode = result.mode || activity?.mode;
+        const isMultiplayer = mode ? mode === 'SHARED' : result.diners.length > 1;
         const lines = result.lines.map(line => ({
             name: line.name,
             count: line.quantity,
@@ -10,11 +19,12 @@ export namespace ReceiptView {
         return {
             id: result.activityId,
             restaurant: result.restaurant,
-            typeName: '',
+            typeName,
+            isMultiplayer,
             date: result.date,
             price: result.ticketPriceMinor / 100,
             value: result.foodValueMinor / 100,
-            participants: result.diners.map(d => d.nickname),
+            participants: isMultiplayer ? result.diners.map(d => d.nickname) : [],
             lines,
             rounds: result.rounds.map(round => ({
                 time: result.date,

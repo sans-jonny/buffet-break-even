@@ -10,9 +10,10 @@ export namespace ListRestaurantsUseCase {
     export const token = Symbol('ListRestaurantsUseCase') as InjectionToken<ListRestaurantsUseCase>;
 
     export class Request extends UseCase.Request {
-        constructor(readonly catalogScope: string, readonly includeDeleted = false) {
+        constructor(readonly catalogScope: string, readonly includeDeleted = false, readonly categoryId?: string) {
             super();
             UseCase.id(catalogScope);
+            if (categoryId !== undefined) UseCase.id(categoryId);
             this.includeDeleted = UseCase.dto(includeDeleted);
         }
     }

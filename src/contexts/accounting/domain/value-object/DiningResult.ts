@@ -4,6 +4,8 @@ export class DiningResult {
     readonly activityId: DiningResult.Snapshot['activityId'];
     readonly restaurantId: DiningResult.Snapshot['restaurantId'];
     readonly restaurant: DiningResult.Snapshot['restaurant'];
+    readonly restaurantCategoryName: DiningResult.Snapshot['restaurantCategoryName'];
+    readonly mode: DiningResult.Snapshot['mode'];
     readonly catalogVersion: DiningResult.Snapshot['catalogVersion'];
     readonly date: DiningResult.Snapshot['date'];
     readonly ticketPriceMinor: DiningResult.Snapshot['ticketPriceMinor'];
@@ -18,6 +20,8 @@ export class DiningResult {
         this.activityId = Domain.copy(snapshot.activityId);
         this.restaurantId = Domain.copy(snapshot.restaurantId);
         this.restaurant = Domain.copy(snapshot.restaurant);
+        this.restaurantCategoryName = snapshot.restaurantCategoryName;
+        this.mode = snapshot.mode;
         this.catalogVersion = Domain.copy(snapshot.catalogVersion);
         this.date = Domain.copy(snapshot.date);
         this.ticketPriceMinor = Domain.copy(snapshot.ticketPriceMinor);
@@ -34,6 +38,8 @@ export class DiningResult {
             activityId: this.activityId,
             restaurantId: this.restaurantId,
             restaurant: this.restaurant,
+            restaurantCategoryName: this.restaurantCategoryName,
+            mode: this.mode,
             catalogVersion: this.catalogVersion,
             date: this.date,
             ticketPriceMinor: this.ticketPriceMinor,
@@ -61,6 +67,8 @@ export namespace DiningResult {
         activityId: string;
         restaurantId: string;
         restaurant: string;
+        restaurantCategoryName?: string;
+        mode?: 'SINGLE' | 'SHARED';
         catalogVersion: number;
         date: string;
         ticketPriceMinor: number;

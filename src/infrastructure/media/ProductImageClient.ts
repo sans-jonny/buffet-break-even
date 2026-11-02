@@ -1,3 +1,4 @@
+import {PublicProductImages} from './PublicProductImages';
 import {ref} from 'vue';
 import type {InjectionToken} from '../../kernel/application/InjectionToken';
 import {LocalProductImages} from './LocalProductImages';
@@ -20,7 +21,7 @@ export class ProductImageClient {
 
     cover(restaurant: {id: string; type: string; sourceId?: string}, productId: string, roomId?: string): string {
         void this.revision.value;
-        if (restaurant.type === 'PUBLIC') return this.url(this.publicCover(restaurant.id, productId));
+        if (restaurant.type === 'PUBLIC') return this.url(PublicProductImages.cover(restaurant.id, productId));
         if (restaurant.type === 'ROOM_COPY' && roomId) {
             const originalId = productId.slice(restaurant.id.length + 1);
             const image = this.roomImages.get(roomId)?.find(item => item.restaurantId === restaurant.sourceId && item.productId === originalId);
@@ -116,14 +117,8 @@ export class ProductImageClient {
         return !!root && source.startsWith(root + '/product-');
     }
 
-    private publicCover(restaurantId: string, productId: string): string {
-        if (!['niuniu', 'daniu', 'yixu', 'charcoal', 'flame', 'spicy-pot', 'garden-pot', 'oven', 'cheese'].includes(restaurantId)) return '';
-        if (['margherita', 'pepperoni', 'hawaiian', 'durian', 'seafood-pizza', 'four-cheese'].includes(productId)) return '/sample-images/pizza.jpg';
-        if (['caesar', 'garden-salad', 'vegetables'].includes(productId)) return '/sample-images/salad.jpg';
-        if (['beef', 'wagyu', 'short-rib', 'skirt-steak', 'beef-slices'].includes(productId)) return '/sample-images/steak.jpg';
-        if (['lettuce', 'potato', 'lotus-root', 'king-mushroom', 'mushrooms'].includes(productId)) return '/sample-images/picsum-food.jpg';
-        if (productId === 'strawberries') return '/sample-images/picsum-strawberries.jpg';
-        return '';
+    emoji(restaurant: {id: string; type: string}, productId: string): string {
+        return restaurant.type === 'PUBLIC' ? PublicProductImages.emoji(restaurant.id, productId) : '🍽️';
     }
 
     private request<T = unknown>(path: string, method: 'GET' | 'POST' | 'PUT' = 'GET', data?: unknown): Promise<T> {

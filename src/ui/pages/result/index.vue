@@ -1,5 +1,6 @@
 <template>
   <view class="result-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar :show-back="viewMode === 'room-ended' ? true : undefined" fallback subtitle="今日用餐记录"
                 title="今日战果" @back="goBack" @fallback="goBack"/>
 
@@ -58,10 +59,21 @@
 </template>
 
 <script lang="ts" setup>
-import {usePersonalStore} from '@/stores/business/usePersonalStore'
-import {useSessionStore} from '@/stores/business/useSessionStore'
-import {useDiningStore} from '@/stores/business/useDiningStore'
-import {useMenuPageStateStore} from '@/stores/page-state/useMenuPageStateStore'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {Dining} from '@/coordination/application/dto/Dining'
+import {SaveReceiptUseCase} from '@/coordination/application/port/in/records/SaveReceiptUseCase'
+import {SaveDiningHistoryUseCase} from '@/coordination/application/port/in/records/SaveDiningHistoryUseCase'
+import {DeleteReceiptUseCase} from '@/coordination/application/port/in/records/DeleteReceiptUseCase'
+import {LeaveDiningSessionUseCase} from '@/coordination/application/port/in/session/LeaveDiningSessionUseCase'
+import {shallowRef} from 'vue'
+import {DiningSelectionPendingError} from '@/coordination/application/service/DiningSelectionPendingError'
+import {EndDiningUseCase} from '@/coordination/application/port/in/dining/EndDiningUseCase'
+import {MenuPageStateStore} from '@/stores/page-state/MenuPageStateStore'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import {PageSelection} from '@/ui/presentation/PageSelection'
 import DepthButton from '@/ui/components/depth-button/depth-button.vue'
@@ -76,22 +88,94 @@ import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
 import {time} from '@/ui/format/time'
 import {PageFeedback} from '@/ui/presentation/PageFeedback'
 
-const menuPageState = useMenuPageStateStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const queryReady = ref(false)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const roomsQuery = queries.bind(DiningQueries.Rooms, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: personalQuery.data.value?.session?.roomId || 'local'}))
+const resultQuery = queries.bind(DiningQueries.Result, () => {
+ if (!queryReady.value) return undefined
+ const {session, identity: actor} = (personalQuery.data.value || {identity: undefined, session: undefined}), restaurantId = finalRestaurantId.value
+ return session && actor && restaurantId ? {session, actor, restaurantId} : undefined
+})
+const queryFetching = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, resultQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, resultQuery].find(q => q.error.value)?.error.value)
 
+const menuPageState = scope.resolve(MenuPageStateStore.token)
 
-const personal = usePersonalStore()
-const sessions = useSessionStore()
-const dining = useDiningStore()
-const selectedRestaurant = computed(() => PageSelection.restaurant(dining.restaurantsData, menuPageState.selectedRestaurants[dining.sessionData?.activityId || '']))
+const personalSaveReceiptPort = scope.resolve(SaveReceiptUseCase.token);
+const personalSaveHistoryPort = scope.resolve(SaveDiningHistoryUseCase.token);
+const personalDeleteReceiptPort = scope.resolve(DeleteReceiptUseCase.token);
+const personalCommands = CommandState.create();
+const savedReceiptId = ref('');
+const personalReceipt = () => personalQuery.data.value?.receipts.find(receipt => receipt.activityId === savedReceiptId.value);
+const personalHistory = () => (personalQuery.data.value?.history || []).slice();
+const personalReceiptData = computed(personalReceipt);
+const personalHistoryData = computed(() => readonly(personalHistory()));
+const personalSaveReceipt = (result: Dining.Result | undefined) => personalCommands.run(() => personalSaveReceiptPort.execute(new SaveReceiptUseCase.Request(result!)));
+const personalSaveHistory = (session: Dining.Session | undefined, result: Dining.Result | undefined) => personalCommands.run(() => {
+    return personalSaveHistoryPort.execute(new SaveDiningHistoryUseCase.Request(session!, result!));
+});
+const personalDeleteReceipt = () => personalCommands.run(() => personalDeleteReceiptPort.execute(new DeleteReceiptUseCase.Request(savedReceiptId.value)));
+const sessionsLeaveDiningSession = scope.resolve(LeaveDiningSessionUseCase.token);
+const sessionsCommands = CommandState.create();
+const sessionsPendingSelection = shallowRef<Dining.Session>();
+async function sessionsCommand<T>(work: () => Promise<T>): Promise<T> {
+    return sessionsCommands.run(async () => {
+        try {
+            return await work();
+        }
+        catch (error) {
+            if (error instanceof DiningSelectionPendingError)
+                sessionsPendingSelection.value = error.session;
+            throw error;
+        }
+    });
+}
+const sessionsLeaveRoom = () => sessionsCommand(() => sessionsLeaveDiningSession.execute(new LeaveDiningSessionUseCase.Request()));
+const diningEndDining = scope.resolve(EndDiningUseCase.token);
+const diningCommands = CommandState.create();
+const diningCommand = diningCommands.run;
+function diningIdentity(): Dining.Identity { return personalQuery.data.value?.identity!; }
+function diningSession(): Dining.Session | undefined { return personalQuery.data.value?.session; }
+function diningRestaurants(): Dining.Restaurant[] {
+    const ids = diningActivity()?.restaurantIds;
+    return ids ? (restaurantsQuery.data.value?.value || []).filter(a => !a.deleted && ids.includes(a.id)) : [];
+}
+function diningActivity() {
+    return (activitiesQuery.data.value?.value || []).find(a => a.id === diningSession()?.activityId);
+}
+function diningRoom() {
+    return (roomsQuery.data.value?.value || []).find(a => a.id === diningSession()?.roomId);
+}
+function diningPreview(id: string): Dining.Result | undefined {
+    return resultQuery.data.value?.value;
+}
+async function diningFinishWork(id: string) {
+    return await diningEndDining.execute(new EndDiningUseCase.Request(diningCurrent(), diningIdentity(), id));
+}
+function diningCurrent(): Dining.Session {
+    const s = diningSession();
+    return s!;
+}
+const diningIdentityData = computed(diningIdentity);
+const diningSessionData = computed(diningSession);
+const diningRestaurantsData = computed(() => readonly(diningRestaurants()));
+const diningActivityData = computed(diningActivity);
+const diningRoomData = computed(diningRoom);
+const diningFinish = (...args: Parameters<typeof diningFinishWork>) => diningCommand(() => diningFinishWork(...args));
+const selectedRestaurant = computed(() => PageSelection.restaurant(diningRestaurantsData.value, menuPageState.selectedRestaurants[diningSessionData.value?.activityId || '']))
 const finalRestaurantId = computed(() => selectedRestaurant.value)
 
 // 展示数据
 const savedView = ref(false)
 const displayReceipt = computed(() => {
   const selected = finalRestaurantId.value || selectedRestaurant.value
-  const result = savedView.value ? personal.receiptData : dining.activityData?.result ||
-      (dining.sessionData && selected ? dining.preview(selected) : undefined)
-  return result ? ReceiptView.fromResult(result) : {
+  const result = savedView.value ? personalReceiptData.value : diningActivityData.value?.result ||
+      (diningSessionData.value && selected ? diningPreview(selected) : undefined)
+  return result ? ReceiptView.fromResult(result, {activities: activitiesQuery.data.value?.value, restaurants: restaurantsQuery.data.value?.value}) : {
     id: '',
     restaurant: '尚无用餐结果',
     typeName: '',
@@ -121,8 +205,8 @@ const confirmation = useAppDialog()
 type ResultMode = 'single' | 'single-ended' | 'room-host' | 'room-member' | 'room-ended' | 'saved'
 
 const viewMode = computed<ResultMode>(() => {
-  const room = dining.roomData;
-  return savedView.value ? 'saved' : !room ? dining.activityData?.status === 'ENDED' ? 'single-ended' : 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === dining.identityData?.id ? 'room-host' : 'room-member'
+  const room = diningRoomData.value;
+  return savedView.value ? 'saved' : !room ? diningActivityData.value?.status === 'ENDED' ? 'single-ended' : 'single' : room.status !== 'ACTIVE' ? 'room-ended' : room.hostId === diningIdentityData.value?.id ? 'room-host' : 'room-member'
 })
 
 const isSavedView = computed(() => viewMode.value === 'saved')
@@ -144,7 +228,7 @@ let returningHome: Promise<void> | undefined
 const finishShared = () => {
   if (returningHome) return returningHome
   returningHome = (async () => {
-    if (dining.sessionData?.roomId) await sessions.leaveRoom()
+    if (diningSessionData.value?.roomId) await sessionsLeaveRoom()
     await navigation.open('setup', 'reset')
   })().finally(() => { returningHome = undefined })
   return returningHome
@@ -177,7 +261,6 @@ function openReceiptPreview() {
 }
 
 function endDining() {
-  if (!finalRestaurantId.value) throw new Error('当前餐厅不可用，请返回菜单重试')
   confirmation.open({
     title: '结算当前餐厅',
     content: `选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
@@ -188,7 +271,6 @@ function endDining() {
 }
 
 function endRoom() {
-  if (!finalRestaurantId.value) throw new Error('当前餐厅不可用，请返回菜单重试')
   confirmation.open({
     title: '结算当前餐厅',
     content: `全桌选择「${displayReceipt.value.restaurant}」作为唯一最终餐厅并结束用餐？`,
@@ -208,12 +290,12 @@ function confirmDelete() {
 
 // 业务操作
 async function save() {
-  await personal.saveReceipt(dining.activityData?.result || dining.preview(finalRestaurantId.value || selectedRestaurant.value))
+  await personalSaveReceipt(diningActivityData.value?.result || diningPreview(finalRestaurantId.value || selectedRestaurant.value))
   uni.showToast({title: '已存到小票夹', icon: 'none'})
 }
 
 async function completeDining() {
-  await dining.finish(finalRestaurantId.value)
+  await diningFinish(finalRestaurantId.value)
 }
 
 async function completeRoom() {
@@ -221,30 +303,31 @@ async function completeRoom() {
 }
 
 async function deleteReceipt() {
-  await personal.deleteReceipt()
+  await personalDeleteReceipt()
   await navigation.back('receipts')
 }
 
 // 生命周期与动画监听
 let historyPending: Promise<unknown> | undefined
 async function ensureHistory() {
-  const session = dining.sessionData, activity = dining.activityData, room = dining.roomData
+  const session = diningSessionData.value, activity = diningActivityData.value, room = diningRoomData.value
   if (savedView.value || !session || activity?.status !== 'ENDED' || !activity.result ||
-      !room?.eligibleIds.includes(dining.identityData?.id || '') ||
-      personal.historyData.some(record => record.activityId === activity.id)) return
+      !room?.eligibleIds.includes(diningIdentityData.value?.id || '') ||
+      personalHistoryData.value.some(record => record.activityId === activity.id)) return
   if (historyPending) return historyPending
-  historyPending = personal.saveHistory(session, activity.result)
+  historyPending = personalSaveHistory(session, activity.result)
   try { await historyPending } finally { historyPending = undefined }
 }
 
 const resultLoaded = ref(false)
-watch(() => resultLoaded.value && !savedView.value && dining.activityData?.status === 'ENDED' &&
-    dining.roomData?.eligibleIds.includes(dining.identityData?.id || '') ? dining.activityData.id : '', id => {
+watch(() => resultLoaded.value && !savedView.value && diningActivityData.value?.status === 'ENDED' &&
+    diningRoomData.value?.eligibleIds.includes(diningIdentityData.value?.id || '') ? diningActivityData.value.id : '', id => {
   if (id) void ensureHistory().catch(PageFeedback.report)
 })
 
 onLoad(async query => {
   if (query?.receiptId) {
+    savedReceiptId.value = query.receiptId
     savedView.value = true
   }
   await ensureHistory()
@@ -263,6 +346,9 @@ const stopPrintTimer = watch(isPrinting, (printing, _previous, onCleanup) => {
 }, {immediate: true})
 
 onUnload(stopPrintTimer)
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, resultQuery].map(query => query.refresh())) }
+queryReady.value = true
 </script>
 
 <style scoped>

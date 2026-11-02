@@ -3,6 +3,7 @@ import type {InjectionToken} from '../kernel/application/InjectionToken';
 
 /** Typed per-scope container. Only the UI root publishes resolved services to Vue. */
 export class UniAppUseCaseScope {
+    static readonly token = Symbol('UniAppUseCaseScope') as InjectionToken<UniAppUseCaseScope>;
     private readonly instances = new Map<symbol, unknown>();
     private readonly factories = new Map<symbol, () => unknown>();
     private readonly resolving = new Set<symbol>();

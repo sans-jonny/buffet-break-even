@@ -9,9 +9,13 @@ export interface GetDiningActivityUseCase extends UseCase<GetDiningActivityUseCa
 export namespace GetDiningActivityUseCase {
     export const token = Symbol('GetDiningActivityUseCase') as InjectionToken<GetDiningActivityUseCase>;
 
+    export type Context = Readonly<{singleScopeId?: string}>;
+
     export class Request extends UseCase.Request {
-        constructor(readonly activityId: string) {
+        constructor(readonly activityId: string, readonly context?: GetDiningActivityUseCase.Context) {
             super();
+            if (context?.singleScopeId !== undefined) UseCase.id(context.singleScopeId);
+            this.context = UseCase.dto(context);
             UseCase.id(activityId);
         }
     }

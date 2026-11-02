@@ -7,11 +7,11 @@ export interface LocalDiningData {
 
     session(): Dining.Session | undefined;
 
-    receipt(): Dining.Result | undefined;
+    receipts(): readonly Dining.Result[];
 
     history(): readonly Dining.Result[];
 
-    initialize(id: string, tx: Transaction.Context): Promise<void>;
+    initialize(id: string, nickname: string, tx: Transaction.Context): Promise<void>;
 
     changeNickname(nickname: string, tx: Transaction.Context): Promise<void>;
 
@@ -23,7 +23,7 @@ export interface LocalDiningData {
 
     saveHistory(session: Dining.Session, result: Dining.Result, tx: Transaction.Context): Promise<void>;
 
-    deleteReceipt(tx: Transaction.Context): Promise<void>;
+    deleteReceipt(activityId: string, tx: Transaction.Context): Promise<void>;
 
     deleteHistory(activityId: string, tx: Transaction.Context): Promise<void>;
 }

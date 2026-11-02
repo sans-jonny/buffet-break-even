@@ -1,5 +1,9 @@
+import {SessionPageStateStore} from '../stores/page-state/SessionPageStateStore';
+import {QueryClient} from '@tanstack/query-core';
+import {QueryRegistry} from '../infrastructure/query/QueryRegistry';
+import {ReactiveQueryFacade} from '../infrastructure/query/ReactiveQueryFacade';
+import {DiningQueries} from '../infrastructure/query/DiningQueries';
 import type {InjectionToken} from '../kernel/application/InjectionToken';
-import {PersonalStore} from '../stores/business/PersonalStore';
 import {ProductImageClient} from '../infrastructure/media/ProductImageClient';
 import {InitializeDiningUseCase} from '../coordination/application/port/in/initialization/InitializeDiningUseCase';
 import {RoomConnection} from '../coordination/application/port/out/session/RoomConnection';
@@ -19,8 +23,6 @@ import {UniRoomRelay} from '../infrastructure/event-store/UniRoomRelay';
 import {PersonalResults} from '../infrastructure/projection/PersonalResults';
 import {LocalDataTransactionRunner} from '../infrastructure/storage/LocalDataTransactionRunner';
 import {StorageLocalDiningData} from '../infrastructure/storage/StorageLocalDiningData';
-import {DiningStore} from '../stores/business/DiningStore';
-import {QueryClientProvider} from '../infrastructure/query/QueryClientProvider';
 import {QueryInvalidationAdapter} from '../infrastructure/query/QueryInvalidationAdapter';
 import {createPinia} from 'pinia';
 import {UniAppUseCaseScope} from './UniAppUseCaseScope';
@@ -33,9 +35,6 @@ import {LocalDiningData} from '../coordination/application/port/out/device/Local
 import {StorageDiningPreferences} from '../infrastructure/storage/StorageDiningPreferences';
 import {ManagedRoomConnection} from '../infrastructure/event-store/ManagedRoomConnection';
 import {ReferenceDiningCatalog} from './ReferenceDiningCatalog';
-import {CatalogStore} from '../stores/business/CatalogStore';
-import {AccountingStore} from '../stores/business/AccountingStore';
-import {CollaborationStore} from '../stores/business/CollaborationStore';
 import {MenuPageStateStore} from '../stores/page-state/MenuPageStateStore';
 import {PublishLocalRestaurantUseCase} from '../coordination/application/port/in/catalog/PublishLocalRestaurantUseCase';
 import {DeleteLocalRestaurantUseCase} from '../coordination/application/port/in/catalog/DeleteLocalRestaurantUseCase';
@@ -45,9 +44,9 @@ import {ListRoomsUseCase} from '../contexts/collaboration/application/port/in/Li
 import {GetConsumptionUseCase} from '../contexts/accounting/application/port/in/GetConsumptionUseCase';
 import {GetDiningResultUseCase} from '../coordination/application/port/in/dining/GetDiningResultUseCase';
 import {GetPersonalDiningUseCase} from '../coordination/application/port/in/device/GetPersonalDiningUseCase';
-import {SessionStore} from '../stores/business/SessionStore';
 import {DiningAppLifecycle} from '../infrastructure/lifecycle/DiningAppLifecycle';
 import {RefreshDiningSessionUseCase} from '../coordination/application/port/in/session/RefreshDiningSessionUseCase';
+import {ExitDiningSessionUseCase} from '../coordination/application/port/in/session/ExitDiningSessionUseCase';
 
 export namespace Bootstrap {
     const personalRunner = Symbol('PersonalTransactionRunner') as InjectionToken<TransactionRunner>;
@@ -103,37 +102,27 @@ export namespace Bootstrap {
         }
 
         const root = register(new UniAppUseCaseScope(app), new UseCaseTransactionRunner(runtime, tx => scoped(tx)), new UseCaseTransactionRunner(localTransactions, tx => scoped(tx, localTransactions)));
-        const queries = new QueryClientProvider({
-            activities: root.resolve(ListDiningActivitiesUseCase.token),
-            restaurants: root.resolve(ListRestaurantsUseCase.token),
-            rooms: root.resolve(ListRoomsUseCase.token),
-            consumption: root.resolve(GetConsumptionUseCase.token),
-            result: root.resolve(GetDiningResultUseCase.token),
-            personal: root.resolve(GetPersonalDiningUseCase.token)
-        }, options.now, app ? 5 * 60 * 1000 : Infinity);
-        const releaseHeadless = app ? undefined : queries.acquire();
-        root.provide(QueryClientProvider.token, queries);
-        const invalidation = new QueryInvalidationAdapter(queries.client);
+        root.provide(UniAppUseCaseScope.token, root);
+        const queryClient = new QueryClient({defaultOptions: {queries: {
+            staleTime: Infinity, retry: false, gcTime: app ? 5 * 60 * 1000 : Infinity, networkMode: 'always'
+        }}});
+        const registry = new QueryRegistry();
+        DiningQueries.register(registry, root, options.now);
+        const queries = new ReactiveQueryFacade(queryClient, registry);
+        root.provide(QueryRegistry.token, registry);
+        root.provide(ReactiveQueryFacade.token, queries);
+        const invalidation = new QueryInvalidationAdapter(queryClient, registry);
         const unsubscribe = runtime.subscribe(event => invalidation.onInvalidated(event));
         const pinia = createPinia();
         if (app) app.use(pinia);
-        const dining = DiningStore.create(root, queries, pinia);
-        const catalog = CatalogStore.create(queries, root.resolve(PublishLocalRestaurantUseCase.token),
-            root.resolve(DeleteLocalRestaurantUseCase.token), pinia);
-        const accounting = AccountingStore.create(queries, pinia);
-        const collaboration = CollaborationStore.create(root, queries, pinia);
-        const personal = PersonalStore.create(root, queries, pinia);
         const menuPageState = MenuPageStateStore.create(pinia);
-        root.provide(DiningStore.token, dining);
-        root.provide(CatalogStore.token, catalog);
-        root.provide(AccountingStore.token, accounting);
-        root.provide(CollaborationStore.token, collaboration);
-        root.provide(PersonalStore.token, personal);
         root.provide(MenuPageStateStore.token, menuPageState);
-        return {runtime, dining, catalog, accounting, collaboration, personal, menuPageState, queries, pinia,
+        const sessionPageState = SessionPageStateStore.create(pinia);
+        root.provide(SessionPageStateStore.token, sessionPageState);
+        return {runtime, menuPageState, queries, registry, invalidation, pinia,
             provide: <T>(token: InjectionToken<T>, implementation: NoInfer<T>) => root.provide(token, implementation),
             resolve: <T>(token: InjectionToken<T>) => root.resolve(token), scope: scoped,
-            dispose: () => { releaseHeadless?.(); unsubscribe(); dining.$dispose(); catalog.$dispose(); accounting.$dispose(); collaboration.$dispose(); personal.$dispose(); menuPageState.$dispose(); queries.dispose(); }};
+            dispose: () => { unsubscribe(); invalidation.dispose(); menuPageState.$dispose(); sessionPageState.$dispose(); queries.dispose(); }};
     }
 
     export async function device(baseUrl: string, id: () => string, report: (error: unknown) => void, app?: App) {
@@ -148,17 +137,27 @@ export namespace Bootstrap {
         core.provide(DiningPreferences.token, preferences);
         core.provide(ProductImageClient.token, media);
         CoordinationComposition.registerSessions(core, id);
-        const sessionStore = SessionStore.create(core, core.queries, core.pinia);
-        core.provide(SessionStore.token, sessionStore);
-        const lifecycle = new DiningAppLifecycle(core.resolve(RefreshDiningSessionUseCase.token), connection, report);
+        const lifecycle = new DiningAppLifecycle(core.resolve(RefreshDiningSessionUseCase.token), connection, report,
+            () => core.queries.client.refetchQueries({type: 'active', stale: true}),
+            () => core.resolve(ExitDiningSessionUseCase.token).execute(new ExitDiningSessionUseCase.Request()));
+        let networkUpdated = false;
+        const networkChanged = (state: {isConnected: boolean}) => {
+            networkUpdated = true;
+            lifecycle.networkChanged(state.isConnected);
+        };
+        if (typeof uni.onNetworkStatusChange === 'function') uni.onNetworkStatusChange(networkChanged);
+        if (typeof uni.getNetworkType === 'function') uni.getNetworkType({success: state => {
+            if (!networkUpdated) lifecycle.networkChanged(state.networkType !== 'none');
+        }});
+        const stopNetwork = () => { if (typeof uni.offNetworkStatusChange === 'function') uni.offNetworkStatusChange(networkChanged); };
         core.provide(DiningAppLifecycle.token, lifecycle);
         try {
             await media.initialize();
             await core.resolve(InitializeDiningUseCase.token).execute(new InitializeDiningUseCase.Request(ReferenceDiningCatalog.restaurants()));
-            return {...core, sessionStore, lifecycle,
-                dispose: () => { lifecycle.dispose(); sessionStore.$dispose(); core.dispose(); }};
+            return {...core, lifecycle,
+                dispose: () => { stopNetwork(); lifecycle.dispose(); core.dispose(); }};
         } catch (error) {
-            lifecycle.dispose(); sessionStore.$dispose(); core.dispose();
+            stopNetwork(); lifecycle.dispose(); core.dispose();
             throw error;
         }
     }

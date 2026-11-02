@@ -22,7 +22,7 @@ export namespace CreateDiningActivityUseCase {
             if (replaceActivityId !== undefined) UseCase.id(replaceActivityId);
             UseCase.amount(ticketPriceMinor, true);
             UseCase.id(restaurantCategoryId);
-            if (!Array.isArray(restaurantIds) || !restaurantIds.length) throw new InvalidRequestError('INVALID_ACTIVITY_RESTAURANTS');
+            if (!Array.isArray(restaurantIds) || !restaurantIds.length || new Set(restaurantIds).size !== restaurantIds.length) throw new InvalidRequestError('INVALID_ACTIVITY_RESTAURANTS');
             restaurantIds.forEach(UseCase.id);
             this.restaurantIds = UseCase.dto(restaurantIds);
         }

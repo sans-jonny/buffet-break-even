@@ -14,11 +14,8 @@ export class EditableDiningRound {
                 private readonly id: () => string) {}
 
     async prepare(session: Dining.Session, restaurantId: string, productId?: string): Promise<string> {
-        const catalog = this.restaurants.execute(new GetRestaurantUseCase.Request(session.roomId || 'local', restaurantId)).value;
+        const catalog = this.restaurants.execute(new GetRestaurantUseCase.Request(session.roomId || 'local', restaurantId, {available: true, productId})).value;
         Domain.require(catalog, 'RESTAURANT_NOT_FOUND');
-        Domain.require(!catalog.deleted, 'RESTAURANT_UNAVAILABLE');
-        if (productId !== undefined)
-            Domain.require(catalog.products.some(product => product.id === productId), 'PRODUCT_NOT_FOUND');
         let consumption = this.consumptions.execute(new GetConsumptionUseCase.Request(session.activityId, restaurantId)).value;
         if (!consumption)
             consumption = (await this.createConsumption.execute(new CreateConsumptionUseCase.Request(session, session.activityId, restaurantId, this.id()))).value;

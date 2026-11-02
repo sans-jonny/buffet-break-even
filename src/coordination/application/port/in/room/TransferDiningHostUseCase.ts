@@ -12,6 +12,7 @@ export namespace TransferDiningHostUseCase {
     export class Request extends UseCase.TransactionRequest {
         constructor(readonly session: Dining.Session, readonly actorId: string, readonly targetId: string) {
             super(session);
+            UseCase.id(session.roomId!);
             UseCase.id(actorId);
             UseCase.id(targetId);
             this.session = UseCase.dto(session);

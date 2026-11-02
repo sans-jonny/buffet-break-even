@@ -1,5 +1,6 @@
 <template>
   <view class="sub-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
     <app-navbar centered fallback title="点餐明细" @back="goBack" @fallback="goBack"/>
     <view v-if="receipt" class="detail-body">
       <records-overview :dishes="dishCount" :meals="meals" :rounds="receipt.rounds.length"/>
@@ -8,28 +9,13 @@
           <view>
             <text class="label-chip inline-flex-center">本餐</text>
             <text class="restaurant">{{
-                restaurantTitle.formatRestaurantTitle(receipt.restaurant, receipt.typeName)
+                restaurantTitle.formatRestaurantTitle(receipt.restaurant, receipt.typeName, receipt.isMultiplayer)
               }}
             </text>
           </view>
           <text class="record-date">{{ time.formatDateTime(receipt.date) }}</text>
-          <text v-if="receipt.participants?.length" class="record-date">用餐人：{{
-              receipt.participants.join('、')
-            }}
-          </text>
         </view>
-        <view v-for="(round, roundIndex) in receipt.rounds" :key="roundIndex" class="round-box">
-          <view class="round-head">
-            <text class="round-chip inline-flex-center">第 {{ roundIndex + 1 }} 轮</text>
-            <text class="round-time">{{ time.formatRoundTime(round.time) }}</text>
-            <text class="round-value">¥{{ round.value.toFixed(2) }}</text>
-          </view>
-          <view v-for="line in round.lines" :key="line.name" class="detail-line">
-            <text>{{ line.name }}</text>
-            <text>x{{ line.count }}</text>
-            <text>¥{{ (line.price * line.count).toFixed(2) }}</text>
-          </view>
-        </view>
+        <record-rounds :receipt="receipt"/>
         <view class="delete-record flex-center" @tap="confirmDelete">删除此餐记录</view>
       </view>
     </view>
@@ -42,25 +28,44 @@
 </template>
 
 <script lang="ts" setup>
-import {usePersonalStore} from '@/stores/business/usePersonalStore'
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {DeleteDiningHistoryUseCase} from '@/coordination/application/port/in/records/DeleteDiningHistoryUseCase'
 import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
+import RecordRounds from '@/ui/components/record-rounds/record-rounds.vue'
 import AppConfirmDialog from '@/ui/components/app-confirm-dialog/app-confirm-dialog.vue'
 import {computed, ref} from 'vue'
 import {onLoad} from '@dcloudio/uni-app'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 import {useAppDialog} from '@/ui/components/app-confirm-dialog/useAppDialog'
-import {time} from '@/ui/format/time'
-import {restaurantTitle} from '@/ui/format/restaurantTitle'
 
-const personal = usePersonalStore()
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].find(q => q.error.value)?.error.value)
+
+const personalDeleteHistoryPort = scope.resolve(DeleteDiningHistoryUseCase.token);
+const personalCommands = CommandState.create();
+const personalHistory = () => (personalQuery.data.value?.history || []).slice();
+const personalHistoryData = computed(() => readonly(personalHistory()));
+const personalDeleteHistory = (id: string) => personalCommands.run(() => personalDeleteHistoryPort.execute(new DeleteDiningHistoryUseCase.Request(id)));
 // 展示数据
 const recordId = ref('')
 const receipt = computed(() => {
-  const record = personal.historyData.find(r => r.activityId === recordId.value);
-  return record ? ReceiptView.fromResult(record) : null
+  const record = personalHistoryData.value.find(r => r.activityId === recordId.value);
+  return record ? ReceiptView.fromResult(record, {activities: activitiesQuery.data.value?.value, restaurants: restaurantsQuery.data.value?.value}) : null
 })
-const meals = computed(() => receipt.value?.rounds.length || 0)
+const meals = computed(() => receipt.value ? 1 : 0)
 const dishCount = computed(() => receipt.value?.lines.reduce((sum, l) => sum + l.count, 0) || 0)
 // UI 交互状态
 const confirmation = useAppDialog()
@@ -84,7 +89,7 @@ function confirmDelete() {
 
 // 业务操作
 async function deleteRecord() {
-  await personal.deleteHistory(recordId.value)
+  await personalDeleteHistory(recordId.value)
   await navigation.back('records')
 }
 
@@ -92,6 +97,8 @@ async function deleteRecord() {
 onLoad(query => {
   recordId.value = query?.recordId || ''
 })
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>
@@ -141,64 +148,6 @@ onLoad(query => {
 .record-date {
   color: #9b8c7f;
   font-size: 23rpx;
-}
-
-.round-box {
-  margin-top: 26rpx;
-  padding: 22rpx;
-  border: 2rpx solid #ffe1cd;
-  border-radius: 20rpx;
-}
-
-.round-head {
-  display: flex;
-  align-items: center;
-  gap: 16rpx;
-  padding-bottom: 18rpx;
-  border-bottom: 1rpx solid #eee;
-}
-
-.round-chip {
-  padding: 8rpx 12rpx;
-  border-radius: 10rpx;
-  background: #ffe9db;
-  color: #ff7439;
-  font-size: 22rpx;
-  font-weight: 900;
-}
-
-.round-time {
-  color: #8f8074;
-  font-size: 22rpx;
-  flex: 1;
-}
-
-.round-value {
-  color: #ff7439;
-  font-size: 25rpx;
-  font-weight: 800;
-}
-
-.detail-line {
-  min-height: 58rpx;
-  display: grid;
-  grid-template-columns: 1fr 60rpx 100rpx;
-  align-items: center;
-  font-size: 24rpx;
-  font-weight: 700;
-}
-
-.detail-line text:nth-child(2), .detail-line text:nth-child(3) {
-  text-align: right;
-}
-
-.detail-line text:nth-child(2) {
-  color: #998b80;
-}
-
-.detail-line text:nth-child(3) {
-  color: #ff7439;
-  font-weight: 800;
 }
 
 .delete-record {

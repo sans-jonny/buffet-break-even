@@ -12,7 +12,7 @@ import {ProductQuantityIncreased} from '../../src/contexts/accounting/domain/eve
 import {Domain} from '../../src/kernel/domain/Domain'
 import {InvalidRequestError} from '../../src/kernel/application/InvalidRequestError'
 import {createSSRApp,inject} from 'vue'
-import {Bootstrap} from '../../src/composition/Bootstrap'
+import {TestBootstrap as Bootstrap} from '../support/TestBootstrap'
 import {TransactionalInteractor} from '../../src/kernel/application/TransactionalInteractor'
 import {IncreaseProductInteractor} from '../../src/contexts/accounting/application/use-case/IncreaseProductInteractor'
 

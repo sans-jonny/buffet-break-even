@@ -28,7 +28,7 @@ export class SyncRoomRestaurantInteractor extends TransactionalInteractor<SyncRo
     protected async executeInTransaction(r: SyncRoomRestaurantUseCase.Request,
                                          tx: Transaction.Context): Promise<SyncRoomRestaurantUseCase.Response> {
         this.authorizeRoom.execute(new AuthorizeRoomUseCase.Request(r.roomId, r.actorId));
-        Domain.require(r.original.type === 'PRIVATE', 'PRIVATE_ORIGINAL_REQUIRED');
+
         this.authorizeCatalogSync.execute(new AuthorizeCatalogSyncUseCase.Request(r.roomId, r.actorId, r.original.id));
         await this.roomRestaurants.publishMedia?.(r.roomId, [r.original.id]);
         const updated = (await this.replaceRoomRestaurant.execute(new ReplaceRoomRestaurantUseCase.Request(r.scope, r.roomId, r.original))).value;

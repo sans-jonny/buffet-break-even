@@ -17,7 +17,7 @@ export namespace ChangeMemberNicknameUseCase {
             super(scope);
             UseCase.id(roomId);
             UseCase.id(memberId);
-            UseCase.id(nickname);
+            UseCase.nickname(nickname);
         }
     }
 

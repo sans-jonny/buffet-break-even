@@ -11,7 +11,7 @@ export namespace GetPersonalDiningUseCase {
     export type Response = Readonly<{
         identity: Dining.Identity | undefined;
         session: Dining.Session | undefined;
-        receipt: Dining.Result | undefined;
+        receipts: readonly Dining.Result[];
         history: readonly Dining.Result[];
     }>;
 }

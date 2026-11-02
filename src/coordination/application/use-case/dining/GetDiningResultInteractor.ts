@@ -13,10 +13,8 @@ export class GetDiningResultInteractor implements GetDiningResultUseCase {
     }
 
     execute(r: GetDiningResultUseCase.Request): GetDiningResultUseCase.Response {
-        const room = r.session.roomId ? this.getRoom.execute(new GetRoomUseCase.Request(r.session.roomId)).value : undefined;
-        if (room?.status === 'ENDED')
-            Domain.require(room.eligibleIds.includes(r.actor.id), 'NOT_ELIGIBLE');
-        const catalog = this.getRestaurant.execute(new GetRestaurantUseCase.Request(r.session.roomId || 'local', r.restaurantId)).value;
+        const room = r.session.roomId ? this.getRoom.execute(new GetRoomUseCase.Request(r.session.roomId, {memberId: r.actor.id, access: 'RESULT'})).value : undefined;
+const catalog = this.getRestaurant.execute(new GetRestaurantUseCase.Request(r.session.roomId || 'local', r.restaurantId)).value;
         Domain.require(catalog, 'RESTAURANT_NOT_FOUND');
         const diners = room ? room.members.filter(m => m.online && m.present).map(({id, nickname}) => ({
             id,

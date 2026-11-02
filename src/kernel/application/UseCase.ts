@@ -21,6 +21,7 @@ export namespace UseCase {
 
         protected constructor(scope: Scope) {
             super();
+            if (!scope) throw new InvalidRequestError('NO_DINING_SESSION');
             id(scope.scopeId);
             if (scope.roomId !== null && scope.roomId !== scope.scopeId)
                 throw new InvalidRequestError('WRONG_STREAM');
@@ -29,6 +30,15 @@ export namespace UseCase {
     }
 
     export abstract class Response {
+    }
+
+    export function required<T>(value: T | undefined | null, code: string): asserts value is T {
+        if (value === undefined || value === null) throw new InvalidRequestError(code);
+    }
+
+    export function nickname(value: string): void {
+        if (typeof value !== 'string' || !value.trim() || value.trim().length > 24)
+            throw new InvalidRequestError('INVALID_NICKNAME');
     }
 
     export function id(value: string): void {

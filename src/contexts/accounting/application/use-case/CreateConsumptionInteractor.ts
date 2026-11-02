@@ -18,7 +18,7 @@ export class CreateConsumptionInteractor extends TransactionalInteractor<CreateC
                                          tx: Transaction.Context): Promise<CreateConsumptionUseCase.Response> {
         const activity = this.activities.findById(r.activityId);
         Domain.require(activity, 'ACTIVITY_NOT_FOUND');
-        Domain.require(activity.snapshot().status === 'ACTIVE', 'ALREADY_ENDED');
+        activity.authorizeActive();
         activity.authorizeRestaurant(r.restaurantId);
         Domain.require(!this.consumptions.findById(r.activityId + '/' + r.restaurantId), 'CONSUMPTION_ALREADY_EXISTS');
         const saved = await this.consumptions.apply(RestaurantConsumption.create(r.activityId, r.restaurantId, r.roundId));

@@ -3,13 +3,13 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const {computed, createSSRApp, watchEffect, nextTick, isReadonly} = require('vue')
 const {onlineManager} = require('@tanstack/query-core')
-const {Bootstrap} = require('../../src/composition/Bootstrap.ts')
+const {TestBootstrap: Bootstrap} = require('../support/TestBootstrap.ts')
 const {DiningScenario} = require('../support/DiningScenario.ts')
-const {DiningStore} = require('../../src/stores/business/DiningStore.ts')
+const {DiningStore} = require('../support/legacy/DiningStore.ts')
 const {IncreaseDiningProductUseCase} = require('../../src/coordination/application/port/in/dining/IncreaseDiningProductUseCase.ts')
 const {InitializeDiningUseCase} = require('../../src/coordination/application/port/in/initialization/InitializeDiningUseCase.ts')
-const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
-const {PersonalStore} = require('../../src/stores/business/PersonalStore.ts')
+const {SessionStore} = require('../support/legacy/SessionStore.ts')
+const {PersonalStore} = require('../support/legacy/PersonalStore.ts')
 const {LocalDiningData} = require('../../src/coordination/application/port/out/device/LocalDiningData.ts')
 
 async function fixture(t) {
@@ -55,7 +55,7 @@ test('同一 Pinia 根共享业务 Store；Page 直接读取属性，提交后�
     assert.equal(app.catalog.restaurants[0].name, '同名餐厅')
     assert.ok(isReadonly(app.catalog.restaurants))
     assert.ok(isReadonly(app.dining.restaurantsData))
-    assert.ok(Object.isFrozen(app.queries.client.getQueryData(['catalog', 'local'])[0]))
+    assert.ok(Object.isFrozen(app.queries.client.getQueryData(['catalog', 'local']).value[0]))
 })
 
 test('个人记录使用显式结果；无页面订阅时保存和删除后首次读取仍是最新数据', async t => {
@@ -137,7 +137,7 @@ test('两个页面共享一个 observer；最后一页隐藏后停止订阅，�
     assert.equal(query.getObserversCount(), 0)
     const resume = app.queries.acquire()
     t.after(resume)
-    assert.equal(query.getObserversCount(), 0) // Hidden pages' views are not eagerly resubscribed.
+    assert.equal(query.getObserversCount(), 1) // A visible owner resumes its bindings.
     void view.value // The resumed page renders its view and subscribes again.
     await app.queries.settled()
     assert.equal(view.value.rounds[0].items.shrimp, 3)

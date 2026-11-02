@@ -1,3 +1,5 @@
+import {Domain} from '../../../../kernel/domain/Domain';
+import {DiningRoom} from '../../domain/aggregate/DiningRoom';
 import {ReadOnlyInteractor} from '../../../../kernel/application/ReadOnlyInteractor';
 import {TransactionRunner} from '../../../../kernel/application/TransactionRunner';
 import {Transaction} from '../../../../kernel/application/Transaction';
@@ -10,6 +12,12 @@ export class GetRoomInteractor extends ReadOnlyInteractor<GetRoomUseCase.Request
     }
 
     protected read(r: GetRoomUseCase.Request, view?: Transaction.View): GetRoomUseCase.Response {
-        return new GetRoomUseCase.Response(this.rooms.getById(r.roomId));
+        const value = this.rooms.getById(r.roomId);
+        if (r.context) {
+            Domain.require(value, 'ROOM_NOT_FOUND');
+            const domain = DiningRoom.reconstitute(value);
+            domain.authorizeContext(r.context);
+        }
+        return new GetRoomUseCase.Response(value);
     }
 }

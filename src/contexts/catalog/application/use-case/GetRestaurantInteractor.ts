@@ -1,3 +1,5 @@
+import {Domain} from '../../../../kernel/domain/Domain';
+import {Restaurant} from '../../domain/aggregate/Restaurant';
 import {ReadOnlyInteractor} from '../../../../kernel/application/ReadOnlyInteractor';
 import {TransactionRunner} from '../../../../kernel/application/TransactionRunner';
 import {Transaction} from '../../../../kernel/application/Transaction';
@@ -10,6 +12,13 @@ export class GetRestaurantInteractor extends ReadOnlyInteractor<GetRestaurantUse
     }
 
     protected read(r: GetRestaurantUseCase.Request, view?: Transaction.View): GetRestaurantUseCase.Response {
-        return new GetRestaurantUseCase.Response(this.restaurants.getById(r.catalogScope, r.restaurantId));
+        const value = this.restaurants.getById(r.catalogScope, r.restaurantId);
+        if (r.context) {
+            Domain.require(value, 'RESTAURANT_NOT_FOUND');
+            const domain = Restaurant.reconstitute(value);
+            if (r.context.available) domain.authorizeAvailable(r.context.productId);
+            if (r.context.privateOnly) domain.authorizePrivate();
+        }
+        return new GetRestaurantUseCase.Response(value);
     }
 }

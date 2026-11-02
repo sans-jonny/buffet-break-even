@@ -3,7 +3,7 @@ const test = require('node:test')
 const assert = require('node:assert/strict')
 const {DiningScenario} = require('../support/DiningScenario.ts')
 const {LocalDiningData} = require('../../src/coordination/application/port/out/device/LocalDiningData.ts')
-const {SessionStore} = require('../../src/stores/business/SessionStore.ts')
+const {SessionStore} = require('../support/legacy/SessionStore.ts')
 
 async function room(t) {
     const meal = await new DiningScenario.Meal().givenRestaurant()

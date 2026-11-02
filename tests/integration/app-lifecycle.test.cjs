@@ -13,14 +13,14 @@ test('App 显式绑定前台恢复与后台停止，setup 不触发房间调用'
     const {descriptor} = parse(fs.readFileSync('src/ui/App.vue', 'utf8'))
     const script = compileScript(descriptor, {id: 'app-lifecycle'})
     const hooks = {}, calls = []
-    const lifecycle = {resume: async () => { calls.push('resume') }, suspend: () => { calls.push('suspend') }}
+    const lifecycle = {resume: async () => { calls.push('resume') }, suspend: () => { calls.push('suspend') }, exit: async () => { calls.push('exit') }}
     const module = {exports: {}}
     vm.runInNewContext(ts.transpileModule(script.content, {
         compilerOptions: {module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020}
     }).outputText, {module, exports: module.exports, require: name => {
         if (name === 'vue') return vue
         if (name === '@dcloudio/uni-app') return {
-            onShow: work => { hooks.show = work }, onHide: work => { hooks.hide = work }
+            onShow: work => { hooks.show = work }, onHide: work => { hooks.hide = work }, onExit: work => { hooks.exit = work }
         }
         return {DiningAppLifecycle}
     }})
@@ -33,6 +33,8 @@ test('App 显式绑定前台恢复与后台停止，setup 不触发房间调用'
         hooks.hide()
         await hooks.show()
         assert.deepEqual(calls, ['resume', 'suspend', 'resume'])
+        await hooks.exit()
+        assert.deepEqual(calls, ['resume', 'suspend', 'resume', 'exit'])
     } finally { scope.stop() }
 })
 
@@ -112,4 +114,21 @@ test('后台期间延迟完成的创建流程不能重新打开房间连接，�
     assert.equal(subscriptions, 1)
     connection.suspend()
     assert.equal(closed, 1)
+})
+
+test('网络恢复只在前台重新同步；后台和销毁后不启动连接', async () => {
+    const {DiningAppLifecycle} = require('../../src/infrastructure/lifecycle/DiningAppLifecycle.ts')
+    let refreshes = 0, recovered = 0
+    const lifecycle = new DiningAppLifecycle({execute: async () => { refreshes++ }},
+        {resume() {}, suspend() {}}, error => { throw error }, async () => { recovered++ })
+    await lifecycle.resume()
+    lifecycle.networkChanged(false); lifecycle.networkChanged(true)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(refreshes, 2)
+    assert.equal(recovered, 2)
+    lifecycle.suspend(); lifecycle.networkChanged(false); lifecycle.networkChanged(true)
+    await new Promise(resolve => setImmediate(resolve))
+    assert.equal(refreshes, 2)
+    lifecycle.dispose(); lifecycle.networkChanged(false); lifecycle.networkChanged(true)
+    assert.equal(refreshes, 2)
 })
