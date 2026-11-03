@@ -1,221 +1,478 @@
 <template>
-  <view class="menu-page" :class="{'preview-mode': isPreview}">
-    <app-navbar centered fallback :title="isPreview ? '菜单预览' : '菜单'" :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" @back="goBack" @fallback="returnToSetup"/>
-    <initialization-gate>
+  <view :class="{'preview-mode': isPreview}" class="menu-page">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
+    <app-navbar :subtitle="isPreview ? '仅供浏览，不能添加或下单' : ''" :title="isPreview ? '菜单预览' : '菜单'" centered
+                fallback @back="goBack" @fallback="returnToSetup"/>
     <view v-if="!isPreview" class="progress-area">
-      <progress-panel :value="diningStore.view.displayValue" :target="diningStore.view.session.ticketPrice" :percent="diningStore.view.breakEven.percent"
-                      :tips="progressTips" :editable="canChangePrice" @edit-price="editPrice">
+      <view v-if="submissionPending" class="submission-recovery">
+        <text>上次提交结果待核对，请先核对房间记录，避免重复点菜。</text>
+        <button :disabled="sessionsLoading" @tap="recoverSubmission">核对房间记录并恢复</button>
+        <button :disabled="sessionsLoading" @tap="returnToSetup">退出房间</button>
+      </view>
+      <progress-panel :editable="!isPreview && (!hasRoom || room.hostId === diningIdentityData?.id)" :percent="percent"
+                      :target="ticketPrice"
+                      :tips="progressTips" :value="displayValue" @edit-price="editPrice">
         <template #before-tip>
-          <view v-if="roomStore.view.snapshot"><room-team/></view>
+          <view v-if="hasRoom">
+            <room-team :member-id="diningIdentityData?.id || ''" :room="room" :busy="collaborationLoading" @select-member="transferHost"/>
+          </view>
         </template>
       </progress-panel>
     </view>
 
-    <scroll-view :scroll-x="true" class="dining-level-tabs" :show-scrollbar="false">
+    <scroll-view v-if="!isPreview" :scroll-x="true" :show-scrollbar="false" class="dining-level-tabs">
       <view
           v-for="restaurant in restaurants"
           :key="restaurant.id"
-          class="dining-level-tab inline-flex-center"
           :class="{ selected: restaurantId === restaurant.id }"
+          class="dining-level-tab inline-flex-center"
           @tap="selectRestaurant(restaurant.id)"
       >{{ restaurant.name }}
       </view>
     </scroll-view>
 
-    <view class="menu-content" :class="{'room-readonly': !isPreview && roomStore.view.snapshot && !canEditRoom}">
-      <scroll-view :scroll-y="true" class="category-list" :show-scrollbar="false">
-        <view v-for="category in categories" :key="category" class="category-item flex-center"
-              :class="{ active: activeCategory === category }" @tap="selectCategory(category)">{{ category }}
+
+    <view :class="{'room-readonly': !isPreview && hasRoom && !canEditRoom}" class="menu-content">
+      <scroll-view :scroll-y="true" :show-scrollbar="false" class="category-list">
+        <view v-for="category in categories" :key="category" :class="{ active: activeCategory === category }"
+              class="category-item flex-center" @tap="selectCategory(category)">{{ category }}
         </view>
-        <view class="category-spacer" aria-hidden="true"/>
+        <view aria-hidden="true" class="category-spacer"/>
       </scroll-view>
 
-      <scroll-view :scroll-y="true" class="product-list" :show-scrollbar="false">
-        <product-card v-for="product in filteredProducts" :key="product.id" :product="product"
-                      :readonly="isPreview" :count="isPreview ? undefined : diningStore.view.session.selected[product.id]" @add="addItem"/>
+      <scroll-view :scroll-y="true" :show-scrollbar="false" class="product-list">
+        <product-card v-for="product in filteredProducts" :key="product.id"
+                      :count="isPreview ? undefined : selected[product.id]"
+                      :product="product" :readonly="isPreview || submissionPending" @add="addItem"/>
         <view v-if="!filteredProducts.length" class="empty-products flex-center">
           <text>🍽️</text>
           <text>此餐厅暂无此类菜品</text>
         </view>
-        <text v-if="currentRestaurant && filteredProducts.length" class="valuation-note">菜品价值为参考估值，非官方菜单及售价，仅供参考</text>
+        <text v-if="currentRestaurant && filteredProducts.length" class="valuation-note">
+          菜品价值为参考估值，非官方菜单及售价，仅供参考
+        </text>
         <view class="product-spacer"/>
       </scroll-view>
     </view>
 
-    <view v-if="!isPreview && (diningStore.view.totalSelectedCount > 0 || diningStore.view.session.rounds.length)" class="floating-actions">
+    <view v-if="!isPreview && (totalSelectedCount > 0 || rounds.length)" class="floating-actions">
       <view class="outline-action flex-center" @tap="finish">🧾 今日战果</view>
       <view class="solid-action flex-center" @tap="showCart = true">🛒 已选
-        ({{ diningStore.view.totalSelectedCount }})
+        ({{ totalSelectedCount }})
       </view>
     </view>
 
-    <cart-sheet v-if="!isPreview && showCart" :lines="diningStore.view.selectedLines" :total="diningStore.view.currentRoundValue" @close="showCart = false"
-                :can-confirm="canCommitRound" @add="addItem" @remove="removeItem" @confirm="openOrderSlip"/>
+    <cart-sheet v-if="!isPreview && showCart" :lines="selectedLines" :total="currentRoundValue"
+                :can-confirm="canCommitRound"
+                @add="addItem"
+                @close="showCart = false" @confirm="openOrderSlip" @remove="removeItem"/>
     <app-dialog v-if="editingPrice" title="修改门票价格" @close="editingPrice = false">
-      <input v-model="priceInput" class="price-editor" type="digit" placeholder="输入门票价格" />
-      <button :hover-stay-time="0" class="price-save" :disabled="savingPrice || !canChangePrice" @tap="savePrice">保存票价</button>
+      <input v-model="priceInput" class="price-editor" placeholder="输入门票价格" type="digit"/>
+      <button :disabled="isPreview" :hover-stay-time="0" class="price-save" @tap="savePrice">保存票价</button>
     </app-dialog>
     <app-tabbar v-if="!isPreview" active="menu" @select="openTab"/>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {SessionPageStateStore} from '@/stores/page-state/SessionPageStateStore'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {ExitDiningSessionUseCase} from '@/coordination/application/port/in/session/ExitDiningSessionUseCase'
+import {AcknowledgeDiningSubmissionUseCase} from '@/coordination/application/port/in/session/AcknowledgeDiningSubmissionUseCase'
+import {Dining} from '@/coordination/application/dto/Dining'
+import {DiningSelectionPendingError} from '@/coordination/application/service/DiningSelectionPendingError'
+import {TransferDiningHostUseCase} from '@/coordination/application/port/in/room/TransferDiningHostUseCase'
+import {IncreaseDiningProductUseCase} from '@/coordination/application/port/in/dining/IncreaseDiningProductUseCase'
+import {DecreaseDiningProductUseCase} from '@/coordination/application/port/in/dining/DecreaseDiningProductUseCase'
+import {RemoveDiningProductUseCase} from '@/coordination/application/port/in/dining/RemoveDiningProductUseCase'
+import {ClearDiningRoundUseCase} from '@/coordination/application/port/in/dining/ClearDiningRoundUseCase'
+import {ChangeDiningTicketPriceUseCase} from '@/coordination/application/port/in/dining/ChangeDiningTicketPriceUseCase'
+import {MenuPageStateStore} from '@/stores/page-state/MenuPageStateStore'
+import {PageAmount} from '@/ui/presentation/PageAmount'
+import {PageSelection} from '@/ui/presentation/PageSelection'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import {useApplicationStore} from '@/ui/stores/useApplicationStore'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed, ref, watch} from 'vue'
-import {onLoad, onShow, onBackPress} from '@dcloudio/uni-app'
-import {GetMenuInput} from '@/contexts/catalog/public'
-import {ChangeSelectionInput, SelectRestaurantInput} from '@/contexts/dining/public'
-import {restaurantProducts, type DiningCatalog} from '@/utils/restaurant-catalog'
-import {MenuPreviewCache} from '@/ui/preview/MenuPreviewCache'
-import {LoadDiningInput} from '@/contexts/dining/public'
-import {productAppearance} from '@/presentation/dining/productAppearance'
 import ProgressPanel from '@/ui/components/progress-panel/progress-panel.vue'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
-import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {RoomInput} from '@/contexts/dining/public'
-import {useRoomStore} from '@/ui/stores/useRoomStore'
-import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 import RoomTeam from '@/ui/components/room-team/room-team.vue'
 import AppDialog from '@/ui/components/app-dialog/app-dialog.vue'
-import {ChangeTicketPriceInput} from '@/contexts/dining/public'
+import {computed, ref, watch} from 'vue'
+import {onLoad, onBackPress, onShow, onHide, onUnload} from '@dcloudio/uni-app'
+import {PageFeedback} from '@/ui/presentation/PageFeedback'
+import {useProductImages} from '@/ui/composables/useProductImages'
+import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
 
-const applicationStore = useApplicationStore()
-const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const previewCache = useRequired<MenuPreviewCache>(MenuPreviewCache.Token)
-const isPreview = ref(false), previewCatalog = ref<DiningCatalog | null>(null), previewRestaurantId = ref('')
-onLoad(query => {
-  if (!query?.previewId) return
-  isPreview.value = true
-  void runAction(async () => {
-    try {
-      previewCatalog.value = previewCache.read(query.previewId!)
-      previewRestaurantId.value = previewCatalog.value.restaurants[0]?.id || ''
-      activeCategory.value = previewCatalog.value.restaurants[0]?.categories[0]?.name || ''
-    } catch (error) {await navigation.back('creator'); throw error}
-  })
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const queryReady = ref(false)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const roomsQuery = queries.bind(DiningQueries.Rooms, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: queryReady.value && isPreview.value ? 'local' : personalQuery.data.value?.session?.roomId || 'local'}))
+const consumptionQuery = queries.bind(DiningQueries.Consumption, () => {
+ if (!queryReady.value) return undefined
+ const session = personalQuery.data.value?.session, selectedId = restaurantId.value
+ return session && selectedId ? {activityId: session.activityId, restaurantId: selectedId} : undefined
 })
-const closePreview = () => runAction(() => navigation.back('creator'))
-const returnToSetup = () => runAction(async () => {
-  if (roomStore.view.snapshot) await roomInput.execute({command:'suspend',params:{}})
-  await navigation.open('setup','reset')
+const resultQuery = queries.bind(DiningQueries.Result, () => {
+ if (!queryReady.value) return undefined
+ const {session, identity: actor} = (personalQuery.data.value || {identity: undefined, session: undefined}), selectedId = restaurantId.value
+ return session && actor && selectedId ? {session, actor, restaurantId: selectedId} : undefined
 })
-const goBack = () => {
-  if (isPreview.value) return closePreview()
-  if (roomStore.view.snapshot) return returnToSetup()
-  return runAction(() => navigation.back('setup'))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery, resultQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery, resultQuery].find(q => q.error.value)?.error.value)
+
+const sessionsExitDiningSession = scope.resolve(ExitDiningSessionUseCase.token);
+const sessionsAcknowledgeDiningSubmission = scope.resolve(AcknowledgeDiningSubmissionUseCase.token);
+const sessionsCommands = CommandState.create();
+const sessionPageState = scope.resolve(SessionPageStateStore.token);
+const sessionsPendingSelection = computed({get: () => sessionPageState.pendingSelection, set: value => { sessionPageState.pendingSelection = value; }});
+async function sessionsCommand<T>(work: () => Promise<T>): Promise<T> {
+    return sessionsCommands.run(async () => {
+        try {
+            return await work();
+        }
+        catch (error) {
+            if (error instanceof DiningSelectionPendingError)
+                sessionsPendingSelection.value = error.session;
+            throw error;
+        }
+    });
 }
-const diningStore = useActiveDining()
-const roomStore = useRoomStore()
-const roomInput = useRequired<RoomInput>(RoomInput.Token)
-onBackPress(() => {
-  if (isPreview.value || !roomStore.view.snapshot) return false
-  void goBack()
-  return true
+function sessionsTransition<T>(work: () => Promise<T>): Promise<T> {
+    return sessionsCommand(async () => { const response = await work(); sessionsPendingSelection.value = undefined; return response; });
+}
+const sessionsLoading = sessionsCommands.loading;
+const sessionsExitMenu = () => sessionsTransition(() => sessionsExitDiningSession.execute(new ExitDiningSessionUseCase.Request()));
+const sessionsAcknowledgeSubmission = () => sessionsCommand(() => sessionsAcknowledgeDiningSubmission.execute(new AcknowledgeDiningSubmissionUseCase.Request()));
+const productImages = useProductImages()
+const menuPageState = scope.resolve(MenuPageStateStore.token)
+
+const collaborationTransferPort = scope.resolve(TransferDiningHostUseCase.token);
+const collaborationCommands = CommandState.create();
+const collaborationCurrent = () => {
+    const { session, identity } = (personalQuery.data.value || {identity: undefined, session: undefined});
+
+    return { session: session!, actorId: identity?.id! };
+};
+const collaborationLoading = collaborationCommands.loading;
+const collaborationTransfer = (targetId: string) => collaborationCommands.run(() => {
+    const { session, actorId } = collaborationCurrent();
+    return collaborationTransferPort.execute(new TransferDiningHostUseCase.Request(session, actorId, targetId));
+});
+const diningIncreaseDiningProduct = scope.resolve(IncreaseDiningProductUseCase.token);
+const diningDecreaseDiningProduct = scope.resolve(DecreaseDiningProductUseCase.token);
+const diningRemoveDiningProduct = scope.resolve(RemoveDiningProductUseCase.token);
+const diningClearDiningRound = scope.resolve(ClearDiningRoundUseCase.token);
+const diningChangeDiningTicketPrice = scope.resolve(ChangeDiningTicketPriceUseCase.token);
+const diningCommands = CommandState.create();
+const diningCommand = diningCommands.run;
+function diningIdentity(): Dining.Identity { return personalQuery.data.value?.identity!; }
+function diningSession(): Dining.Session | undefined { return personalQuery.data.value?.session; }
+function diningRestaurants(): Dining.Restaurant[] {
+    const ids = diningActivity()?.restaurantIds;
+    return ids ? (restaurantsQuery.data.value?.value || []).filter(a => !a.deleted && ids.includes(a.id)) : [];
+}
+function diningActivity() {
+    return (activitiesQuery.data.value?.value || []).find(a => a.id === diningSession()?.activityId);
+}
+function diningRoom() {
+    return (roomsQuery.data.value?.value || []).find(a => a.id === diningSession()?.roomId);
+}
+async function diningEditWork(restaurantId: string, action: 'add' | 'reduce' | 'remove' | 'clear', productId = '', quantity = 1) {
+    const s = diningCurrent(), actor = diningIdentity()?.id!;
+    if (action === 'add')
+        return await diningIncreaseDiningProduct.execute(new IncreaseDiningProductUseCase.Request(s, actor, restaurantId, productId, quantity));
+    else if (action === 'reduce')
+        return await diningDecreaseDiningProduct.execute(new DecreaseDiningProductUseCase.Request(s, actor, restaurantId, productId, quantity));
+    else if (action === 'remove')
+        return await diningRemoveDiningProduct.execute(new RemoveDiningProductUseCase.Request(s, actor, restaurantId, productId));
+    else
+        return await diningClearDiningRound.execute(new ClearDiningRoundUseCase.Request(s, actor, restaurantId));
+}
+async function diningPayingWork(total: number) {
+    return await diningChangeDiningTicketPrice.execute(new ChangeDiningTicketPriceUseCase.Request(diningCurrent(), diningIdentity()?.id!, total));
+}
+function diningPreview(id: string): Dining.Result | undefined {
+    return resultQuery.data.value?.value;
+}
+function diningCurrent(): Dining.Session {
+    const s = diningSession();
+    return s!;
+}
+const diningError = computed(() => diningCommands.error.value ?? queryError.value);
+const diningDismissError = diningCommands.clearError;
+const diningIdentityData = computed(diningIdentity);
+const diningSessionData = computed(diningSession);
+const diningRestaurantsData = computed(() => readonly(diningRestaurants()));
+const diningActivityData = computed(diningActivity);
+const diningRoomData = computed(diningRoom);
+const diningEdit = (...args: Parameters<typeof diningEditWork>) => diningCommand(() => diningEditWork(...args));
+const diningPaying = (...args: Parameters<typeof diningPayingWork>) => diningCommand(() => diningPayingWork(...args));
+const selectedRestaurant = computed(() => PageSelection.restaurant(diningRestaurantsData.value, menuPageState.selectedRestaurants[diningSessionData.value?.activityId || '']))
+
+const catalogRestaurants = computed(() => readonly((restaurantsQuery.data.value?.value || []).filter(r => !r.deleted)));
+
+const accountingConsumption = (activityId: string, restaurantId: string) => consumptionQuery.data.value?.value;
+const isPreview = ref(false)
+const previewRestaurantId = ref('')
+const submissionPending = computed(() => !!diningSessionData.value?.roomId &&
+    ['UNKNOWN_COMMIT_OUTCOME', 'SYNC_PENDING'].includes((diningError.value as Error | null)?.message || ''))
+const hasValidActivity = computed(() => {
+  const session = diningSessionData.value, activity = diningActivityData.value
+  if (!session || !activity || activity.status === 'ABANDONED') return false
+  if (activity.mode === 'SINGLE') return !session.roomId && session.scopeId === activity.id
+  const activeRoom = diningRoomData.value, actorId = diningIdentityData.value?.id
+  return !!activeRoom && activeRoom.id === session.roomId && activeRoom.activityId === activity.id && session.scopeId === activeRoom.id &&
+      activeRoom.status !== 'ABANDONED' && (activeRoom.members.some(member => member.id === actorId && member.present) ||
+          (activeRoom.status === 'ENDED' && activeRoom.eligibleIds.includes(actorId || '')))
 })
-const restoreRoom = useRoomConnection()
-const canEditRoom = computed(() => roomStore.view.status === 'online' && !roomStore.view.busy && roomStore.view.snapshot?.status === 'active')
-const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view.memberId)
-const canCommitRound = computed(() => !isPreview.value && (!roomStore.view.snapshot || (isHost.value && canEditRoom.value)))
-const canChangePrice = computed(() => !isPreview.value && (roomStore.view.snapshot ? isHost.value && canEditRoom.value : diningStore.view.session.active))
-const changePrice = useRequired<ChangeTicketPriceInput>(ChangeTicketPriceInput.Token)
-const editingPrice = ref(false), priceInput = ref(''), savingPrice = ref(false)
-function editPrice() {if (canChangePrice.value) {priceInput.value = String(diningStore.view.session.ticketPrice); editingPrice.value = true}}
-const savePrice = () => runAction(async () => {
-  if (savingPrice.value || !canChangePrice.value) return
-  savingPrice.value = true
-  try {
-    if (roomStore.view.snapshot) await roomInput.execute({command: 'setPrice', params: {ticketPrice: Number(priceInput.value), expectedRevision: roomStore.view.snapshot.revision}})
-    else changePrice.execute({ticketPrice: Number(priceInput.value)})
-    editingPrice.value = false
-  } finally {savingPrice.value = false}
+// 展示数据
+const restaurants = computed(() => {
+  return isPreview.value ? catalogRestaurants.value.filter(r => r.id === previewRestaurantId.value) : hasValidActivity.value ? diningRestaurantsData.value : []
 })
-const getMenu = useRequired<GetMenuInput>(GetMenuInput.Token)
-const changeSelection = useRequired<ChangeSelectionInput>(ChangeSelectionInput.Token)
-const load = useRequired<LoadDiningInput>(LoadDiningInput.Token)
-const selectRestaurantInput = useRequired<SelectRestaurantInput>(SelectRestaurantInput.Token)
-const initialMenu = getMenu.execute({category: '', levels: []})
-const catalog = computed(() => isPreview.value ? previewCatalog.value : diningStore.view.session.catalog)
-const restaurantId = computed(() => isPreview.value ? previewRestaurantId.value : diningStore.view.session.restaurantId || '')
-const restaurants = computed(() => catalog.value?.restaurants || [])
+const restaurantId = ref(selectedRestaurant.value)
+const pageState = computed(() => menuPageState.state(JSON.stringify([
+  isPreview.value ? 'preview' : diningSessionData.value?.activityId || 'no-session', restaurantId.value
+])))
 const currentRestaurant = computed(() => restaurants.value.find(r => r.id === restaurantId.value))
-const categories = computed(() => currentRestaurant.value?.categories.map(c => c.name) || (isPreview.value ? [] : initialMenu.categories))
-const activeCategory = ref(categories.value[0] || '')
-const filteredProducts = computed(() => (currentRestaurant.value ? restaurantProducts(currentRestaurant.value).filter(p => p.category === activeCategory.value) : isPreview.value ? [] : getMenu.execute({category: activeCategory.value, levels: []}).products)
-  .map(product => ({...product, ...productAppearance(product.id), emoji: ('emoji' in product && product.emoji as string) || productAppearance(product.id).emoji})))
-const selectCategory = (category: string) => {activeCategory.value = category}
-function selectRestaurant(id: string) {
-  if (isPreview.value) {previewRestaurantId.value = id; activeCategory.value = categories.value[0] || ''; return}
-  void runAction(async () => {
-    if (roomStore.view.snapshot) await roomInput.execute({command: 'selectRestaurant', params: {restaurantId: id}})
-    else selectRestaurantInput.execute({restaurantId: id})
-    activeCategory.value = categories.value[0] || ''
-    showCart.value = false
-  })
-}
-watch(restaurantId, () => {activeCategory.value = categories.value[0] || ''})
-const showCart = ref(false)
-const progressTips = [
+const categories = computed(() => currentRestaurant.value?.categories.map(c => c.name) || [])
+const activeCategory = computed({get: () => pageState.value.activeCategory, set: value => { pageState.value.activeCategory = value }})
+const products = computed(() => (currentRestaurant.value?.products || []).map(p => ({
+  id: p.id,
+  name: p.name,
+  price: p.priceMinor / 100,
+  coverUrl: currentRestaurant.value ? productImages.cover(currentRestaurant.value, p.id,
+      isPreview.value ? undefined : diningSessionData.value?.roomId || undefined) : '',
+  category: currentRestaurant.value?.categories.find(c => c.id === p.categoryId)?.name || '',
+  level: currentRestaurant.value?.name || '',
+  emoji: currentRestaurant.value ? productImages.emoji(currentRestaurant.value, p.id) : '🍽️',
+  gradient: 'linear-gradient(145deg,#fff0d5,#ffdfbd)',
+  unit: '份'
+})))
+const filteredProducts = computed(() => products.value.filter(p => !activeCategory.value || p.category === activeCategory.value))
+const consumption = computed(() => {
+  if (isPreview.value || !hasValidActivity.value || !currentRestaurant.value) return undefined
+  const activityId = diningSessionData.value?.activityId
+  return activityId ? accountingConsumption(activityId, currentRestaurant.value.id) : undefined
+})
+const selected = computed(() => consumption.value?.rounds.find(r => r.status === 'ACTIVE')?.items || {})
+const selectedLines = computed(() => products.value.filter(p => selected.value[p.id]).map(product => ({
+  product,
+  count: selected.value[product.id]
+})))
+const totalSelectedCount = computed(() => Object.values(selected.value).reduce((a, b) => a + b, 0))
+const displayValue = computed(() => {
+  if (isPreview.value || !hasValidActivity.value || !currentRestaurant.value) return 0
+  return (diningPreview(restaurantId.value)?.foodValueMinor || 0) / 100
+})
+const ticketPrice = computed(() => {
+  return (diningActivityData.value?.ticketPriceMinor || 0) / 100
+})
+const percent = computed(() => ticketPrice.value ? displayValue.value / ticketPrice.value * 100 : 0)
+const currentRoundValue = computed(() => selectedLines.value.reduce((sum, l) => sum + l.product.price * l.count, 0))
+const rounds = computed(() => consumption.value?.rounds || [])
+const hasRoom = computed(() => {
+  return !!diningRoomData.value
+})
+const room = computed(() => {
+  const r = diningRoomData.value;
+  return r ? {...r, members: r.members.filter(m => m.present)} : {code: '', hostId: null, status: '', members: []}
+})
+const canEditRoom = computed(() => !hasRoom.value || !!room.value.members.find(m => m.id === diningIdentityData.value?.id && m.online))
+const canCommitRound = computed(() => !isPreview.value && !submissionPending.value && (!hasRoom.value ||
+    (room.value.status === 'ACTIVE' && room.value.hostId === diningIdentityData.value?.id && canEditRoom.value)))
+watch(restaurants, list => {
+  if (!list.some(r => r.id === restaurantId.value)) restaurantId.value = list[0]?.id || ''
+})
+const progressTips = ref([
   {progress: 0, text: '✈ 刚开始，大胆点！', color: '#9f9b97'},
   {progress: 1, text: 'ϟ 快了快了，再来一波！', color: '#f09c22'},
   {progress: 50, text: '🔥 胜利就在眼前！', color: '#ff7439'},
   {progress: 100, text: '🎉 已经回本，继续快乐！', color: '#35a86b'}
-]
-function changeItem(productId: string, change: 1 | -1) {
-  if (isPreview.value) return
-  return runAction(() => {
-    if (roomStore.view.snapshot) {
-      if (!canEditRoom.value) throw new Error('请等待房间同步完成后再操作')
-      return roomInput.execute({command: 'changeSelection', params: {productId, change, restaurantId: restaurantId.value}})
-    }
-    changeSelection.execute({productId, change})
-  })
-}
-const addItem = (productId: string) => changeItem(productId, 1)
-const removeItem = (productId: string) => changeItem(productId, -1)
-function checkDining() {
-  if (isPreview.value || !applicationStore.ready) return
-  return runAction(async () => {
-    try {await restoreRoom()} catch (error) {if (!roomStore.view.snapshot) throw error}
-    if (roomStore.view.snapshot) {
-      return
-    }
-    load.execute({})
-    if (!diningStore.view.session.active) await navigation.open('setup', 'reset')
-  })
-}
-onShow(() => {void checkDining()})
-watch(() => applicationStore.ready, initialized => { if (initialized) void checkDining() })
+])
 
-function openOrderSlip() {
-  if (isPreview.value) return
-  if (!canCommitRound.value) {uni.showToast({title: '只有房主可以给 Waiter 看菜单并提交本轮', icon: 'none'}); return}
-  if (!diningStore.view.selectedLines.length) return
+// UI 交互状态
+
+const editingPrice = computed({get: () => pageState.value.editingPrice, set: value => { pageState.value.editingPrice = value }})
+const priceInput = computed({get: () => pageState.value.priceInput, set: value => { pageState.value.priceInput = value }})
+const showCart = computed({get: () => pageState.value.showCart, set: value => { pageState.value.showCart = value }})
+
+// 路由方法
+const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
+const menuVisible = ref(false)
+let redirectedActivity = ''
+const stopEndedRedirect = watch(() => {
+  if (!menuVisible.value || isPreview.value) return ''
+  if (navigation.isNavigating?.()) return ''
+  const pages = getCurrentPages(), current = pages[pages.length - 1]
+  if (current?.route && current.route.replace(/^\//, '') !== 'pages/menu/index') return ''
+  const activity = diningActivityData.value
+  if (!hasValidActivity.value || !activity) return 'setup'
+  return activity.status === 'ENDED' ? `result:${activity.id}` : ''
+}, target => {
+  if (!target || redirectedActivity === target) return
+  redirectedActivity = target
   showCart.value = false
-  void runAction(() => navigation.toOrderSlip())
+  const redirect = target === 'setup' ? navigation.open('setup', 'replace') : navigation.toResult(undefined, 'replace')
+  void redirect.catch(error => {
+    redirectedActivity = ''
+    PageFeedback.report(error)
+  })
+})
+
+const openOrderSlip = () => {
+  if (!canCommitRound.value || !selectedLines.value.length) return
+  showCart.value = false
+  return navigateAway(() => navigation.toOrderSlip())
 }
 
-function finish() {
-  if (isPreview.value) return
-  if (!diningStore.view.canFinish) {
-    uni.showToast({title: '先点一些菜吧', icon: 'none'});
-    return
+async function navigateAway(action: () => Promise<void>) {
+  // Stop route guards before cleanup changes the session; onHide can arrive later.
+  menuVisible.value = false
+  try {
+    await action()
+  } catch (error) {
+    menuVisible.value = true
+    throw error
   }
-  void runAction(() => navigation.toResult())
 }
 
-const openTab = (tab: 'menu' | 'mine') => runAction(() => navigation.open(tab, 'replace'))
+const finish = () => {
+  menuPageState.selectedRestaurants[diningSessionData.value?.activityId || ''] = restaurantId.value
+  return navigateAway(() => navigation.toResult())
+}
+
+const openTab = (tab: 'menu' | 'mine') => {
+  if (tab === 'menu') return
+  return navigateAway(() => navigation.open(tab, 'replace'))
+}
+
+const returnToSetup = () => navigateAway(async () => {
+  if (!isPreview.value) await sessionsExitMenu()
+  await navigation.open('setup', 'reset')
+})
+
+const goBack = () => navigateAway(async () => {
+  if (!isPreview.value) await sessionsExitMenu()
+  await navigation.back(isPreview.value ? 'creator' : 'setup')
+})
+
+onBackPress(event => {
+  if (isPreview.value) return false
+  if (event.from === 'navigateBack' && navigation.isNavigating?.()) return false
+  if (navigation.isNavigating?.()) return true
+  void goBack().catch(PageFeedback.report)
+  return true
+})
+onShow(() => { showCart.value = false; menuVisible.value = true })
+onHide(() => { menuVisible.value = false; redirectedActivity = '' })
+onUnload(() => { menuVisible.value = false; stopEndedRedirect() })
+
+// UI 交互方法
+function editPrice() {
+  priceInput.value = String(ticketPrice.value);
+  editingPrice.value = true
+}
+
+function selectRestaurant(id: string) {
+  if (isPreview.value || !restaurants.value.some(r => r.id === id)) return
+  restaurantId.value = id;
+  if (!isPreview.value) menuPageState.selectedRestaurants[diningSessionData.value?.activityId || ''] = id
+  activeCategory.value = '';
+  showCart.value = false
+}
+
+function selectCategory(category: string) {
+  activeCategory.value = activeCategory.value === category ? '' : category
+}
+
+// 业务操作
+async function savePrice() {
+  await diningPaying(PageAmount.minor(priceInput.value))
+  editingPrice.value = false
+}
+
+async function addItem(id: string) {
+  if (isPreview.value || submissionPending.value) return
+  await editItem(() => diningEdit(restaurantId.value, 'add', id))
+}
+
+async function removeItem(id: string) {
+  if (submissionPending.value) return
+  await editItem(() => diningEdit(restaurantId.value, 'reduce', id))
+}
+
+async function editItem(action: () => Promise<unknown>) {
+  try { await action() } catch (error) {
+    if (!['UNKNOWN_COMMIT_OUTCOME', 'SYNC_PENDING'].includes((error as Error).message)) throw error
+    PageFeedback.report(error)
+  }
+}
+
+async function recoverSubmission() {
+  await sessionsAcknowledgeSubmission()
+  diningDismissError()
+  uni.showToast({title: '已核对房间记录，请确认数量后继续', icon: 'none'})
+}
+
+async function transferHost(member: { id: string }) {
+  await collaborationTransfer(member.id)
+}
+
+// 生命周期与动画监听
+onLoad(async query => {
+  previewRestaurantId.value = query?.previewId || ''
+  isPreview.value = Boolean(query?.previewId)
+  restaurantId.value = query?.previewId || selectedRestaurant.value
+  menuVisible.value = true
+})
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery, resultQuery].map(query => query.refresh())) }
+queryReady.value = true
 </script>
 
 <style scoped>
-.menu-page.preview-mode {padding-bottom:0}
-.valuation-note {display:block;font-size:22rpx;line-height:1.6;color:#c1bcb6;padding:4rpx 12rpx 16rpx;text-align:center}
-.price-editor {height:100rpx;padding:0 24rpx;background:white;border:3rpx solid #eadabd;border-radius:24rpx;font-size:36rpx}
-.price-save,.price-save[disabled] {margin-top:28rpx;background:#ff6331;color:white;--button-radius:24rpx;font-size:30rpx}
-.room-readonly {opacity:.65;pointer-events:none}
+.submission-recovery {padding:20rpx;border-radius:20rpx;background:#fff0d5;color:#946511;font-size:25rpx}
+.submission-recovery button {margin-top:12rpx;font-size:25rpx}
+.menu-page.preview-mode {
+  padding-bottom: 0
+}
+
+.valuation-note {
+  display: block;
+  font-size: 22rpx;
+  line-height: 1.6;
+  color: #c1bcb6;
+  padding: 4rpx 12rpx 16rpx;
+  text-align: center
+}
+
+.price-editor {
+  height: 100rpx;
+  padding: 0 24rpx;
+  background: white;
+  border: 3rpx solid #eadabd;
+  border-radius: 24rpx;
+  font-size: 36rpx
+}
+
+.price-save, .price-save[disabled] {
+  margin-top: 28rpx;
+  background: #ff6331;
+  color: white;
+  --button-radius: 24rpx;
+  font-size: 30rpx
+}
+
+.room-readonly {
+  opacity: .65;
+  pointer-events: none
+}
+
 .menu-page {
   --menu-section-gap: 24rpx;
   --menu-gutter: 24rpx;

@@ -3,7 +3,7 @@ const assert=require('node:assert/strict')
 const {loadModule}=require('../helpers/runtime.cjs')
 
 test('H5 使用精确位图尺寸独立绘制，多次导出不同长度不会累积缩放或留出大块空白',()=>{
-    const {layoutReceiptImage}=loadModule('ui/receipt/ReceiptImage')
+    const {layoutReceiptImage}=loadModule('ui/receipt/ReceiptImage').ReceiptImage
     const {renderReceiptWeb}=loadModule('ui/receipt/renderReceiptWeb')
     const canvases=[]
     const createCanvas=()=>{
@@ -40,7 +40,7 @@ test('H5 使用精确位图尺寸独立绘制，多次导出不同长度不会�
 })
 
 test('裁剪 1200×1444 画布中仅 400×482 的纸张，PNG 不包含其余透明区域',()=>{
-    const {layoutReceiptImage}=loadModule('ui/receipt/ReceiptImage')
+    const {layoutReceiptImage}=loadModule('ui/receipt/ReceiptImage').ReceiptImage
     const {renderReceiptWeb}=loadModule('ui/receipt/renderReceiptWeb')
     const layout=layoutReceiptImage({restaurant:'测试',receiptId:'ID',dateTime:'2026-10-24',price:200,value:112,
         lines:[{name:'猪五花肉',price:14,count:8}],result:{verdict:'below',difference:-88,isBreakEven:false}})

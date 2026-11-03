@@ -1,12 +1,12 @@
 import {getCurrentInstance, nextTick, ref} from 'vue'
-import {drawReceiptImage, layoutReceiptImage, type ReceiptImageData} from '@/ui/receipt/ReceiptImage'
-import {useAppDialog} from './useAppDialog'
-import {runAction} from './runAction'
+import {ReceiptImage} from '@/ui/receipt/ReceiptImage'
+import {useAppDialog} from '../components/app-confirm-dialog/useAppDialog'
+import {PageFeedback} from '../presentation/PageFeedback'
 import {renderReceiptWeb} from '@/ui/receipt/renderReceiptWeb'
 import {receiptImageBounds} from '@/ui/receipt/receiptImageBounds'
 import {receiptImageFilename} from '@/ui/receipt/receiptImageFilename'
 
-export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb = renderReceiptWeb) {
+export function useReceiptAlbum(readReceipt: () => ReceiptImage.ReceiptImageData & {date: string}, renderWeb = renderReceiptWeb) {
     const owner = getCurrentInstance()?.proxy
     const busy = ref(false), previewPath = ref('')
     const filename = ref('')
@@ -35,12 +35,12 @@ export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb =
     }
     function requestPermission(filePath: string, name: string) {
         permissionDialog.open({title:'允许保存到相册',content:'请在设置中允许保存图片到相册，然后重试。',confirmText:'去设置',success:result=>{
-            if (result.confirm) void runAction(async()=>{
+            if (result.confirm) void (async()=>{
                 const settings = await new Promise<UniApp.GetSettingSuccessResult>((resolve,reject)=>uni.openSetting({success:resolve,fail:reject}))
                 if (settings.authSetting['scope.writePhotosAlbum']) {
                     try {await saveImage(filePath, name)} catch {throw Error('保存失败，请重试')}
                 } else uni.showToast({title:'尚未允许保存到相册',icon:'none'})
-            })
+            })().catch(PageFeedback.report)
         }})
     }
     async function openPreview() {
@@ -48,9 +48,9 @@ export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb =
         busy.value = true
         try {
             const receipt = readReceipt()
-            const name = receiptImageFilename(receipt.restaurant, receipt.date || receipt.dateTime, receipt.typeName)
+            const name = receiptImageFilename(receipt.restaurant, receipt.date, receipt.typeName)
             filename.value = name
-            const layout = layoutReceiptImage(receipt)
+            const layout = ReceiptImage.layoutReceiptImage(receipt)
             const appInfo = typeof uni.getAppBaseInfo === 'function' ? uni.getAppBaseInfo() : uni.getSystemInfoSync()
             const platform = (appInfo as {uniPlatform?: string}).uniPlatform
             if (platform === 'web' || platform === 'h5') {
@@ -64,7 +64,7 @@ export function useReceiptAlbum(readReceipt: () => ReceiptImageData, renderWeb =
             canvasVersion.value++
             await nextTick()
             const context = uni.createCanvasContext('receipt-album',owner)
-            drawReceiptImage(context,layout)
+            ReceiptImage.drawReceiptImage(context,layout)
             await new Promise<void>(resolve=>context.draw(false,()=>resolve()))
             const pixels = await new Promise<UniApp.CanvasGetImageDataRes>((resolve,reject)=>uni.canvasGetImageData({
                 canvasId:'receipt-album',x:0,y:0,width:layout.pixelWidth,height:layout.pixelHeight,

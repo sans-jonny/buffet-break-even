@@ -1,9 +1,9 @@
 <template>
   <view class="sub-page">
-    <app-navbar fallback centered title="小票夹" @back="goBack" @fallback="goBack"/>
-    <initialization-gate>
-    <view v-if="collectionStore.view.receipts.length" class="receipt-grid">
-      <view v-for="(item, index) in collectionStore.view.receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
+    <app-navbar centered fallback title="小票夹" @back="goBack" @fallback="goBack"/>
+    <view v-if="receipts.length" class="receipt-grid">
+      <view v-for="(item, index) in receipts" :key="item.id" class="receipt-thumb" @tap="openReceipt(item.id)">
         <view class="thumb-paper">
           <text class="paper-title">BUFFET-CALC</text>
           <text class="paper-price">¥{{ item.value }} / ¥{{ item.price }}</text>
@@ -13,8 +13,8 @@
           </view>
         </view>
         <view class="thumb-caption">
-          <text>{{ index + 1 }}. {{ formatRestaurantTitle(item.restaurant, item.typeName) }}</text>
-          <text>{{ formatDateTime(item.date) }}</text>
+          <text>{{ index + 1 }}. {{ restaurantTitle.formatRestaurantTitle(item.restaurant, item.typeName, item.isMultiplayer) }}</text>
+          <text>{{ time.formatDateTime(item.date) }}</text>
         </view>
       </view>
     </view>
@@ -23,25 +23,42 @@
       <text class="empty-title">小票夹还是空的</text>
       <text>完成一次用餐后，把战果收藏在这里吧</text>
     </view>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
+import {time} from '@/ui/format/time'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {ReceiptView} from '@/ui/presentation/ReceiptView'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
+import {computed} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {formatDateTime} from '@/ui/format/time'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
 
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: 'local'}))
+const queryFetching = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, restaurantsQuery].find(q => q.error.value)?.error.value)
+
+// 展示数据
+const receipts = computed(() => (personalQuery.data.value?.receipts || []).map(result => ReceiptView.fromResult(result, {activities: activitiesQuery.data.value?.value, restaurants: restaurantsQuery.data.value?.value})))
+// 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const goBack = () => runAction(() => navigation.back('mine'))
-import {useCollectionStore} from '@/ui/stores/useCollectionStore'
 
-const collectionStore = useCollectionStore()
-const openReceipt = (id: string) => runAction(() => navigation.toResult(id))
+const goBack = () => navigation.back('mine')
+
+const openReceipt = (id: string) => navigation.toResult(id)
+
+// 业务操作
+// 当前页面无此类方法。
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, restaurantsQuery].map(query => query.refresh())) }
 </script>
 
 <style scoped>

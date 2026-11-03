@@ -1,14 +1,14 @@
-import {drawReceiptImage, type layoutReceiptImage, type ReceiptDrawingContext} from './ReceiptImage'
+import {ReceiptImage} from './ReceiptImage'
 import {receiptImageBounds} from './receiptImageBounds'
 
 /** Use a private bitmap in H5: its dimensions never depend on DOM layout or ResizeSensor. */
-export function renderReceiptWeb(layout: ReturnType<typeof layoutReceiptImage>, createCanvas = () => document.createElement('canvas')): string {
+export function renderReceiptWeb(layout: ReturnType<typeof ReceiptImage.layoutReceiptImage>, createCanvas = () => document.createElement('canvas')): string {
     const canvas = createCanvas()
     canvas.width = layout.pixelWidth
     canvas.height = layout.pixelHeight
     const native = canvas.getContext('2d', {willReadFrequently:true})
     if (!native) throw Error('无法生成小票图片，请重试')
-    const context: ReceiptDrawingContext = {
+    const context: ReceiptImage.ReceiptDrawingContext = {
         scale:(x,y)=>native.scale(x,y),
         setFillStyle:color=>{native.fillStyle=color as string},
         beginPath:()=>native.beginPath(),
@@ -25,7 +25,7 @@ export function renderReceiptWeb(layout: ReturnType<typeof layoutReceiptImage>, 
         setTextAlign:align=>{native.textAlign=align},
         fillText:(text,x,y)=>native.fillText(text,x,y)
     }
-    drawReceiptImage(context,layout)
+    ReceiptImage.drawReceiptImage(context,layout)
     const pixels = native.getImageData(0,0,canvas.width,canvas.height)
     const bounds = receiptImageBounds(pixels.data,pixels.width,pixels.height)
     if (bounds.x || bounds.y || bounds.width !== canvas.width || bounds.height !== canvas.height) {

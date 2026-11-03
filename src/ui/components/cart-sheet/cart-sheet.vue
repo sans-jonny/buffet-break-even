@@ -9,7 +9,7 @@
         <view v-for="line in lines" :key="line.product.id" class="cart-line">
           <view class="cart-copy">
             <text class="cart-name">{{ line.product.name }}</text>
-            <text class="cart-price">¥{{ formatPrice(line.product.price * line.count) }}</text>
+            <text class="cart-price">¥{{ Price.formatPrice(line.product.price * line.count) }}</text>
           </view>
           <view class="stepper">
             <view class="step-button flex-center" @tap="$emit('remove', line.product.id)">−</view>
@@ -21,20 +21,28 @@
       <view class="sheet-footer">
         <view class="sheet-total">
           <text>本轮合计</text>
-          <text class="sheet-total-value">¥{{ formatPrice(total) }}</text>
+          <text class="sheet-total-value">¥{{ Price.formatPrice(total) }}</text>
         </view>
-        <view v-if="canConfirm && lines.length" class="waiter-button flex-center" @tap="$emit('confirm')">给 Waiter 看菜单</view>
-        <text v-else class="cart-hint">{{ !lines.length ? '本轮还没有选择菜品' : '等待房主给 Waiter 看菜单并提交本轮' }}</text>
+        <view v-if="canConfirm && lines.length" class="waiter-button flex-center" @tap="$emit('confirm')">给 Waiter
+          看菜单
+        </view>
+        <text v-else class="cart-hint">{{
+            !lines.length ? '本轮还没有选择菜品' : '等待房主给 Waiter 看菜单并提交本轮'
+          }}
+        </text>
       </view>
     </view>
   </view>
 </template>
 
-<script setup lang="ts">
-import type {ProductLineView} from '@/presentation/dining/ProductLineView'
-import {formatPrice} from '@/utils/format'
+<script lang="ts" setup>
+import {price as Price} from '@/ui/format/price'
 
-withDefaults(defineProps<{ lines: ProductLineView[]; total: number; canConfirm?: boolean }>(), {canConfirm: true})
+withDefaults(defineProps<{
+  lines: { product: { id: string; name: string; price: number }; count: number }[]
+  total: number
+  canConfirm?: boolean
+}>(), {canConfirm: true})
 defineEmits<{
   (event: 'close'): void
   (event: 'add', id: string): void
@@ -44,7 +52,13 @@ defineEmits<{
 </script>
 
 <style scoped>
-.cart-hint {color:#9a7d65;font-size:25rpx;text-align:center;padding:24rpx 0}
+.cart-hint {
+  color: #9a7d65;
+  font-size: 25rpx;
+  text-align: center;
+  padding: 24rpx 0
+}
+
 .modal-mask {
   position: fixed;
   inset: 0;

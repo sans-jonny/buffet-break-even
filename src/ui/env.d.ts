@@ -1,5 +1,5 @@
 /// <reference types="vite/client" />
-declare const __ROOM_SERVER_URL__: string
+
 
 declare module '*.vue' {
     import {DefineComponent} from 'vue'

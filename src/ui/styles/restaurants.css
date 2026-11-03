@@ -1,9 +1,122 @@
-.restaurant-page {min-height:100vh;box-sizing:border-box;padding:24rpx 28rpx calc(60rpx + env(safe-area-inset-bottom));background:linear-gradient(165deg,#ffe9c4,#ffd8af);color:#4b3017}
-.restaurant-navbar {margin-bottom:28rpx}
-.restaurant-card {padding:26rpx;background:#fffdf5;border:2rpx solid #fff;border-radius:30rpx;margin-bottom:22rpx;box-shadow:0 20rpx 32rpx rgba(166,104,49,.08)}
-.restaurant-main {display:flex;gap:20rpx;align-items:center}.restaurant-badge {display:flex;justify-content:center;align-items:center;flex-shrink:0;width:90rpx;height:90rpx;border-radius:24rpx;background:linear-gradient(145deg,#ff9900,#ff4f00);font-size:44rpx;color:white;font-weight:900}
-.restaurant-copy {min-width:0;flex:1}.restaurant-name {display:block;font-size:36rpx;line-height:1.5;font-weight:900;overflow-wrap:anywhere}.restaurant-meta {display:block;font-size:24rpx;color:#a18c74;line-height:1.6}
-.restaurant-actions {display:flex;gap:14rpx;margin-top:20rpx}.restaurant-actions button {padding:0 22rpx;margin:0;line-height:52rpx;background:#fff0e5;--button-radius:30rpx;font-size:25rpx;color:#9a693c;font-weight:800}.restaurant-actions .danger {color:#a9350b}.restaurant-actions .primary {background:#ff641a;color:white}
-.restaurant-actions button::after,.restaurant-add::after {border:0}.restaurant-add,.restaurant-add[disabled] {display:block;margin:0;background:#fff9ec;border:2rpx dashed #ffd0b3;--button-radius:28rpx;font-size:32rpx;line-height:100rpx;font-weight:900;color:#ff580c}
-.restaurant-empty {padding:70rpx 20rpx;text-align:center;color:#a17c56;font-size:28rpx;line-height:1.8}.restaurant-note {display:block;margin-top:28rpx;font-size:24rpx;line-height:1.8;color:#a17c56}
-.restaurant-empty text {display:block}
+.restaurant-page {
+    min-height: 100vh;
+    box-sizing: border-box;
+    padding: 24rpx 28rpx calc(60rpx + env(safe-area-inset-bottom));
+    background: linear-gradient(165deg, #ffe9c4, #ffd8af);
+    color: #4b3017
+}
+
+.restaurant-navbar {
+    margin-bottom: 28rpx
+}
+
+.restaurant-card {
+    padding: 26rpx;
+    background: #fffdf5;
+    border: 2rpx solid #fff;
+    border-radius: 30rpx;
+    margin-bottom: 22rpx;
+    box-shadow: 0 20rpx 32rpx rgba(166, 104, 49, .08)
+}
+
+.restaurant-main {
+    display: flex;
+    gap: 20rpx;
+    align-items: center
+}
+
+.restaurant-badge {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
+    width: 90rpx;
+    height: 90rpx;
+    border-radius: 24rpx;
+    background: linear-gradient(145deg, #ff9900, #ff4f00);
+    font-size: 44rpx;
+    color: white;
+    font-weight: 900
+}
+
+.restaurant-copy {
+    min-width: 0;
+    flex: 1
+}
+
+.restaurant-name {
+    display: block;
+    font-size: 36rpx;
+    line-height: 1.5;
+    font-weight: 900;
+    overflow-wrap: anywhere
+}
+
+.restaurant-meta {
+    display: block;
+    font-size: 24rpx;
+    color: #a18c74;
+    line-height: 1.6
+}
+
+.restaurant-actions {
+    display: flex;
+    gap: 14rpx;
+    margin-top: 20rpx
+}
+
+.restaurant-actions button {
+    padding: 0 22rpx;
+    margin: 0;
+    line-height: 52rpx;
+    background: #fff0e5;
+    --button-radius: 30rpx;
+    font-size: 25rpx;
+    color: #9a693c;
+    font-weight: 800
+}
+
+.restaurant-actions .danger {
+    color: #a9350b
+}
+
+.restaurant-actions .primary {
+    background: #ff641a;
+    color: white
+}
+
+.restaurant-actions button::after, .restaurant-add::after {
+    border: 0
+}
+
+.restaurant-add, .restaurant-add[disabled] {
+    display: block;
+    margin: 0;
+    background: #fff9ec;
+    border: 2rpx dashed #ffd0b3;
+    --button-radius: 28rpx;
+    font-size: 32rpx;
+    line-height: 100rpx;
+    font-weight: 900;
+    color: #ff580c
+}
+
+.restaurant-empty {
+    padding: 70rpx 20rpx;
+    text-align: center;
+    color: #a17c56;
+    font-size: 28rpx;
+    line-height: 1.8
+}
+
+.restaurant-note {
+    display: block;
+    margin-top: 28rpx;
+    font-size: 24rpx;
+    line-height: 1.8;
+    color: #a17c56
+}
+
+.restaurant-empty text {
+    display: block
+}

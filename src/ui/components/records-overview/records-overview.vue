@@ -15,7 +15,7 @@
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 defineProps<{ meals: number; rounds: number; dishes: number }>()
 </script>
 

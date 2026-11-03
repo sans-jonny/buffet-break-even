@@ -1,10 +1,14 @@
 <template>
-  <view class="receipt" @touchstart="saveGesture.start" @touchmove="saveGesture.move" @longpress.stop="saveGesture.longPress" @touchend="saveGesture.end" @touchcancel="saveGesture.cancel">
+  <view class="receipt" @touchcancel="saveGesture.cancel" @touchend="saveGesture.end"
+        @touchmove="saveGesture.move" @touchstart="saveGesture.start" @longpress.stop="saveGesture.longPress">
     <view v-if="detached" class="receipt-teeth receipt-teeth-top">
       <view v-for="tooth in 28" :key="tooth" class="receipt-tooth"/>
     </view>
     <text class="receipt-title">PAGER MESSAGE</text>
-    <text v-if="restaurant" class="receipt-restaurant">{{ formatRestaurantTitle(restaurant, typeName) }}</text>
+    <text v-if="restaurant" class="receipt-restaurant">{{
+        restaurantTitle.formatRestaurantTitle(restaurant, typeName, isMultiplayer)
+      }}
+    </text>
     <view class="receipt-dash"/>
     <view class="receipt-meta">
       <text>ID: {{ receiptId }}</text>
@@ -22,18 +26,18 @@
       </view>
       <view class="summary-item summary-center">
         <text>已吃价值</text>
-        <text class="summary-value">¥{{ formatPrice(value) }}</text>
+        <text class="summary-value">¥{{ Price.formatPrice(value) }}</text>
       </view>
       <view class="summary-item summary-end">
         <text>差额</text>
-        <text class="summary-value difference" :class="{ win: result.isBreakEven }">{{ differenceText }}</text>
+        <text :class="{ win: result.isBreakEven }" class="summary-value difference">{{ differenceText }}</text>
       </view>
     </view>
     <view class="receipt-dash"/>
     <view v-for="line in lines" :key="line.name" class="receipt-line">
       <text>{{ line.name }}</text>
       <text class="receipt-line-number">×{{ line.count }}</text>
-      <text class="receipt-line-number">¥{{ formatPrice(line.price * line.count) }}</text>
+      <text class="receipt-line-number">¥{{ Price.formatPrice(line.price * line.count) }}</text>
     </view>
     <view class="receipt-dash"/>
     <view class="receipt-bottom">
@@ -47,27 +51,30 @@
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
 import {computed} from 'vue'
-import {useLongPressAction} from '@/ui/composables/useLongPressAction'
-import {formatRestaurantTitle} from '@/ui/format/restaurantTitle'
-import type {ReceiptLineView} from '@/presentation/receipt/ReceiptLineView'
-import {formatPrice} from '@/utils/format'
-import type {BreakEvenView} from '@/presentation/shared/BreakEvenView'
+import {useLongPressAction} from './useLongPressAction'
+import {restaurantTitle} from '@/ui/format/restaurantTitle'
+import {price as Price} from '@/ui/format/price'
 
 const props = defineProps<{
   restaurant?: string
   detached?: boolean
   typeName?: string
+  isMultiplayer?: boolean
   participants?: readonly string[]
   receiptId: string
   dateTime: string
   price: number
   value: number
-  lines: ReceiptLineView[]
-  result: BreakEvenView
+  lines: { name: string; count: number; price: number }[]
+  result: {
+    difference: number
+    isBreakEven: boolean
+    verdict: 'break-even' | 'close' | 'below'
+  }
 }>()
-const emit = defineEmits<{(event: 'save-image'): void}>()
+const emit = defineEmits<{ (event: 'save-image'): void }>()
 const saveGesture = useLongPressAction(() => emit('save-image'))
 
 const result = computed(() => props.result)
@@ -83,8 +90,24 @@ const resultCopy = computed(() => result.value.isBreakEven
 </script>
 
 <style scoped>
-.receipt-restaurant {display:block;text-align:center;font-size:25rpx;margin-top:18rpx;overflow-wrap:anywhere;color:#6c625a}
-.receipt-participants {display:block;font-size:24rpx;line-height:1.8;margin-bottom:20rpx;overflow-wrap:anywhere;color:#6c625a}
+.receipt-restaurant {
+  display: block;
+  text-align: center;
+  font-size: 25rpx;
+  margin-top: 18rpx;
+  overflow-wrap: anywhere;
+  color: #6c625a
+}
+
+.receipt-participants {
+  display: block;
+  font-size: 24rpx;
+  line-height: 1.8;
+  margin-bottom: 20rpx;
+  overflow-wrap: anywhere;
+  color: #6c625a
+}
+
 .receipt {
   margin: 0 62rpx 30rpx;
   padding: 46rpx 32rpx 56rpx;

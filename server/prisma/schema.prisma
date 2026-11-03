@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model RoomStream {
+  roomId  String      @id
+  code    String      @unique
+  version Int         @default(0)
+  catalogDocument String?
+  emptySince DateTime?
+  batches RoomBatch[]
+  images RoomProductImage[]
+
+  @@index([emptySince])
+}
+
+model RoomProductImage {
+  roomId String
+  restaurantId String
+  productId String
+  digest String?
+  content Bytes?
+  externalUrl String?
+  stream RoomStream @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+
+  @@id([roomId, restaurantId, productId])
+}
+
+model RoomBatch {
+  batchId         String     @id
+  roomId          String
+  previousVersion Int
+  fromVersion     Int
+  toVersion       Int
+  document        String
+  stream          RoomStream @relation(fields: [roomId], references: [roomId], onDelete: Cascade)
+  events          RoomEvent[]
+
+  @@unique([roomId, fromVersion])
+}
+
+model RoomEvent {
+  roomId     String
+  version    Int
+  batchId    String
+  batchIndex Int
+  document   String
+  batch      RoomBatch @relation(fields: [batchId], references: [batchId], onDelete: Cascade)
+
+  @@id([roomId, version])
+  @@unique([batchId, batchIndex])
+}

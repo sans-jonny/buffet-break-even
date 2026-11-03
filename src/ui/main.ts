@@ -1,12 +1,18 @@
 import {createSSRApp} from 'vue'
-import * as Pinia from 'pinia'
 import App from './App.vue'
-import {registerApplication} from './composition/registerApplication'
+import {Bootstrap} from '../composition/Bootstrap'
+import {BuffetNavigation} from './navigation/BuffetNavigation'
+import {UniBuffetNavigation} from './navigation/UniBuffetNavigation'
+import {PageFeedback} from './presentation/PageFeedback'
 
 export function createApp() {
     const app = createSSRApp(App)
-    const pinia = Pinia.createPinia()
-    app.use(pinia)
-    registerApplication(app, pinia)
-    return {app, pinia, Pinia}
+    app.config.errorHandler = (error, _instance, info) => {
+        console.error('应用异常', info, error)
+        PageFeedback.report(error)
+    }
+    app.provide<BuffetNavigation>(BuffetNavigation, new UniBuffetNavigation())
+    const startup = Bootstrap.start(app, () => Bootstrap.device(import.meta.env.VITE_RELAY_URL || 'http://127.0.0.1:3001', Bootstrap.id, PageFeedback.report, app))
+    startup.catch(PageFeedback.report)
+    return {app, startup}
 }

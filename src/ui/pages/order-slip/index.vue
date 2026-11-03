@@ -1,8 +1,8 @@
 <template>
   <view class="order-page">
-    <app-navbar fallback centered title="本轮点单" @back="goBack" @fallback="goBack"/>
-    <initialization-gate>
-    <view v-if="!roomStore.view.snapshot || isHost" class="notebook">
+    <query-feedback :loading="queryFetching" :error="queryError" @refresh="refreshQueries"/>
+    <app-navbar centered fallback title="本轮点单" @back="goBack" @fallback="goBack"/>
+    <view v-if="!hasRoom || isHost" class="notebook">
       <view class="rings">
         <view v-for="number in 9" :key="number" class="ring"/>
       </view>
@@ -12,79 +12,114 @@
       </view>
       <text class="order-time">{{ date }} {{ time }}</text>
       <view class="paper-rule"/>
-      <view v-for="line in diningStore.view.selectedLines" :key="line.product.id" class="order-line">
+      <view v-for="line in selectedLines" :key="line.product.id" class="order-line">
         <text class="order-qty">{{ line.count }}x</text>
         <text>{{ line.product.name }}</text>
         <text class="order-check">✓</text>
       </view>
       <view class="paper-rule"/>
       <text class="order-note">辛苦了！希望菜品能尽快上齐，感激不尽！ 🌟</text>
-      <view v-if="!roomStore.view.snapshot || isHost" class="order-done flex-center" @tap="completeRound">点单完毕！</view>
+      <view v-if="!hasRoom || isHost" class="order-done flex-center" @tap="completeRound">点单完毕！</view>
       <text v-else class="order-note">只有房主可以给 Waiter 看菜单并提交本轮</text>
     </view>
-  </initialization-gate>
   </view>
 </template>
 
-<script setup lang="ts">
+<script lang="ts" setup>
+import QueryFeedback from '@/ui/components/query-feedback/query-feedback.vue'
+import {useScope} from '@/ui/useScope'
+import {ReactiveQueryFacade} from '@/infrastructure/query/ReactiveQueryFacade'
+import {DiningQueries} from '@/infrastructure/query/DiningQueries'
+import {readonly} from 'vue'
+import {CommandState} from '@/stores/CommandState'
+import {Dining} from '@/coordination/application/dto/Dining'
+import {SubmitDiningRoundUseCase} from '@/coordination/application/port/in/dining/SubmitDiningRoundUseCase'
+import {MenuPageStateStore} from '@/stores/page-state/MenuPageStateStore'
+import {PageSelection} from '@/ui/presentation/PageSelection'
 import AppNavbar from '@/ui/components/app-navbar/app-navbar.vue'
-import InitializationGate from '@/ui/components/initialization-gate/initialization-gate.vue'
-import {computed, ref, watch} from 'vue'
-import {useApplicationStore} from '@/ui/stores/useApplicationStore'
-import {onLoad, onShow} from '@dcloudio/uni-app'
-import {CommitRoundInput} from '@/contexts/dining/public'
-import {currentDate, currentTime} from '@/utils/format'
-import {useRequired} from '@/ui/composables/useRequired'
-import {runAction} from '@/ui/composables/runAction'
+import {computed, ref} from 'vue'
 import {BuffetNavigation} from '@/ui/navigation/BuffetNavigation'
-import {RoomInput} from '@/contexts/dining/public'
-import {useRoomStore} from '@/ui/stores/useRoomStore'
-import {useActiveDining, useRoomConnection} from '@/ui/composables/useActiveDining'
 
+const scope = useScope()
+const queries = scope.resolve(ReactiveQueryFacade.token)
+const queryReady = ref(false)
+const personalQuery = queries.bind(DiningQueries.Personal, () => ({}))
+const activitiesQuery = queries.bind(DiningQueries.Activities, () => ({}))
+const roomsQuery = queries.bind(DiningQueries.Rooms, () => ({}))
+const restaurantsQuery = queries.bind(DiningQueries.Restaurants, () => ({scopeId: personalQuery.data.value?.session?.roomId || 'local'}))
+const consumptionQuery = queries.bind(DiningQueries.Consumption, () => {
+ if (!queryReady.value) return undefined
+ const session = personalQuery.data.value?.session, restaurantId = selectedRestaurant.value
+ return session && restaurantId ? {activityId: session.activityId, restaurantId} : undefined
+})
+const queryFetching = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].some(q => q.isFetching.value))
+const queryError = computed(() => [personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].find(q => q.error.value)?.error.value)
+
+const menuPageState = scope.resolve(MenuPageStateStore.token)
+
+const diningSubmitDiningRound = scope.resolve(SubmitDiningRoundUseCase.token);
+const diningCommands = CommandState.create();
+const diningCommand = diningCommands.run;
+function diningIdentity(): Dining.Identity { return personalQuery.data.value?.identity!; }
+function diningSession(): Dining.Session | undefined { return personalQuery.data.value?.session; }
+function diningRestaurants(): Dining.Restaurant[] {
+    const ids = diningActivity()?.restaurantIds;
+    return ids ? (restaurantsQuery.data.value?.value || []).filter(a => !a.deleted && ids.includes(a.id)) : [];
+}
+function diningActivity() {
+    return (activitiesQuery.data.value?.value || []).find(a => a.id === diningSession()?.activityId);
+}
+function diningRoom() {
+    return (roomsQuery.data.value?.value || []).find(a => a.id === diningSession()?.roomId);
+}
+function diningConsumption(id: string) {
+    const activityId = diningSession()?.activityId;
+    return activityId ? consumptionQuery.data.value?.value : undefined;
+}
+async function diningSubmitWork(id: string) {
+    return await diningSubmitDiningRound.execute(new SubmitDiningRoundUseCase.Request(diningCurrent(), diningIdentity()?.id!, id));
+}
+function diningCurrent(): Dining.Session {
+    const s = diningSession();
+    return s!;
+}
+const diningIdentityData = computed(diningIdentity);
+const diningSessionData = computed(diningSession);
+const diningRestaurantsData = computed(() => readonly(diningRestaurants()));
+const diningRoomData = computed(diningRoom);
+const diningSubmit = (...args: Parameters<typeof diningSubmitWork>) => diningCommand(() => diningSubmitWork(...args));
+const selectedRestaurant = computed(() => PageSelection.restaurant(diningRestaurantsData.value, menuPageState.selectedRestaurants[diningSessionData.value?.activityId || '']))
+// 展示数据
+const selectedLines = computed(() => {
+  const id = selectedRestaurant.value, restaurant = diningRestaurants().find(r => r.id === id)
+  const items = diningConsumption(id)?.rounds.find(r => r.status === 'ACTIVE')?.items || {}
+  return (restaurant?.products || []).filter(p => items[p.id]).map(p => ({
+    product: {id: p.id, name: p.name},
+    count: items[p.id]
+  }))
+})
+const hasRoom = computed(() => {
+  return !!diningRoomData.value
+})
+const isHost = computed(() => {
+  return !diningRoomData.value || diningRoomData.value?.hostId === diningIdentityData.value?.id
+})
+const date = ref(new Date().toLocaleDateString()), time = ref(new Date().toLocaleTimeString())
+
+// 路由方法
 const navigation = useRequired<BuffetNavigation>(BuffetNavigation)
-const goBack = () => runAction(() => navigation.back('menu'))
-const applicationStore = useApplicationStore()
-const diningStore = useActiveDining()
-const roomStore = useRoomStore(), restoreRoom = useRoomConnection()
-const roomInput = useRequired<RoomInput>(RoomInput.Token)
-const isHost = computed(() => roomStore.view.snapshot?.hostId === roomStore.view.memberId)
-const commit = useRequired<CommitRoundInput>(CommitRoundInput.Token)
-const date = ref(currentDate())
-const time = ref(currentTime())
-const submitting = ref(false)
-function checkSelection() {
-  if (!applicationStore.ready) return
-  return runAction(async () => {
-    try {await restoreRoom()} catch (error) {if (!roomStore.view.snapshot) throw error}
-    if (roomStore.view.snapshot?.status === 'ended') return
-    if ((roomStore.view.snapshot && !isHost.value) || !diningStore.view.selectedLines.length) await navigation.open('menu', 'replace')
-  })
-}
-onLoad(() => { void checkSelection() })
-onShow(() => {void checkSelection()})
-watch(() => applicationStore.ready, initialized => { if (initialized) void checkSelection() })
 
-function completeRound() {
-  if (submitting.value) return
-  void runAction(async () => {
-    submitting.value = true
-    try {
-      if (roomStore.view.snapshot) {
-        if (!isHost.value) throw new Error('只有房主可以提交本轮')
-        if (!diningStore.view.selectedLines.length) {await navigation.back('menu'); return}
-        await roomInput.execute({command: 'commitRound', params: {restaurantId: diningStore.view.session.restaurantId, expectedRevision: roomStore.view.snapshot.revision}})
-        uni.showToast({title: '本轮已记录', icon: 'none'})
-        await navigation.back('menu')
-        return
-      }
-      const response = commit.execute({})
-      if (response.committed) uni.showToast({title: '第 ' + response.roundCount + ' 轮已记录', icon: 'none'})
-      await navigation.back('menu')
-    } finally {
-      submitting.value = false
-    }
-  })
+const goBack = () => navigation.back('menu')
+
+// 业务操作
+async function completeRound() {
+  await diningSubmit(selectedRestaurant.value)
+  menuPageState.state(JSON.stringify([diningSessionData.value?.activityId || 'no-session', selectedRestaurant.value])).showCart = false
+  await navigation.back('menu')
 }
+
+async function refreshQueries() { await Promise.all([personalQuery, activitiesQuery, roomsQuery, restaurantsQuery, consumptionQuery].map(query => query.refresh())) }
+queryReady.value = true
 </script>
 
 <style scoped>

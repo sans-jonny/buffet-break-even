@@ -8,9 +8,19 @@ pnpm-debug.log*
 lerna-debug.log*
 
 node_modules
+server/generated/
+server/uploads/
+server/public/sample-images/.originals/
+server/prisma/*.db*
+.env
 .DS_Store
 dist
 *.local
+
+# Presentation build artifacts and temporary test reports
+.ppt-build/
+.ppt-heartbeat-recheck.txt
+.ppt-test-results.txt
 
 # Editor directories and files
 .idea

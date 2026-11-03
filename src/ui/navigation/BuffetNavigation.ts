@@ -1,7 +1,6 @@
-export type Destination = 'setup' | 'menu' | 'mine' | 'receipts' | 'records' | 'custom-menu' | 'creator'
-
 export interface BuffetNavigation {
-    open(destination: Destination, mode?: 'push' | 'replace' | 'reset'): Promise<void>
+    isNavigating?(): boolean
+    open(destination: BuffetNavigation.Destination, mode?: 'push' | 'replace' | 'reset'): Promise<void>
 
     toOrderSlip(): Promise<void>
 
@@ -13,7 +12,11 @@ export interface BuffetNavigation {
 
     toMenuPreview(previewId: string): Promise<void>
 
-    back(fallback: Destination): Promise<void>
+    back(fallback: BuffetNavigation.Destination): Promise<void>
 }
 
 export const BuffetNavigation = Symbol('BuffetNavigation')
+
+export namespace BuffetNavigation {
+    export type Destination = 'setup' | 'menu' | 'mine' | 'receipts' | 'records' | 'custom-menu' | 'creator'
+}

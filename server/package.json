@@ -1,25 +1,29 @@
 {
-  "name": "buffet-room-server",
-  "version": "2.0.0",
+  "name": "buffet-relay-server",
+  "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "scripts": {
-    "build": "node build.cjs",
-    "dev": "node build.cjs --watch",
-    "start": "node dist/index.cjs",
-    "pretest": "npm run build",
-    "test": "node --test tests/*.test.cjs",
-    "type-check": "tsc --noEmit"
+    "postinstall": "npm run db:generate",
+    "start": "node scripts/start.cjs",
+    "type-check": "tsc --project tsconfig.json",
+    "db:generate": "prisma generate --schema prisma/schema.prisma",
+    "db:push": "prisma db push --schema prisma/schema.prisma",
+    "db:migrate": "prisma migrate deploy --schema prisma/schema.prisma",
+    "db:reset": "prisma migrate reset --force --skip-generate --skip-seed"
   },
   "dependencies": {
-    "ws": "^8.18.3"
+    "@fastify/cors": "^11.2.0",
+    "@fastify/websocket": "^11.2.0",
+    "@prisma/client": "6.19.0",
+    "fastify": "^5.6.2",
+    "sharp": "^0.35.5",
+    "typescript": "~5.7.3"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "@types/ws": "^8.18.1",
-    "esbuild": "^0.25.0",
-    "typescript": "^5.8.3"
-  },
-  "engines": {
-    "node": ">=22"
+    "@types/node": "^24.10.1",
+    "prisma": "6.19.0"
   }
 }

@@ -1,20 +1,15 @@
-<script setup lang="ts">
-import {onLaunch, onShow, onHide} from '@dcloudio/uni-app'
-import {ApplicationBootstrap} from '@/ui/composition/ApplicationBootstrap'
-import {useRequired} from '@/ui/composables/useRequired'
-import {useRoomResultNavigation} from '@/ui/composables/useRoomResultNavigation'
-import {useEmptySessionCleanup} from '@/ui/composables/useEmptySessionCleanup'
+<script lang="ts" setup>
+import {inject} from 'vue'
+import {onShow, onHide, onExit} from '@dcloudio/uni-app'
+import {DiningAppLifecycle} from '../infrastructure/lifecycle/DiningAppLifecycle'
 
-const bootstrap = useRequired<ApplicationBootstrap>(ApplicationBootstrap.Token)
-const checkRoomResult = useRoomResultNavigation()
-const clearEmptySession = useEmptySessionCleanup()
-onLaunch(() => {
-  // 被系统强制终止时可能没有退出回调，下次启动补清理空会话。
-  if (bootstrap.initialize()) void clearEmptySession()
-})
-onShow(() => {void checkRoomResult()})
-onHide(() => {void clearEmptySession()})
+const lifecycle = inject<DiningAppLifecycle>(DiningAppLifecycle.token)
+if (!lifecycle) throw new Error('DiningAppLifecycle 未注册')
+onShow(() => lifecycle.resume())
+onHide(() => lifecycle.suspend())
+onExit(() => lifecycle.exit())
 </script>
+
 <style>
 @import "./static/iconfont/iconfont.css";
 
@@ -26,6 +21,7 @@ onHide(() => {void clearEmptySession()})
   font-weight: 400;
   font-display: swap;
 }
+
 /* #endif */
 
 /* page 是 uni-app 的页面根元素。 */
